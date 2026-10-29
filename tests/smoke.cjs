@@ -24,7 +24,7 @@ const server = http.createServer((req, res) => {
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     // Instrument only the test response, keeping debug state out of production.
-    await page.route('**/scene.js', async route => {
+    await page.route('**/scene.js*', async route => {
       const response = await route.fetch();
       await route.fulfill({ response, body: (await response.text()) + '\nwindow.__characterTestState = () => ({ action, arms: arms.map(a => [a.rotation.x,a.rotation.z]), legs: legs.map(a => [a.rotation.x,a.rotation.z]) });' });
     });
@@ -93,7 +93,7 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('#error').isVisible(), false);
     // Failed module fetch must not leave the visitor on an infinite spinner.
     const broken = await browser.newPage();
-    await broken.route('**/scene.js', route => route.abort());
+    await broken.route('**/scene.js*', route => route.abort());
     await broken.goto(base);
     await broken.locator('#error').waitFor({ state: 'visible' });
     assert.equal(await broken.locator('#loading').isVisible(), false);
