@@ -23,6 +23,18 @@ const server = http.createServer((req, res) => {
   const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}), args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    // Instrument only the test response, keeping debug state out of production.
+    await page.route('**/scene.js', async route => {
+      const response = await route.fetch();
+      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__characterTestState = () => ({ action, arms: arms.map(a => [a.rotation.x,a.rotation.z]), legs: legs.map(a => [a.rotation.x,a.rotation.z]) });' });
+    });
+    // Reproduce a stale first RAF timestamp after slow shader compilation.
+    await page.addInitScript(() => {
+      const original = window.requestAnimationFrame; let first = true;
+      window.requestAnimationFrame = callback => original.call(window, timestamp => {
+        if (first) { first = false; callback(timestamp - 1000); } else callback(timestamp);
+      });
+    });
     const errors = [], failed = [], external = [];
     page.on('pageerror', error => errors.push(error.message));
     page.on('requestfailed', request => failed.push(request.url()));
@@ -30,6 +42,8 @@ const server = http.createServer((req, res) => {
     await page.goto(base);
     await page.waitForSelector('#viewport[data-ready="true"]');
     await page.waitForTimeout(800);
+    const initialRig = await page.evaluate(() => window.__characterTestState());
+    assert(initialRig.arms.flat().every(angle => Number.isFinite(angle) && Math.abs(angle) < .2), 'Stale initial RAF must not destabilize resting arms');
     assert.equal(await page.locator('#loading').isVisible(), false);
     assert.equal(await page.locator('#error').isVisible(), false);
     await page.screenshot({ path: path.join(output, 'desktop.png'), fullPage: true });
@@ -40,6 +54,8 @@ const server = http.createServer((req, res) => {
         await page.locator(`[data-action="${action}"]`).click();
         assert.equal(await page.locator(`[data-action="${action}"]`).getAttribute('aria-pressed'), 'true');
         assert.equal(await page.locator('.actions [aria-pressed="true"]').count(), 1);
+        const joints = await page.evaluate(() => window.__characterTestState());
+        assert([...joints.arms.flat(), ...joints.legs.flat()].every(angle => Number.isFinite(angle) && Math.abs(angle) < 3.2), 'Joint rotations stay within natural pose limits');
       }
     }
     await page.setViewportSize({ width: 390, height: 844 });

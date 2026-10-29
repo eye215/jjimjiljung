@@ -4,7 +4,7 @@ A tiny, warm 3D jjimjilbang for a quiet break. Open [the live room](https://eye2
 
 ## Experience
 
-- An original, articulated chibi with sculpted cheeks, painted expressions, terry-textured spiral towel rolls, a stitched pocket and three pastel outfits.
+- A plush two-head-tall chibi with tiny dot eyes, a deep terrycloth cap, soft folded towel rolls, short mitten hands and legs, and a sauna emblem. Three coordinated towel/outfit palettes; no crossbody bag.
 - Tap the floor (or focus the room and use arrow keys) to walk. Sit, lie down with a pillow, eat a roasted egg, or drink sikhye. Faces blink, smile and close their eyes to rest.
 - Wooden floorboards, an arched sauna, paper lanterns, folded towels, plants and a sleepy guest, with warm lighting and soft shadows.
 - Mobile layout, safe-area spacing, keyboard controls, reduced-motion support and optional user-activated synthesized ambience. The last outfit is saved locally, when storage is available.

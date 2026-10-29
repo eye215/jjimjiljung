@@ -130,103 +130,146 @@ cylinder(scene,mat('#a77c41'),[-3,.733,.3],.115,.115,.008);
 const shadowTexture = canvasTexture((c,w,h)=>{const g=c.createRadialGradient(w/2,h/2,2,w/2,h/2,w/2);g.addColorStop(0,'rgba(87,56,33,.28)');g.addColorStop(.55,'rgba(87,56,33,.12)');g.addColorStop(1,'rgba(87,56,33,0)');c.fillStyle=g;c.fillRect(0,0,w,h);},128,128);
 const shadow = mesh(new THREE.PlaneGeometry(1.8,1.5),new THREE.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false}),scene,[0,.15,1]);shadow.rotation.x=-Math.PI/2;shadow.castShadow=false;
 
-// Sculpted chibi: 2.3-head silhouette, pear-shaped clothes, cheek/jaw shaping,
-// curved face decal, stitched pocket, articulated limbs and rolled terry towel.
-const skin=mat('#f9d6b8',{roughness:.75});
-const hair=mat('#6b4434',{roughness:.84});
-const shirt=mat('#eaa991');const shorts=mat('#d9957d');const piping=mat('#f9d6bd');
-const hero = new THREE.Group(); scene.add(hero); hero.position.set(.2,.13,1.3);
-const pillow=box(hero,mat('#ebd7b8',{map:textile}),[0,.13,-1.08],[.98,.22,.65],.10);pillow.visible=false;
-const rig = new THREE.Group();hero.add(rig);
+// Reference-inspired plush silhouette: deep towel cap, tiny dot eyes,
+// barely visible neck, soft mittens and short legs. No bag or shoulder strap.
+const skin=mat('#f3c49b',{roughness:.92});
+const hair=mat('#493024',{roughness:1});
+const shirt=mat('#e6a05b',{roughness:1});
+const shorts=mat('#cf874b',{roughness:1});
+const piping=mat('#f7d5a4');
+const characterTowel=new THREE.MeshPhysicalMaterial({color:'#fff2db',map:textile,bumpMap:textile,bumpScale:.045,roughness:1,sheen:1,sheenRoughness:.9,sheenColor:new THREE.Color('#fff8ef')});
+const characterSeam=mat('#e9dac0',{roughness:1});
 function latheBody(parent,material,points,pos,depth=1){const m=mesh(new THREE.LatheGeometry(points.map(p=>new THREE.Vector2(...p)),48),material,parent,pos);m.scale.z=depth;return m;}
-latheBody(rig,shirt,[[0,0],[.27,.01],[.36,.07],[.37,.18],[.34,.38],[.29,.53],[.20,.59],[0,.59]],[0,.77,0],.85);
-const hem=mesh(new THREE.TorusGeometry(.335,.026,10,48),piping,rig,[0,.84,0]);hem.rotation.x=Math.PI/2;hem.scale.y=.85;
-cylinder(rig,skin,[0,1.36,0],.15,.17,.2);
-const collar=mesh(new THREE.TorusGeometry(.175,.035,12,40),piping,rig,[0,1.35,0]);collar.rotation.x=Math.PI/2;
-box(rig,piping,[.16,1.08,.305],[.17,.15,.025],.025);
-tube(rig,shorts,[[.09,1.12,.33],[.16,1.095,.34],[.23,1.12,.33]],.008);
-const stitch=mat('#c5826d');
-for(let i=0;i<3;i++)ellipsoid(rig,stitch,[0,1.25-i*.09,.3],[.015,.015,.01]);
-const legs=[];
-for(const side of [-1,1]){
- const pivot=new THREE.Group();pivot.position.set(side*.19,.81,0);rig.add(pivot);legs.push(pivot);
- latheBody(pivot,shorts,[[0,0],[.16,0],[.18,.07],[.17,.29],[0,.32]],[0,-.32,0],.95);
- const leg=mesh(new THREE.CapsuleGeometry(.115,.25,8,20),skin,pivot,[0,-.46,0]);
- ellipsoid(pivot,skin,[0,-.67,.085],[.14,.105,.225]);
- for(let i=0;i<3;i++)ellipsoid(pivot,skin,[-.06+i*.055,-.655,.26],[.035,.04,.036]);
-}
-const arms=[];
-for(const side of [-1,1]){
- const pivot=new THREE.Group();pivot.position.set(side*.30,1.25,0);rig.add(pivot);arms.push(pivot);
- pivot.rotation.z=side*.2;
- const sleeve=mesh(new THREE.CapsuleGeometry(.155,.13,8,24),shirt,pivot,[side*.055,-.12,0]);
- mesh(new THREE.CapsuleGeometry(.105,.20,8,20),skin,pivot,[side*.09,-.32,0]);
- const hand=ellipsoid(pivot,skin,[side*.09,-.48,.01],[.115,.125,.105]);
- ellipsoid(pivot,skin,[side*.025,-.45,.08],[.065,.07,.06]);
-}
-const head=new THREE.Group();head.position.y=1.88;rig.add(head);
-const headGeometry=new THREE.SphereGeometry(1,64,48);
-const hp=headGeometry.attributes.position;
-for(let i=0;i<hp.count;i++) {const x=hp.getX(i),y=hp.getY(i),z=hp.getZ(i);const cheek=1+.075*Math.exp(-(((y+.28)/.35)**2));hp.setXYZ(i,x*.59*cheek,y*.56,z*.49*(y<-.55?.93:1));}
-headGeometry.computeVertexNormals();mesh(headGeometry,skin,head);
-for(const side of [-1,1]){ellipsoid(head,skin,[side*.575,-.025,0],[.12,.145,.095]);ellipsoid(head,mat('#eeb89e'),[side*.64,-.025,.043],[.035,.07,.03]);}
-ellipsoid(head,hair,[0,.16,-.09],[.593,.46,.435]);
-// Soft fringe peeks out beneath the towel, instead of a flat painted hairline.
-for(let i=0;i<6;i++){const x=-.4+i*.155;const lock=ellipsoid(head,hair,[x,.29-Math.sin(i*.7)*.035,.36],[.12,.19,.09]);lock.rotation.z=-.25+i*.13;}
-const nose=ellipsoid(head,skin,[0,-.085,.49],[.045,.039,.035]);
 function faceTexture(expression) {
  return canvasTexture((c,w,h)=>{
   const ellipse=(x,y,rx,ry,color)=>{c.fillStyle=color;c.beginPath();c.ellipse(x,y,rx,ry,0,0,Math.PI*2);c.fill();};
-  // Translucent watercolor cheeks.
-  for(const x of [105,407]){const g=c.createRadialGradient(x,308,2,x,308,62);g.addColorStop(0,'rgba(230,132,125,.6)');g.addColorStop(.55,'rgba(238,146,135,.34)');g.addColorStop(1,'rgba(245,170,150,0)');c.fillStyle=g;c.fillRect(x-65,244,130,130);for(let i=0;i<3;i++){c.strokeStyle='#d98f8260';c.lineWidth=3;c.beginPath();c.moveTo(x-17+i*16,305);c.lineTo(x-21+i*16,318);c.stroke();}}
-  c.lineCap='round';
-  for(const x of [163,349]){
-   c.strokeStyle='#765041';c.lineWidth=9;c.beginPath();c.moveTo(x-26,171);c.quadraticCurveTo(x,158,x+24,171);c.stroke();
-   if(expression==='sleep'||expression==='happy') {c.strokeStyle='#654436';c.lineWidth=10;c.beginPath();c.moveTo(x-26,245);c.quadraticCurveTo(x,expression==='sleep'?267:214,x+26,245);c.stroke();}
-   else {ellipse(x,239,29,39,'#51382f');ellipse(x+1,246,21,26,'#87523c');ellipse(x,234,19,27,'#402e29');ellipse(x-10,220,9,11,'#fff9ef');ellipse(x+10,251,4.5,5,'#fce4be');c.strokeStyle='#51382f';c.lineWidth=7;c.beginPath();c.moveTo(x-28,225);c.quadraticCurveTo(x-4,204,x+27,222);c.stroke();}
+  // Small, quiet features leave the round cheeks and towel as the focal point.
+  for(const x of [102,410]){const g=c.createRadialGradient(x,327,0,x,327,48);g.addColorStop(0,'rgba(234,147,113,.3)');g.addColorStop(1,'rgba(234,147,113,0)');c.fillStyle=g;c.fillRect(x-50,277,100,100);}
+  c.lineCap='round';c.lineWidth=8;c.strokeStyle='#4e3428';
+  for(const x of [151,361]){
+   if(expression==='sleep'||expression==='happy'){c.beginPath();c.moveTo(x-17,318);c.quadraticCurveTo(x,expression==='sleep'?328:301,x+17,318);c.stroke();}
+   else ellipse(x,318,16,26,'#493326');
   }
-  c.strokeStyle='#9d5c4c';c.lineWidth=7;c.beginPath();
-  if(expression==='sleep'){c.ellipse(256,335,9,12,0,0,Math.PI*2);c.stroke();}
-  else if(expression==='happy'){c.moveTo(231,322);c.quadraticCurveTo(256,363,281,322);c.closePath();c.fillStyle='#a65e51';c.fill();ellipse(256,338,13,7,'#edac9b');}
-  else {c.moveTo(236,326);c.quadraticCurveTo(256,347,276,326);c.stroke();}
+  c.strokeStyle='#ba7956';c.lineWidth=6;c.beginPath();
+  if(expression==='sleep'){c.ellipse(256,390,6,8,0,0,Math.PI*2);c.stroke();}
+  else{c.moveTo(244,382);c.quadraticCurveTo(256,expression==='happy'?404:396,268,382);c.stroke();}
  },512,512);
 }
 const faces={normal:faceTexture('normal'),sleep:faceTexture('sleep'),happy:faceTexture('happy')};
-// Project the illustration onto the front of the sculpted head (no flat face card).
-const faceGeometry=new THREE.PlaneGeometry(1.01,.86,40,36);
-const fp=faceGeometry.attributes.position;
-for(let i=0;i<fp.count;i++){const x=fp.getX(i),y=fp.getY(i)-.055;fp.setXYZ(i,x,y,.496*Math.sqrt(Math.max(.08,1-(x/.63)**2-(y/.58)**2))+.008);}
-faceGeometry.computeVertexNormals();
-const faceMaterial=new THREE.MeshStandardMaterial({map:faces.normal,transparent:true,roughness:1,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2});
-const face=mesh(faceGeometry,faceMaterial,head);face.castShadow=false;
-ellipsoid(head,towelMaterial,[0,.47,-.025],[.60,.23,.48]);
-const band=box(head,towelMaterial,[0,.39,.34],[1.02,.17,.20],.07);band.rotation.x=.1;
-tube(head,towelSeam,[[-.48,.35,.43],[-.24,.33,.47],[0,.33,.48],[.24,.33,.47],[.48,.35,.43]],.009);
-for(const side of [-1,1]){
- const roll=new THREE.Group();roll.position.set(side*.64,.43,.025);roll.rotation.z=side*-.12;head.add(roll);
- ellipsoid(roll,towelMaterial,[0,0,0],[.28,.29,.28]);
- // A continuous raised spiral visibly describes a rolled towel.
- const points=[];for(let i=0;i<=100;i++){const a=i/100*Math.PI*4.9,r=.018+.225*i/100;points.push([Math.cos(a)*r,Math.sin(a)*r,.225+.04*(1-i/100)]);}
- tube(roll,towelSeam,points,.014);
- const raised=points.map(p=>[p[0]*.94,p[1]*.94,p[2]+.012]);tube(roll,towelMaterial,raised,.031);
+const headGeometry=new THREE.SphereGeometry(1,64,40);
+const hp=headGeometry.attributes.position;
+for(let i=0;i<hp.count;i++){
+ const x=hp.getX(i),y=hp.getY(i),z=hp.getZ(i);
+ const cheeks=1+.035*Math.exp(-(((y+.25)/.4)**2));
+ hp.setXYZ(i,x*.625*cheeks,y*.50,z*.515);
 }
-const snack=new THREE.Group();arms[1].add(snack);snack.position.set(.09,-.48,.12);
-const egg=ellipsoid(snack,mat('#d8a36d'),[0,0,0],[.115,.155,.11]);
-ellipsoid(snack,mat('#fff3d4'),[0,.07,.022],[.102,.095,.099]);
-const drink=new THREE.Group();arms[1].add(drink);drink.position.set(.09,-.46,.1);
+headGeometry.computeVertexNormals();
+const faceGeometry=new THREE.PlaneGeometry(1.06,.86,40,32);
+const fp=faceGeometry.attributes.position;
+for(let i=0;i<fp.count;i++){
+ const x=fp.getX(i),y=fp.getY(i)-.015;
+ fp.setXYZ(i,x,y,.519*Math.sqrt(Math.max(.05,1-(x/.65)**2-(y/.51)**2))+.006);
+}
+faceGeometry.computeVertexNormals();
+// An actual deep cloth shell, rather than a flat band perched above the head.
+const capGeometry=new THREE.SphereGeometry(1,64,36,0,Math.PI*2,0,1.75);
+const capPoints=capGeometry.attributes.position;
+for(let i=0;i<capPoints.count;i++){
+ const x=capPoints.getX(i),y=capPoints.getY(i),z=capPoints.getZ(i);
+ const longitude=Math.atan2(z,x);
+ const fold=(Math.sin(longitude*7+.4)*.009+Math.sin(longitude*11)*.004)*(1-y*y);
+ capPoints.setXYZ(i,x*(.715+fold),y*.64,z*(.605+fold));
+}
+capGeometry.computeVertexNormals();
+function steamEmblem(parent,material,z,back=false){
+ const logo=new THREE.Group();logo.position.set(0,.91,z);if(back)logo.rotation.y=Math.PI;parent.add(logo);
+ for(const x of [-.074,0,.074])tube(logo,material,[[x,-.015,0],[x-.018,.03,0],[x+.014,.073,0],[x,.115,0]],.012);
+ tube(logo,material,[[-.13,-.015,0],[-.105,-.065,.008],[0,-.087,.015],[.105,-.065,.008],[.13,-.015,0]],.012);
+}
+function createChibi(cloth,trim,trouser,towel,seam){
+ const root=new THREE.Group(),rig=new THREE.Group();root.add(rig);
+ latheBody(rig,cloth,[[0,0],[.28,.008],[.35,.06],[.36,.16],[.335,.34],[.26,.48],[.16,.51],[0,.51]],[0,.57,0],.84);
+ const hem=mesh(new THREE.TorusGeometry(.326,.022,10,40),trim,rig,[0,.62,0]);hem.rotation.x=Math.PI/2;hem.scale.y=.84;
+ cylinder(rig,skin,[0,1.1,0],.13,.14,.12);
+ const collar=mesh(new THREE.TorusGeometry(.15,.024,10,36),trim,rig,[0,1.075,0]);collar.rotation.x=Math.PI/2;
+ steamEmblem(rig,trim,.294);steamEmblem(rig,trim,-.294,true);
+ const legs=[];
+ for(const side of [-1,1]){
+  const pivot=new THREE.Group();pivot.position.set(side*.18,.60,0);rig.add(pivot);legs.push(pivot);
+  latheBody(pivot,trouser,[[0,0],[.15,0],[.175,.05],[.17,.22],[0,.25]],[0,-.245,0],.98);
+  mesh(new THREE.CapsuleGeometry(.123,.13,8,20),skin,pivot,[0,-.355,0]);
+  ellipsoid(pivot,skin,[0,-.49,.065],[.14,.10,.18]);
+ }
+ const arms=[];
+ for(const side of [-1,1]){
+  const pivot=new THREE.Group();pivot.position.set(side*.285,1.005,0);rig.add(pivot);arms.push(pivot);
+  mesh(new THREE.CapsuleGeometry(.145,.095,8,24),cloth,pivot,[side*.055,-.09,0]);
+  mesh(new THREE.CapsuleGeometry(.103,.10,8,20),skin,pivot,[side*.09,-.255,.015]);
+  ellipsoid(pivot,skin,[side*.09,-.365,.035],[.114,.12,.105]);
+  ellipsoid(pivot,skin,[side*.025,-.34,.105],[.055,.065,.05]);
+ }
+ const head=new THREE.Group();head.position.y=1.55;rig.add(head);
+ mesh(headGeometry,skin,head);
+ for(const side of [-1,1])ellipsoid(head,skin,[side*.60,-.115,.005],[.085,.1,.075]);
+ ellipsoid(head,hair,[0,.12,-.055],[.632,.45,.49]);
+ // A thin scalloped hairline is mostly tucked under the towel.
+ for(let i=0;i<7;i++){
+  const x=-.43+i*.143,z=.49*Math.sqrt(1-(x/.66)**2);
+  ellipsoid(head,hair,[x,.025,z],[.087,.074,.038]);
+ }
+ const faceMaterial=new THREE.MeshStandardMaterial({map:faces.normal,transparent:true,roughness:1,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2});
+ const face=mesh(faceGeometry,faceMaterial,head);face.castShadow=false;
+ const cap=mesh(capGeometry,towel,head,[0,.19,-.015]);
+ // Rounded lower hem follows the full circumference, including the back view.
+ const edge=[];for(let i=0;i<=80;i++){const a=i/80*Math.PI*2;edge.push([Math.sin(a)*.704,.076+Math.sin(a*3)*.008,Math.cos(a)*.596-.015]);}
+ tube(head,towel,edge,.036);
+ // Two overlapping folds give the cap the wrapped silhouette of a real towel.
+ for(const offset of [0,.115]){
+  const fold=[];
+  for(let i=0;i<=40;i++){
+   const x=-.65+i/40*1.3,y=.15+offset+(x+.65)*.10;
+   const z=.605*Math.sqrt(Math.max(.02,1-(x/.715)**2-((y-.19)/.64)**2))-.015;
+   fold.push([x,y,z+.012]);
+  }
+  tube(head,towel,fold,.017);
+ }
+ // Subtle stitched arcs follow the cap's curved surface, like folded terrycloth.
+ const crownSeam=[];for(let i=0;i<=36;i++){const t=i/36*1.68;crownSeam.push([.1*Math.sin(t),.19+.646*Math.cos(t),.609*Math.sin(t)-.015]);}
+ tube(head,seam,crownSeam,.006);
+ for(const side of [-1,1]){
+  const roll=new THREE.Group();roll.position.set(side*.675,.13,.025);roll.rotation.z=-side*.10;head.add(roll);
+  ellipsoid(roll,towel,[0,0,0],[.235,.285,.285]);
+  // Soft overlapping folds, not a hard, high-contrast cinnamon-roll spiral.
+  for(let i=0;i<3;i++){const a=i/3*Math.PI*2;const petal=ellipsoid(roll,towel,[Math.cos(a)*.065,Math.sin(a)*.10,.205],[.13,.16,.065]);petal.rotation.z=a-Math.PI/2;}
+  ellipsoid(roll,towel,[0,0,.254],[.09,.105,.05]);
+  const crease=[];for(let i=0;i<=35;i++){const a=i/35*Math.PI*2.2,r=.035+.13*i/35;crease.push([Math.cos(a)*r,Math.sin(a)*r*1.13,.264-.035*i/35]);}
+  tube(roll,seam,crease,.006);
+ }
+ return {root,rig,head,arms,legs,faceMaterial};
+}
+const mainCharacter=createChibi(shirt,piping,shorts,characterTowel,characterSeam);
+const {root:hero,rig,head,arms,legs,faceMaterial}=mainCharacter;
+scene.add(hero);hero.position.set(.2,.13,1.3);
+const pillow=box(hero,mat('#ebd7b8',{map:textile}),[0,.13,-.83],[1.12,.22,.72],.10);pillow.visible=false;
+const snack=new THREE.Group();arms[1].add(snack);snack.position.set(.09,-.365,.12);
+ellipsoid(snack,mat('#d8a36d'),[0,0,0],[.105,.14,.10]);
+ellipsoid(snack,mat('#fff3d4'),[0,.065,.022],[.093,.085,.09]);
+const drink=new THREE.Group();arms[1].add(drink);drink.position.set(.09,-.35,.13);
 drink.rotation.x=2.0;
-cylinder(drink,mat('#dfc09b'),[0,0,0],.13,.095,.27);
-cylinder(drink,mat('#f9ebce'),[0,.14,0],.14,.14,.025);
-box(drink,mat('#b98961'),[0,0,.12],[.08,.09,.008],.003);
-tube(drink,mat('#f7eee0'),[[.04,.15,0],[.04,.34,0],[-.025,.38,0]],.014);
+cylinder(drink,mat('#dfc09b'),[0,0,0],.12,.09,.24);
+cylinder(drink,mat('#f9ebce'),[0,.125,0],.13,.13,.025);
+box(drink,mat('#b98961'),[0,0,.112],[.075,.08,.008],.003);
+tube(drink,mat('#f7eee0'),[[.035,.14,0],[.035,.30,0],[-.025,.34,0]],.013);
 snack.visible=drink.visible=false;
-// A smaller sleeping guest gives the room life without crowding the main avatar.
-const guest=new THREE.Group();scene.add(guest);guest.position.set(3.55,.15,-.7);guest.rotation.y=-.45;
-ellipsoid(guest,mat('#b6b0ca'),[0,.37,0],[.32,.36,.25]);
-ellipsoid(guest,skin,[0,.93,.04],[.41,.37,.34]);
-ellipsoid(guest,towelMaterial,[0,1.2,.01],[.4,.14,.33]);
-for(const s of [-1,1]){ellipsoid(guest,towelMaterial,[s*.43,1.19,0],[.18,.18,.18]);ellipsoid(guest,skin,[s*.25,.15,.27],[.14,.12,.19]);tube(guest,palette.dark,[[s*.14-.055,.94,.36],[s*.14,.925,.38],[s*.14+.055,.94,.36]],.012);ellipsoid(guest,mat('#eaa799'),[s*.26,.85,.32],[.065,.035,.015]);}
-tube(guest,mat('#a3705a'),[[-.04,.82,.375],[0,.8,.38],[.04,.82,.375]],.01);
+// The resting guest uses the same model and proportions, with a sage towel.
+const guestTowel=characterTowel.clone();guestTowel.color.set('#bac39a');
+const guestCharacter=createChibi(mat('#ead7ad'),mat('#fff1cc'),mat('#c5b784'),guestTowel,mat('#a7b58b'));
+const guest=guestCharacter.root;scene.add(guest);guest.position.set(3.55,.15,-.7);guest.rotation.y=-.35;guest.scale.setScalar(.68);
+guestCharacter.rig.position.y=-.29;
+guestCharacter.legs.forEach((leg,i)=>{leg.rotation.x=-1.32;leg.rotation.z=i===0?-.20:.20;});
+guestCharacter.arms.forEach((arm,i)=>{arm.rotation.x=-.6;arm.rotation.z=i===0?-.14:.14;});
+guestCharacter.faceMaterial.map=faces.sleep;
+
 
 // A few translucent motes, kept subtle and disabled for reduced motion.
 const motePositions=new Float32Array(36*3);for(let i=0;i<36;i++){motePositions[i*3]=(random()-.5)*10;motePositions[i*3+1]=random()*3.5+.4;motePositions[i*3+2]=(random()-.5)*6;}
@@ -242,9 +285,9 @@ function setAction(next){
  document.querySelector('#hint').textContent=next==='stand'?'바닥을 톡 누르면 걸어가요 ↗':'다시 걷고 싶으면 바닥을 톡 눌러요 ↗';
 }
 actionButtons.forEach(button=>button.addEventListener('click',()=>setAction(button.dataset.action)));
-const colors={peach:['#eaa991','#d9957d','#f9d6bd'],mint:['#a8c9ba','#86ad9c','#d9e7ce'],lilac:['#beb1d5','#a294bd','#e4d7ed']};
+const colors={peach:['#e6a05b','#cf874b','#f7d5a4','#fff2db','#e9dac0'],mint:['#bdcaa2','#9cab80','#eef0d0','#b7c89a','#a1b488'],lilac:['#c8b2d8','#a88dbc','#f0d9e7','#c7b0d5','#b29ac1']};
 function setOutfit(color){
- const c=colors[color];if(!c)return;shirt.color.set(c[0]);shorts.color.set(c[1]);piping.color.set(c[2]);
+ const c=colors[color];if(!c)return;shirt.color.set(c[0]);shorts.color.set(c[1]);piping.color.set(c[2]);characterTowel.color.set(c[3]);characterSeam.color.set(c[4]);
  for(const b of outfitButtons){const active=b.dataset.color===color;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}
  try{localStorage.setItem('jjimjiljung-outfit',color);}catch{/* Private browsing may disable storage. */}
 }
@@ -254,7 +297,7 @@ const raycaster=new THREE.Raycaster();const floorPlane=new THREE.Plane(new THREE
 function moveTo(x,z){setAction('stand');target.set(THREE.MathUtils.clamp(x,-1.45,1.65),.13,THREE.MathUtils.clamp(z,-.45,2.45));}
 viewport.addEventListener('pointerdown',e=>{if(contextLost)return;const r=viewport.getBoundingClientRect();raycaster.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),camera);if(raycaster.ray.intersectPlane(floorPlane,hit))moveTo(hit.x,hit.z);});
 viewport.addEventListener('keydown',e=>{const keys={ArrowLeft:[-.4,0],ArrowRight:[.4,0],ArrowUp:[0,-.4],ArrowDown:[0,.4]};if(keys[e.key]){e.preventDefault();const [x,z]=keys[e.key];moveTo(target.x+x,target.z+z);}});
-function resize(){const w=viewport.clientWidth,h=viewport.clientHeight;if(!w||!h)return;renderer.setSize(w,h);const aspect=w/h;const height=aspect<1?7.35:6.5;camera.left=-height*aspect/2;camera.right=height*aspect/2;camera.top=height/2;camera.bottom=-height/2;camera.position.set(aspect<1?3.0:4.5,6.5,11.5);camera.lookAt(aspect<1?.1:0,1.0,.05);camera.updateProjectionMatrix();}
+function resize(){const w=viewport.clientWidth,h=viewport.clientHeight;if(!w||!h)return;renderer.setSize(w,h);const aspect=w/h;const height=aspect<1?6.8:6.3;camera.left=-height*aspect/2;camera.right=height*aspect/2;camera.top=height/2;camera.bottom=-height/2;camera.position.set(aspect<1?2.5:4.0,5.1,11.5);camera.lookAt(aspect<1?.1:0,1.0,.05);camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(viewport);resize();
 
 // Optional synthesized room ambience. Audio is only created after an explicit tap.
@@ -270,15 +313,17 @@ document.querySelector('#sound').addEventListener('click',async()=>{
 function damp(object,key,to,dt,speed=9){object[key]=THREE.MathUtils.damp(object[key],to,speed,dt);}
 function frame(now){
  if(contextLost||document.hidden)return;
- const dt=Math.min((now-lastTime)/1000||.016,.05);lastTime=now;elapsed+=dt;
+ // A queued RAF timestamp can precede initialization after shader compilation.
+ // Negative dt makes exponential damping diverge and spins the limbs wildly.
+ const dt=THREE.MathUtils.clamp((now-lastTime)/1000,0,.05);lastTime=now;elapsed+=dt;
  const dx=target.x-hero.position.x,dz=target.z-hero.position.z,distance=Math.hypot(dx,dz);const walking=action==='stand'&&distance>.025;
  if(walking){const step=Math.min(distance,dt*1.25);hero.position.x+=dx/distance*step;hero.position.z+=dz/distance*step;facing=Math.atan2(dx,dz);}else facing=.18;
  let angle=facing-hero.rotation.y;angle=Math.atan2(Math.sin(angle),Math.cos(angle));hero.rotation.y+=angle*Math.min(1,dt*8);
  const sleep=action==='lie',sitting=action==='sit';const cycle=elapsed*9;
  damp(rig.rotation,'x',sleep?-Math.PI/2:0,dt,6);
- damp(rig.position,'y',sleep?.46:sitting?-.40:walking&&!reducedMotion?Math.abs(Math.sin(cycle))*.035:0,dt);
+ damp(rig.position,'y',sleep?.46:sitting?-.29:walking&&!reducedMotion?Math.abs(Math.sin(cycle))*.035:0,dt);
  // A reclining rig rests along the mat, with a pillow under its head.
- damp(rig.position,'z',sleep?.8:0,dt,6);
+ damp(rig.position,'z',sleep?.72:0,dt,6);
  for(let i=0;i<2;i++){
   damp(legs[i].rotation,'x',sitting?-1.32:sleep?.45:walking?Math.sin(cycle+i*Math.PI)*.48:0,dt);
   damp(legs[i].rotation,'z',sitting?(i===0?-.25:.25):0,dt);
@@ -286,7 +331,7 @@ function frame(now){
   damp(arms[i].rotation,'x',eating?-2.0:sitting?-.5:sleep?-.18:walking?-Math.sin(cycle+i*Math.PI)*.35:0,dt);
   damp(arms[i].rotation,'z',eating?-.25:i===0?-.14:.14,dt);
  }
- if(!reducedMotion){head.rotation.z=Math.sin(elapsed*1.3)*.025;head.position.y=1.88+Math.sin(elapsed*2)*.008;guest.scale.y=1+Math.sin(elapsed*1.8)*.008;motes.rotation.y=elapsed*.008;}else{head.rotation.z=0;head.position.y=1.88;guest.scale.y=1;}
+ if(!reducedMotion){head.rotation.z=Math.sin(elapsed*1.3)*.025;head.position.y=1.55+Math.sin(elapsed*2)*.008;guest.scale.y=.68+Math.sin(elapsed*1.8)*.005;motes.rotation.y=elapsed*.008;}else{head.rotation.z=0;head.position.y=1.55;guest.scale.y=.68;}
  const blink=!reducedMotion&&elapsed%4.7>4.52;const expression=sleep||blink?'sleep':action==='egg'||action==='drink'?'happy':'normal';if(faceMaterial.map!==faces[expression]){faceMaterial.map=faces[expression];faceMaterial.needsUpdate=true;}
  shadow.position.set(hero.position.x,.15,hero.position.z);shadow.scale.set(sleep?1.1:1,sleep?1.7:1,1);
  motes.visible=!reducedMotion;
