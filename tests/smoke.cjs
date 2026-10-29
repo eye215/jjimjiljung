@@ -12,7 +12,7 @@ const server = http.createServer((req, res) => {
   if (!file.startsWith(root + path.sep)) return res.writeHead(403).end();
   fs.readFile(file, (error, data) => {
     if (error) return res.writeHead(404).end();
-    const types = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8' };
+    const types = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.png': 'image/png' };
     res.setHeader('Content-Type', types[path.extname(file)] || 'text/plain');
     res.end(data);
   });
@@ -46,6 +46,7 @@ const server = http.createServer((req, res) => {
     assert(initialRig.arms.flat().every(angle => Number.isFinite(angle) && Math.abs(angle) < .2), 'Stale initial RAF must not destabilize resting arms');
     assert.equal(await page.locator('#loading').isVisible(), false);
     assert.equal(await page.locator('#error').isVisible(), false);
+    assert(await page.locator('#backdrop').evaluate(img => img.complete && img.naturalWidth > 1000), 'Reference background must load before ready');
     await page.screenshot({ path: path.join(output, 'desktop.png'), fullPage: true });
     for (const size of [{ width: 390, height: 844 }, { width: 320, height: 640 }, { width: 844, height: 390 }]) {
       await page.setViewportSize(size);
@@ -59,6 +60,12 @@ const server = http.createServer((req, res) => {
       }
     }
     await page.setViewportSize({ width: 390, height: 844 });
+    const panBefore = await page.locator('#viewport').getAttribute('data-pan');
+    await page.mouse.move(300, 370); await page.mouse.down();
+    await page.mouse.move(80, 370, { steps: 8 }); await page.mouse.up();
+    assert.notEqual(await page.locator('#viewport').getAttribute('data-pan'), panBefore, 'Drag pans the shared background/actor camera');
+    await page.locator('#recenter').click();
+    assert.notEqual(await page.locator('#viewport').getAttribute('data-pan'), '1.000', 'Recenter returns toward the player');
     await page.locator('[data-color="mint"]').click();
     await page.reload();
     await page.waitForSelector('#viewport[data-ready="true"]');
@@ -97,11 +104,16 @@ const server = http.createServer((req, res) => {
     await broken.goto(base);
     await broken.locator('#error').waitFor({ state: 'visible' });
     assert.equal(await broken.locator('#loading').isVisible(), false);
+    const missingBackground = await browser.newPage();
+    await missingBackground.route('**/assets/sauna-room-v1.png', route => route.abort());
+    await missingBackground.goto(base);
+    await missingBackground.locator('#error').waitFor({ state: 'visible' });
+    assert.equal(await missingBackground.locator('#loading').isVisible(), false);
     const noWebGL = await browser.newPage();
     await noWebGL.addInitScript(() => { const original = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function(type, ...args) { return type.startsWith('webgl') ? null : original.call(this, type, ...args); }; });
     await noWebGL.goto(base);
     await noWebGL.locator('#error').waitFor({ state: 'visible' });
     assert.match(await noWebGL.locator('#error-message').textContent(), /Safari/);
-    console.log('PASS: desktop, 390px/320px mobile, landscape, all poses, tap/keyboard, palette persistence, audio, reduced motion, asset loading, context loss/retry, failed module, unavailable WebGL.');
+    console.log('PASS: desktop, 390px/320px mobile, landscape, background loading/pan/recenter/failure, stable initial joints, all poses, tap/keyboard, palette persistence, audio, reduced motion, local assets, context loss/retry, failed module, unavailable WebGL.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });
