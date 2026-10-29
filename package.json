@@ -1,0 +1,7 @@
+{
+  "name": "jjimjiljung",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node tests/smoke.cjs", "check": "node --check scene.js" },
+  "devDependencies": { "playwright": "1.62.1" }
+}
