@@ -14,3 +14,8 @@ body:not(.room-ready) .room{z-index:20}
 .places-list button:last-child{grid-column:auto;display:flex;min-height:100px;text-align:center}.places-list button:last-child span{grid-row:auto}.places-list button:last-child b,.places-list button:last-child small{align-self:center}
 @media(max-height:500px) and (orientation:landscape){.places-list button:last-child{min-height:78px}}
 .room-badge{transition:background .4s}#destination-label{animation:toast .35s ease-out}@keyframes toast{from{opacity:0;transform:translate(-50%,-6px)}}
+/* 수면실 dream mode: a calm top bar, quieter controls, nothing else in the way. */
+#sleep-bar{position:absolute;z-index:3;top:94px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:6px 6px 6px 16px;border-radius:26px;background:#2b2450c4;border:1px solid #cfc3ff55;backdrop-filter:blur(10px);font-size:12px;color:#efe9ff;white-space:nowrap;animation:toast .5s ease-out}#sleep-bar button{border:1px solid #d8ceff66;background:#ffffff14;border-radius:20px;min-height:40px;padding:8px 13px;font-size:11px;color:#f5f1ff}#sleep-bar #wake{background:#f3e6ff2e}
+body.sleeping .room-badge,body.sleeping #destination-label,body.sleeping #joystick{opacity:0;pointer-events:none;transition:opacity 1s}body.sleeping .controls,body.sleeping .header{opacity:.55;transition:opacity 1.2s}body.dreaming .controls,body.dreaming .header,body.dreaming .scene-hint{opacity:.3}
+@media(max-width:760px){#sleep-bar{top:78px;font-size:11px;padding-left:12px}#sleep-bar span{display:none}}
+@media(max-height:500px) and (orientation:landscape){#sleep-bar{top:62px}}

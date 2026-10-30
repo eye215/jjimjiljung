@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><link rel="stylesheet" href="./style.css?v=rpg-1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><link rel="stylesheet" href="./style.css?v=rpg-2">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -10,6 +10,7 @@
 <section class="room" aria-label="따뜻한 3D 찜질방">
 <div id="viewport" tabindex="0" role="application" aria-label="3D 찜질방. 바닥을 누르거나 WASD·방향키로 걸어요. 화면을 끌면 시점이 돌아가고, 휠이나 두 손가락으로 확대해요. Home 키로 시점을 처음처럼 맞춰요."></div>
 <div id="destination-label" role="status" hidden></div>
+<div id="sleep-bar" role="group" aria-label="꿈나라 모드" hidden><span>☾ 꿈나라 모드</span><button id="sleep-music" aria-pressed="true">♪ 음악 끄기</button><button id="wake">일어나기</button></div>
 <div class="room-badge" aria-live="polite"><i></i> 중앙 휴게실 <span>모두 모이는 곳</span></div><div class="scene-hint" id="hint">바닥을 눌러 이동 · 끌어서 시점 회전</div>
 <div id="joystick" role="group" aria-label="이동 조이스틱"><span class="joystick-arrows" aria-hidden="true">＋</span><span id="joystick-knob" aria-hidden="true"></span><span class="joystick-caption">끌어서 이동</span></div>
 <div class="loading" id="loading" role="status"><div class="loading-mark">♨</div><h2>방을 따뜻하게 데우는 중</h2><p>포근한 쉼을 준비하고 있어요.</p></div>
@@ -42,5 +43,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-1').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-2').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>
