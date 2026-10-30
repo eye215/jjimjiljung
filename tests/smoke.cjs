@@ -168,11 +168,22 @@ const server = http.createServer((req, res) => {
     await page.waitForFunction(() => window.__characterTestState().room === 'lobby', null, { timeout: 8000 });
 
     await page.locator('[data-action="stand"]').click();
-    await page.locator('[data-color="mint"]').click();
+    // One tap re-dyes the whole outfit at random; 되돌리기 restores it; it survives a reload.
+    const outfitCode = () => page.locator('#viewport').getAttribute('data-outfit');
+    const firstOutfit = await outfitCode();
+    assert.match(firstOutfit, /^[0-9a-f]{6}\.[0-9a-f]{6}\.[0-9a-f]{6}\.0$/, 'Newcomers start without a towel cap');
+    assert.equal(await page.locator('#cap-toggle').isHidden(), true, 'No cap toggle before the towel game');
+    await page.locator('#outfit-random').click();
+    const dyed = await outfitCode();
+    assert.notEqual(dyed.slice(0, 13), firstOutfit.slice(0, 13), 'Top and bottom change together');
+    assert.match(await page.locator('#toast span').textContent(), /새 옷/);
+    await page.locator('#toast button').click();
+    assert.equal(await outfitCode(), firstOutfit, 'Undo restores the previous outfit');
+    await page.locator('#outfit-random').click();
+    const kept = await outfitCode();
     await page.reload();
     await ready(page);
-    assert.equal(await page.locator('[data-color="mint"]').getAttribute('aria-pressed'), 'true');
-    await page.locator('[data-color="peach"]').click();
+    assert.equal(await outfitCode(), kept, 'The outfit is remembered on this device');
     await page.locator('[data-action="sit"]').click();
     await page.locator('#viewport').click({ position: { x: 235, y: 360 } });
     assert.equal(await page.locator('[data-action="stand"]').getAttribute('aria-pressed'), 'true', 'Tap resumes walking');

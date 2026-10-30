@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-7';
-import { PALETTES } from './character.js?v=rpg-7';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-7';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-7';
+import { connect } from './net.js?v=rpg-8';
+import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-8';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-8';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-8';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -12,7 +12,9 @@ const $ = selector => document.querySelector(selector);
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
 
-export function createSocial({ scene, camera, kit, viewport, getLocal, makeShadow, actorScale, onLocalBubble }) {
+const dress = (character, code) => { const outfit = decodeOutfit(code) || decodeOutfit('peach'); character.setColors(outfitColors(outfit)); character.setTowel(capOn(outfit)); };
+
+export function createSocial({ scene, camera, kit, viewport, getLocal, makeShadow, actorScale, onLocalBubble, onTrade }) {
   const id = newId();
   const ui = {
     online: $('#online'), onlineText: $('#online-text'), chat: $('#chat'), log: $('#chat-log'), form: $('#chat-form'), input: $('#chat-input'),
@@ -49,14 +51,13 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   function ensureRemote(info) {
     let remote = remotes.get(info.id);
     if (!remote) {
-      const colors = PALETTES[info.outfit] || PALETTES.peach;
-      const character = kit.createCharacter(colors);
+      const character = kit.createCharacter(); dress(character, info.outfit);
       character.root.scale.setScalar(actorScale); character.root.visible = false; scene.add(character.root);
       remote = { id: info.id, character, outfit: info.outfit, name: info.name, label: makeLabel(info.name), shadow: makeShadow(), target: { x: 0, z: 0, f: 0 }, action: 'stand', walking: false, placed: false };
       remote.shadow.visible = false; remotes.set(info.id, remote);
     }
     if (info.name && info.name !== remote.name) { remote.name = info.name; remote.label.querySelector('b').textContent = info.name; }
-    if (info.outfit && info.outfit !== remote.outfit && PALETTES[info.outfit]) { remote.outfit = info.outfit; remote.character.setColors(PALETTES[info.outfit]); }
+    if (info.outfit && info.outfit !== remote.outfit) { remote.outfit = info.outfit; dress(remote.character, info.outfit); }
     return remote;
   }
   function removeRemote(remoteId) {
@@ -67,7 +68,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   }
   function readPresence(entry) {
     if (!entry || typeof entry.id !== 'string' || entry.id === id) return null;
-    return { id: entry.id.slice(0, 40), name: cleanNickname(entry.name) || '손님', outfit: PALETTES[entry.outfit] ? entry.outfit : 'peach' };
+    return { id: entry.id.slice(0, 40), name: cleanNickname(entry.name) || '손님', outfit: decodeOutfit(entry.outfit) ? entry.outfit : 'peach' };
   }
   function onPresence(list) {
     const next = list.map(readPresence).filter(Boolean);
@@ -97,7 +98,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
       if (kind === 'egg' || kind === 'drink') remote.character.startSnack(kind, { style: style === 'forehead' ? 'forehead' : 'normal' });
       else if (remote.character.snack) remote.character.stopSnack();
     }
-    if (PALETTES[payload.o] && payload.o !== remote.outfit) { remote.outfit = payload.o; remote.character.setColors(PALETTES[payload.o]); }
+    if (typeof payload.o === 'string' && payload.o !== remote.outfit && decodeOutfit(payload.o)) { remote.outfit = payload.o; dress(remote.character, payload.o); }
     if (!remote.placed) {
       remote.placed = true; remote.character.root.visible = true; remote.shadow.visible = true;
       remote.character.root.position.set(remote.target.x, 0, remote.target.z); remote.character.root.rotation.y = remote.target.f;
@@ -198,11 +199,20 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   ui.solo.addEventListener('click', () => { ui.join.close(); renderStatus(); });
   ui.rename.addEventListener('click', openJoin);
 
+  // Towel trades are addressed to one visitor; anyone else ignores them.
+  function readTrade(payload) {
+    if (!payload || payload.to !== id || typeof payload.from !== 'string' || !remotes.has(payload.from)) return;
+    if (!['offer', 'accept', 'decline', 'cancel', 'making', 'gift'].includes(payload.type)) return;
+    const towel = typeof payload.towel === 'string' && /^#[0-9a-f]{6}$/.test(payload.towel) ? payload.towel : null;
+    if (['offer', 'accept', 'gift'].includes(payload.type) && !towel) return;
+    onTrade?.({ type: payload.type, from: payload.from, name: remotes.get(payload.from).name, towel, tid: String(payload.tid || '').slice(0, 40) });
+  }
+  const pickHits = [];
   function presencePayload() { return { id, name: nickname, outfit: getLocal().outfit }; }
   async function start() {
     status = 'connecting'; renderStatus();
     try {
-      link = await connect({ id, presence: presencePayload(), onPresence, onStatus: next => { status = next; renderStatus(); if (next === 'online') lastSent = 0; }, onMessage: (event, payload) => event === 'state' ? onState(payload) : event === 'chat' ? onChat(payload) : null });
+      link = await connect({ id, presence: presencePayload(), onPresence, onStatus: next => { status = next; renderStatus(); if (next === 'online') lastSent = 0; }, onMessage: (event, payload) => event === 'state' ? onState(payload) : event === 'chat' ? onChat(payload) : event === 'trade' ? readTrade(payload) : null });
       selfLabel.hidden = false;
       if (!ui.log.children.length) system(`${nickname}님, 찜질방에 오신 걸 환영해요!`);
     } catch { status = 'offline'; renderStatus(); }
@@ -222,6 +232,17 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   return {
     get status() { return status; }, get nickname() { return nickname; }, get count() { return presence.length + 1; }, remotes, id,
     isChatOpen: () => !ui.chat.hidden,
+    // The nearest visible visitor under a ray, for tapping someone on screen.
+    pick(raycaster) {
+      let best = null, bestDistance = Infinity;
+      for (const remote of remotes.values()) {
+        if (!remote.placed || !remote.character.root.visible) continue;
+        pickHits.length = 0; raycaster.intersectObject(remote.character.root, true, pickHits);
+        if (pickHits.length && pickHits[0].distance < bestDistance) { bestDistance = pickHits[0].distance; best = remote; }
+      }
+      return best;
+    },
+    sendTrade(to, type, towel = null, tid = '') { if (link && status === 'online') link.send('trade', { from: id, to, type, towel, tid }); },
     outfitChanged() { if (link && status === 'online') { link.track(presencePayload()); lastSent = 0; } },
     update(dt, reducedMotion) {
       const local = getLocal();

@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
-import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-7';
-import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-7';
+import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-8';
+import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-8';
 
 // Procedural, cosy jjimjilbang built from the shared map data. Everything is
 // generated locally: textures are drawn on canvases and static props are merged
@@ -356,6 +356,16 @@ export function buildWorld({ scene, kit }) {
       sign(g, '식혜', [0, 1.97, d / 2 - .1], 0, .8, { bg: '#fff4dc', ink: '#c06a35' });
     },
     shoptable(g, w) { cylinder(g, M.lightWood, [0, .62, 0], w * .5, w * .5, .07, 24); cylinder(g, M.darkWood, [0, .3, 0], .07, .1, .6, 10); cylinder(g, M.darkWood, [0, .02, 0], .3, .32, .04, 16); cylinder(g, mat('#f3e2c0'), [.15, .73, .1], .07, .06, .16, 12); ellipsoid(g, M.egg, [-.15, .7, 0], [.07, .09, .07]); },
+    towelshelf(g, w, d) {
+      // Two wooden shelves of folded towels in many colours, and a little sign.
+      for (const x of [-w / 2 + .05, w / 2 - .05]) box(g, M.darkWood, [x, .7, 0], [.08, 1.4, d], .02, 4);
+      const colors = ['#f6a9c4', '#9fd0f2', '#b6e3a1', '#f7d27c', '#c9b1ee', '#f8b996', '#a7e0d8', '#fbfaf7'].map(c => mat(c, { map: textile, roughness: 1 }));
+      [.3, .78, 1.26].forEach((y, row) => {
+        box(g, M.lightWood, [0, y, 0], [w, .05, d], .02, 4);
+        for (let i = 0; i < 4; i++) for (let k = 0; k < 2; k++) box(g, colors[(i * 2 + row * 3 + k) % colors.length], [-w / 2 + .25 + i * (w - .4) / 3, y + .07 + k * .09, .02], [.3, .085, d * .7], .035, 4);
+      });
+      sign(g, '양머리 수건', [0, 1.62, 0], 0, 1.2, { bg: '#fff6ea', ink: '#9b5a30', border: '#c99a72' });
+    },
     stool(g) { cylinder(g, mat('#e7a27a'), [0, .38, 0], .22, .22, .08, 16); cylinder(g, M.darkWood, [0, .18, 0], .05, .07, .36, 8); }
   };
   const blobTexture = canvasTexture((c, w, h) => {
