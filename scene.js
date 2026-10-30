@@ -1,17 +1,17 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-13';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-13';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-13';
-import { createTowelGame } from './towel.js?v=rpg-13';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-13';
-import { buildWorld } from './environment.js?v=rpg-13';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-13';
-import { createTvAds } from './ads.js?v=rpg-13';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-13';
-import { createSocial } from './social.js?v=rpg-13';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-13';
-import { createShop } from './shop.js?v=rpg-13';
-import { createInvite } from './invite.js?v=rpg-13';
+import { planPath, stepMovement } from './navigation.js?v=rpg-14';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-14';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-14';
+import { createTowelGame } from './towel.js?v=rpg-14';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-14';
+import { buildWorld } from './environment.js?v=rpg-14';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-14';
+import { createTvAds } from './ads.js?v=rpg-14';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-14';
+import { createSocial } from './social.js?v=rpg-14';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-14';
+import { createShop } from './shop.js?v=rpg-14';
+import { createInvite } from './invite.js?v=rpg-14';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -428,13 +428,15 @@ document.addEventListener('keyup', e => { const direction = MOVE_KEYS[e.code] ||
 
 new ResizeObserver(resize).observe(viewport); resize();
 
+// Speaker icons (Lucide, ISC) for the sound toggle.
+const SOUND_ON = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" /> <path d="M16 9a5 5 0 0 1 0 6" /> <path d="M19.364 18.364a9 9 0 0 0 0-12.728" /></svg>', SOUND_OFF = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4.702a.7.7 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.7.7 0 0 0 11 19.298z" /> <path d="m16.5 14.5 5-5" /> <path d="m16.5 9.5 5 5" /></svg>';
 // Optional synthesized room ambience. Audio is only created after an explicit tap.
 let audioContext, source, audioGain, audioEnabled = false;
 document.querySelector('#sound').addEventListener('click', async () => {
   const button = document.querySelector('#sound');
   try {
     if (!audioContext) { const Audio = window.AudioContext || window.webkitAudioContext; if (!Audio) throw Error('Audio unavailable'); audioContext = new Audio(); const buffer = audioContext.createBuffer(1, audioContext.sampleRate * 3, audioContext.sampleRate); const data = buffer.getChannelData(0); let v = 0; for (let i = 0; i < data.length; i++) { v = (v + (Math.random() * 2 - 1) * .015) / 1.015; data[i] = v * 2; } source = audioContext.createBufferSource(); source.buffer = buffer; source.loop = true; const filter = audioContext.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 450; audioGain = audioContext.createGain(); audioGain.gain.value = 0; source.connect(filter).connect(audioGain).connect(audioContext.destination); source.start(); }
-    await audioContext.resume(); audioEnabled = !audioEnabled; audioGain.gain.setTargetAtTime(audioEnabled ? .3 : 0, audioContext.currentTime, .25); button.setAttribute('aria-pressed', String(audioEnabled)); button.setAttribute('aria-label', audioEnabled ? '찜질방 소리 끄기' : '찜질방 소리 켜기'); button.innerHTML = (audioEnabled ? '소리 켜짐' : '소리 꺼짐') + ' <span>♪</span>';
+    await audioContext.resume(); audioEnabled = !audioEnabled; audioGain.gain.setTargetAtTime(audioEnabled ? .3 : 0, audioContext.currentTime, .25); button.setAttribute('aria-pressed', String(audioEnabled)); button.setAttribute('aria-label', audioEnabled ? '찜질방 소리 끄기' : '찜질방 소리 켜기'); button.innerHTML = (audioEnabled ? SOUND_ON : SOUND_OFF) + `<span class="label">${audioEnabled ? '소리 켜짐' : '소리 꺼짐'}</span>`;
   } catch { status.textContent = '이 브라우저에서는 소리를 켤 수 없어요. 조용히 쉬어 가요.'; }
 });
 

@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
-import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-13';
-import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-13';
+import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-14';
+import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-14';
 
 // Procedural, cosy jjimjilbang built from the shared map data. Everything is
 // generated locally: textures are drawn on canvases and static props are merged

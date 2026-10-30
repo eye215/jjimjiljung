@@ -293,3 +293,58 @@ body.sleeping #towel-nudge,body.towel-playing #towel-nudge,body:not(.room-ready)
 body.playing #snack-menu,body.sleeping #snack-menu{display:none}
 #game.glass-sheet{animation:sheetUp .35s ease-out}@keyframes sheetUp{from{opacity:0;transform:translateY(24px)}}
 @media(prefers-reduced-motion:reduce){#game.glass-sheet{animation:none}}
+/* ==========================================================================
+   UI v2 — light liquid glass with cocoa text (approved mockup direction).
+   Overrides the earlier dark-glass layout; ids and structure are unchanged.
+   ========================================================================== */
+:root{--safe-top:max(12px,env(safe-area-inset-top));--safe-bottom:max(12px,env(safe-area-inset-bottom));--glass:linear-gradient(180deg,rgba(255,252,248,.56),rgba(255,250,245,.4));--glass-ring:inset 0 0 0 .75px rgba(255,255,255,.75),inset 0 .5px 0 rgba(255,255,255,.9),0 8px 24px rgba(120,60,30,.12)}
+.sr-label,.icon-button .label,#chat-open b{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.header{top:var(--safe-top);left:12px;right:12px;gap:8px}
+.brand,.quiet-button,.room-badge,#wallet,.online-pill,#chat-open,#joystick,.controls,.scene-hint{color:var(--ink);background:var(--glass);-webkit-backdrop-filter:var(--lg-blur);backdrop-filter:var(--lg-blur);border:0;box-shadow:var(--glass-ring);text-shadow:none}
+.brand{height:46px;padding:0 16px 0 7px;gap:8px;font-size:17px;font-weight:800;letter-spacing:-.04em;border-radius:999px}
+.brand-icon{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:16px;color:#fff;background:linear-gradient(140deg,#FFB08F,var(--tint));box-shadow:inset 0 1px 1px rgba(255,255,255,.6)}
+.quiet-button.icon-button{width:46px;height:46px;min-height:46px;padding:0;border-radius:50%;display:grid;place-items:center;font-size:0}
+#places-open{margin-left:auto}
+.quiet-button[aria-pressed=true]{color:var(--tint)}
+.room-badge{top:calc(var(--safe-top) + 56px);right:12px;height:34px;padding:0 13px;border-radius:999px;font-size:13px;font-weight:700}
+.room-badge i{background:var(--tint)}.room-badge span{color:var(--ink-soft);font-weight:600}
+#wallet{top:calc(var(--safe-top) + 56px);left:12px;height:34px;min-height:34px;padding:0 13px;gap:12px;border-radius:999px;font-size:13.5px;font-weight:700}
+#social-row{top:calc(var(--safe-top) + 98px);left:12px;gap:6px}
+.online-pill{min-height:32px;padding:0 12px;border-radius:999px;font-size:12.5px;font-weight:700}
+#invite{min-height:32px;padding:0 12px;font-size:12.5px;border:0;box-shadow:0 6px 16px rgba(59,30,30,.14)}
+/* Bottom tab bar: icons over short labels, the selected one in a glass lens. */
+.controls{left:10px;right:10px;bottom:var(--safe-bottom);width:auto;max-width:540px;margin:0 auto;transform:none;padding:6px;gap:0;border-radius:999px}
+.controls .welcome{display:none}
+.controls .actions{width:100%;gap:2px;padding:0}
+.actions>button{flex:1;width:auto;min-width:0;min-height:62px;padding:6px 0;gap:3px;border:0;border-radius:999px;color:var(--ink)}
+.actions>button .action-icon{font-size:0;line-height:0}
+.actions>button svg.i{width:23px;height:23px}
+.actions b{font-size:12.5px;font-weight:650}.actions small{display:none}
+.actions>button:hover{background:rgba(255,255,255,.25)}
+.actions>button.selected{color:var(--tint);background:rgba(255,255,255,.62);box-shadow:inset 0 0 0 .75px rgba(255,255,255,.9),0 4px 12px rgba(120,60,30,.12)}
+.actions>button.selected b{font-weight:800}
+.action-icon .count{right:-12px;top:-6px;background:var(--tint);color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.9)}
+.actions>button.empty .count{background:rgba(107,70,54,.45);color:#fff}
+/* Thumb zone: joystick bottom-left, chat and outfit buttons bottom-right. */
+#joystick{left:18px;bottom:calc(var(--safe-bottom) + 108px);width:104px;height:104px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.18) 0 40%,rgba(255,250,245,.32) 41%)}
+#joystick .joystick-arrows,#joystick .joystick-caption{display:none}
+#joystick-knob{background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(255,255,255,.72));border:0;box-shadow:0 4px 12px rgba(120,60,30,.18),inset 0 1px 1px #fff}
+#chat-open{right:16px;bottom:calc(var(--safe-bottom) + 108px);width:54px;height:54px;border-radius:50%}
+#chat-open svg.i{width:24px;height:24px}
+#chat-open em{background:var(--tint);border:2px solid #fff}
+#dress{right:16px;bottom:calc(var(--safe-bottom) + 172px)}
+.scene-hint{bottom:calc(var(--safe-bottom) + 84px);padding:6px 13px;border-radius:999px;font-size:12px;font-weight:600}
+#towel-nudge,#towel-open,#shop-open{bottom:calc(var(--safe-bottom) + 232px)}
+#shop-open{color:#fff}
+#toast,.glass-card{top:calc(var(--safe-top) + 140px)}
+#toast{color:var(--ink);background:var(--lg-thick);border:0;box-shadow:var(--glass-ring)}
+#toast button{background:var(--hot)}
+.nametag b{color:var(--ink);background:rgba(255,252,248,.78);border:0;box-shadow:0 2px 8px rgba(80,40,20,.15);text-shadow:none;font-size:12px;padding:5px 10px}
+.nametag.self b{color:#fff;background:linear-gradient(140deg,#FFB08F,var(--tint))}
+#places-dialog,#shop-dialog,#join-dialog{color:var(--ink);background:linear-gradient(180deg,rgba(255,252,248,.92),rgba(255,248,242,.86));border:0;box-shadow:0 30px 80px rgba(37,21,8,.3),inset 0 0 0 .75px rgba(255,255,255,.8)}
+#join-enter,.join-actions #join-enter{background:var(--hot);border:0}
+@media(max-width:380px){.room-badge span{display:none}.brand{font-size:16px;padding-right:12px}}
+@media(max-width:340px){.brand>:not(.brand-icon){display:none}.brand{padding:0 7px}.actions b{font-size:11.5px}}
+@media(max-height:500px) and (orientation:landscape){.controls{max-width:520px}.actions>button{min-height:54px}#joystick{width:84px;height:84px;bottom:calc(var(--safe-bottom) + 84px)}#chat-open{bottom:calc(var(--safe-bottom) + 84px)}#dress{bottom:calc(var(--safe-bottom) + 84px);right:80px}.room-badge{top:var(--safe-top);right:auto;left:50%;transform:translateX(-50%)}#social-row{top:calc(var(--safe-top) + 98px)}.scene-hint{display:none}}
+body.sleeping .room-badge{opacity:0}
