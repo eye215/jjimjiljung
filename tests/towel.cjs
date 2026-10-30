@@ -35,6 +35,17 @@ const memory = (seed = {}) => { const data = { ...seed }; return { getItem: k =>
   assert.equal(migrated.hasTowel && migrated.wear, true, 'Returning visitors keep their towel cap');
   assert.equal(migrated.top, '#bdcaa2', 'Returning visitors keep their colours');
   assert(legacy.data['jjimjiljung-outfit-v2'], 'Migration is saved');
+  // My towel collection: made or received towels are kept, a swapped-away one leaves.
+  let mineList = O.addTowel(O.randomOutfit(O.seeded(3)), '#111111');
+  mineList = O.addTowel(mineList, '#222222');
+  assert.deepEqual(mineList.towels, ['#111111', '#222222']); assert.equal(mineList.towel, '#222222');
+  assert.equal(O.pickTowel(mineList, () => 0), '#111111', 'Re-dye prefers another towel I own');
+  mineList = O.addTowel(O.removeTowel(mineList, '#222222'), '#333333');
+  assert.deepEqual(mineList.towels, ['#111111', '#333333'], 'A swapped towel leaves my list');
+  const plain = O.randomOutfit(); assert.equal(O.pickTowel(plain), plain.towel, 'No towels, nothing to pick');
+  let many = O.randomOutfit(); for (let i = 0; i < 30; i++) many = O.addTowel(many, '#0000' + String(i).padStart(2, '0'));
+  assert.equal(many.towels.length, O.MAX_TOWELS, 'The collection is capped');
+  assert.deepEqual(O.loadOutfit(legacy).towels, ['#b7c89a'], 'A migrated cap is in the collection');
   // Tops, bottoms and towels are drawn independently, across the whole colour wheel.
   const rnd = O.seeded(99), hues = { green: 0, total: 0 }, seen = new Set();
   for (let i = 0; i < 3000; i++) {
@@ -58,6 +69,7 @@ const memory = (seed = {}) => { const data = { ...seed }; return { getItem: k =>
 window.__tw = {
   outfit: () => ({ ...outfit }), status: () => social.status, remotes: () => [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, outfit: r.outfit, x: r.character.root.position.x, z: r.character.root.position.z })),
   pickAt: (x, y) => { const b = viewport.getBoundingClientRect(); raycaster.setFromCamera(new THREE.Vector2((x - b.left) / b.width * 2 - 1, -(y - b.top) / b.height * 2 + 1), camera); return social.pick(raycaster)?.name || null; },
+  give: color => applyOutfit(addTowel(outfit, color)),
   tp: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); },
   near: () => Math.hypot(hero.position.x - TOWEL_SPOT.x, hero.position.z - TOWEL_SPOT.z),
   screenOf: name => { const r = [...social.remotes.values()].find(r => r.name === name); const v = r.character.root.position.clone(); v.y = .55; v.project(camera); const b = viewport.getBoundingClientRect(); return { x: b.left + (v.x + 1) / 2 * b.width, y: b.top + (1 - v.y) / 2 * b.height }; }
@@ -106,9 +118,9 @@ window.__tw = {
     // A second visitor (same browser storage, so it starts with the same towel; re-dye it).
     await a.evaluate(() => localStorage.setItem('jjimjiljung-nickname', '율무'));
     const b = await open('율무');
-    await b.locator('#outfit-random').click();
+    assert.deepEqual((await b.evaluate(() => window.__tw.outfit())).towels, [mine.towel], 'Shares the made towel through storage');
+    await b.evaluate(() => window.__tw.give('#7ab8e8'));
     const theirs = await b.evaluate(() => window.__tw.outfit());
-    assert.notEqual(theirs.towel, mine.towel, 'Re-dye changes the towel too');
     await a.evaluate(() => window.__tw.tp(0, 3)); await b.evaluate(() => window.__tw.tp(-1.4, 3.3));
     await a.waitForFunction(code => window.__tw.remotes().some(r => r.name === '율무' && r.placed && r.outfit === code), await b.locator('#viewport').getAttribute('data-outfit'));
     await a.waitForFunction(() => window.__tw.remotes().some(r => r.name === '율무' && Math.hypot(r.x + 1.4, r.z - 3.3) < .05));
@@ -127,6 +139,8 @@ window.__tw = {
     await b.locator('#trade-card [data-accept]').click();
     await a.waitForFunction(towel => window.__tw.outfit().towel === towel, theirs.towel, { timeout: 30000 });
     assert.equal((await b.evaluate(() => window.__tw.outfit())).towel, mine.towel, 'Towels are swapped both ways');
+    assert.deepEqual((await a.evaluate(() => window.__tw.outfit())).towels, [theirs.towel], 'The towel I gave away left my list');
+    assert.deepEqual((await b.evaluate(() => window.__tw.outfit())).towels, [mine.towel, mine.towel], 'Their given towel left their list (two of the same colour are two towels)');
     // "똑같이 만들어 주기": they play the towel game with their colour and gift me a copy.
     const giver = await b.evaluate(() => window.__tw.outfit());
     await a.bringToFront(); await a.mouse.click(spot.x, spot.y);
@@ -144,6 +158,13 @@ window.__tw = {
     await b.locator('#towel-finish').click();
     await a.waitForFunction(towel => window.__tw.outfit().towel === towel, giver.towel, { timeout: 30000 });
     assert.equal((await b.evaluate(() => window.__tw.outfit())).towel, giver.towel, 'The giver keeps their own towel');
+    assert.deepEqual((await a.evaluate(() => window.__tw.outfit())).towels, [theirs.towel, giver.towel], 'A gift joins my list');
+    // The outfit button only ever picks towels I own.
+    for (let i = 0; i < 4; i++) {
+      await a.locator('#outfit-random').click();
+      const now = await a.evaluate(() => window.__tw.outfit());
+      assert(now.towels.includes(now.towel), 'Re-dye picks one of my towels');
+    }
     // A declined offer changes nothing.
     mine = await a.evaluate(() => window.__tw.outfit());
     await a.bringToFront(); await a.mouse.click(spot.x, spot.y);
@@ -153,6 +174,6 @@ window.__tw = {
     await a.waitForFunction(() => /괜찮대요/.test(document.querySelector('#toast span').textContent), null, { timeout: 30000 });
     assert.equal((await a.evaluate(() => window.__tw.outfit())).towel, mine.towel);
     assert.deepEqual(errors, [], 'No JS errors');
-    console.log('PASS: outfit codes and migration, independent random parts without a green bias, towel-shelf pointer, fold/roll/finish game, cap toggle, tap a visitor, towel swap accept, copy-as-gift and decline.');
+    console.log('PASS: outfit codes and migration, independent random parts without a green bias, towel-shelf pointer, fold/roll/finish game, cap toggle, tap a visitor, towel collection (swap removes, gift adds, re-dye picks only owned towels), swap accept, copy-as-gift and decline.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

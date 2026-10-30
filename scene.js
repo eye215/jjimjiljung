@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { planPath, stepMovement } from './navigation.js?v=rpg-8';
 import { createCharacterKit, mesh } from './character.js?v=rpg-8';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit } from './outfit.js?v=rpg-8';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-8';
 import { createTowelGame } from './towel.js?v=rpg-8';
 import { buildWorld } from './environment.js?v=rpg-8';
 import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, roomAt } from './world.js?v=rpg-8';
@@ -242,7 +242,7 @@ function applyOutfit(next) {
 }
 outfitButton.addEventListener('click', () => {
   const before = { ...outfit };
-  applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom'), towel: outfit.hasTowel ? randomPart('towel') : outfit.towel });
+  applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom'), towel: pickTowel(outfit) });
   if (action !== 'lie') player.celebrate();
   toast('✨ 새 옷으로 갈아입었어요', '되돌리기', () => applyOutfit(before));
 });
@@ -258,7 +258,7 @@ let openTowelOnArrival = false;
 const towelGame = createTowelGame({
   onOpen: () => { setAction('stand'); if (nearTowels()) facing = TOWEL_SPOT.facing; keys.clear(); },
   onDone: (color, wear) => {
-    applyOutfit({ ...outfit, towel: color, hasTowel: true, wear });
+    applyOutfit({ ...addTowel(outfit, color), wear });
     player.celebrate(); toast(wear ? '🐑 양머리 완성! 잘 어울려요' : '🐑 양머리 완성! 옷 버튼 위 🐑로 언제든 써요');
     status.textContent = '폭신한 양머리가 생겼어요.';
   }
@@ -588,7 +588,7 @@ personCard.querySelector('[data-trade]').addEventListener('click', event => {
   if (blocked === 'mine') { closePerson(); toast('먼저 매점 수건 선반에서 양머리를 만들어요 🐑', '가기', goToTowel); return; }
   if (blocked === 'theirs') { toast(`${remote.name}님은 아직 양머리 수건이 없어요`); return; }
   const tid = Math.random().toString(36).slice(2, 10);
-  outgoing = { to: remote.id, name: remote.name, tid, timer: setTimeout(() => { social.sendTrade(remote.id, 'cancel', null, tid); outgoing = null; toast(`${remote.name}님이 응답이 없어요`); }, 30000) };
+  outgoing = { to: remote.id, name: remote.name, tid, towel: outfit.towel, timer: setTimeout(() => { social.sendTrade(remote.id, 'cancel', null, tid); outgoing = null; toast(`${remote.name}님이 응답이 없어요`); }, 30000) };
   social.sendTrade(remote.id, 'offer', outfit.towel, tid); closePerson();
   toast(`${remote.name}님에게 수건을 바꾸자고 했어요`);
 });
@@ -608,16 +608,16 @@ function onTrade({ type, from, name, towel, tid }) {
     clearTimeout(outgoing.timer);
     // They are making a copy for me: wait longer for the finished towel.
     if (type === 'making') { outgoing.timer = setTimeout(() => { outgoing = null; toast(`${name}님이 응답이 없어요`); }, 120000); toast(`${name}님이 똑같은 양머리를 만들어 주는 중이에요 🧶`); return; }
-    outgoing = null;
-    if (type === 'gift') { applyOutfit({ ...outfit, towel, hasTowel: true, wear: true }); if (action !== 'lie') player.celebrate(); toast(`${name}님이 똑같은 양머리를 만들어 줬어요! 🎁`); }
-    else if (type === 'accept') { applyOutfit({ ...outfit, towel, hasTowel: true }); if (action !== 'lie') player.celebrate(); toast(`${name}님과 수건을 바꿨어요! 🐑`); }
+    const given = outgoing.towel; outgoing = null;
+    if (type === 'gift') { applyOutfit({ ...addTowel(outfit, towel), wear: true }); if (action !== 'lie') player.celebrate(); toast(`${name}님이 똑같은 양머리를 만들어 줬어요! 🎁`); }
+    else if (type === 'accept') { applyOutfit(addTowel(removeTowel(outfit, given), towel)); if (action !== 'lie') player.celebrate(); toast(`${name}님과 수건을 바꿨어요! 🐑`); }
     else toast(`${name}님이 지금은 괜찮대요`);
   }
 }
 tradeCard.querySelector('[data-accept]').addEventListener('click', () => {
   if (!incoming) return; const { from, name, towel, tid } = incoming;
-  social.sendTrade(from, 'accept', outfit.towel, tid); closeTrade();
-  applyOutfit({ ...outfit, towel, hasTowel: true }); if (action !== 'lie') player.celebrate(); toast(`${name}님과 수건을 바꿨어요! 🐑`);
+  const given = outfit.towel; social.sendTrade(from, 'accept', given, tid); closeTrade();
+  applyOutfit(addTowel(removeTowel(outfit, given), towel)); if (action !== 'lie') player.celebrate(); toast(`${name}님과 수건을 바꿨어요! 🐑`);
 });
 tradeCard.querySelector('[data-copy]').addEventListener('click', () => {
   if (!incoming) return; const { from, name, tid } = incoming;

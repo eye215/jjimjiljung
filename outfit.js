@@ -23,7 +23,28 @@ export function randomPart(part, rnd = Math.random) {
   return hex(HUES[Math.floor(rnd() * HUES.length)] + (rnd() - .5) * 12, s0 + rnd() * (s1 - s0), l0 + rnd() * (l1 - l0));
 }
 export function randomOutfit(rnd = Math.random, extra = {}) {
-  return { top: randomPart('top', rnd), bottom: randomPart('bottom', rnd), towel: randomPart('towel', rnd), hasTowel: false, wear: false, ...extra };
+  return { top: randomPart('top', rnd), bottom: randomPart('bottom', rnd), towel: randomPart('towel', rnd), hasTowel: false, wear: false, towels: [], ...extra };
+}
+// ---------- My towel collection ----------
+// Towels I made or received; the one I wear is always in it. A towel given
+// away in a swap leaves it. The oldest drop out past MAX_TOWELS.
+export const MAX_TOWELS = 24;
+const HEX = /^#[0-9a-f]{6}$/;
+export function addTowel(outfit, color) {
+  const towels = [...outfit.towels, color].slice(-MAX_TOWELS);
+  return { ...outfit, towels, towel: color, hasTowel: true };
+}
+export function removeTowel(outfit, color) {
+  const towels = [...outfit.towels], at = towels.lastIndexOf(color);
+  if (at >= 0) towels.splice(at, 1);
+  return { ...outfit, towels };
+}
+// The re-dye button picks one of my own towels, preferring a different one.
+export function pickTowel(outfit, rnd = Math.random) {
+  if (!outfit.hasTowel || !outfit.towels.length) return outfit.towel;
+  const others = outfit.towels.filter(color => color !== outfit.towel);
+  const pool = others.length ? others : outfit.towels;
+  return pool[Math.floor(rnd() * pool.length)];
 }
 // A deterministic generator for residents, so they look the same every visit.
 export function seeded(seed) {
@@ -58,9 +79,13 @@ const valid = o => o && /^#[0-9a-f]{6}$/.test(o.top) && /^#[0-9a-f]{6}$/.test(o.
 export function loadOutfit(storage = globalThis.localStorage) {
   try {
     const saved = JSON.parse(storage.getItem(KEY) || 'null');
-    if (valid(saved)) return { top: saved.top, bottom: saved.bottom, towel: saved.towel, hasTowel: !!saved.hasTowel, wear: !!saved.hasTowel && saved.wear !== false };
+    if (valid(saved)) {
+      const towels = Array.isArray(saved.towels) ? saved.towels.filter(color => HEX.test(color)).slice(-MAX_TOWELS) : [];
+      if (saved.hasTowel && !towels.includes(saved.towel)) towels.push(saved.towel);
+      return { top: saved.top, bottom: saved.bottom, towel: saved.towel, hasTowel: !!saved.hasTowel, wear: !!saved.hasTowel && saved.wear !== false, towels };
+    }
     const legacy = storage.getItem(LEGACY_KEY);
-    if (LEGACY[legacy]) { const outfit = decodeOutfit(legacy); saveOutfit(outfit, storage); return outfit; }
+    if (LEGACY[legacy]) { const outfit = decodeOutfit(legacy); outfit.towels = [outfit.towel]; saveOutfit(outfit, storage); return outfit; }
   } catch { /* storage may be unavailable */ }
   const outfit = randomOutfit(); saveOutfit(outfit, storage); return outfit;
 }
