@@ -1,17 +1,16 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 잠깐 쉬어 가는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><link rel="stylesheet" href="./style.css?v=play-4">
-<link rel="preload" as="image" href="./assets/sauna-room-v1.png">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><link rel="stylesheet" href="./style.css?v=rpg-1">
+<link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
-<header class="header"><a class="brand" href="./" aria-label="찜질중 처음으로"><span class="brand-icon">♨</span> 찜질중<span class="brand-dot"></span></a><span class="tagline">오늘은 조금 느리게</span><button id="places-open" class="quiet-button" aria-haspopup="dialog" aria-controls="places-dialog">둘러보기</button><button id="recenter" class="quiet-button" aria-label="내 캐릭터 위치로 화면 이동">내 위치</button><button id="sound" class="quiet-button" aria-pressed="false" aria-label="찜질방 소리 켜기">소리 꺼짐 <span>♪</span></button></header>
+<header class="header"><a class="brand" href="./" aria-label="찜질중 처음으로"><span class="brand-icon">♨</span> 찜질중<span class="brand-dot"></span></a><span class="tagline">오늘은 조금 느리게</span><button id="places-open" class="quiet-button" aria-haspopup="dialog" aria-controls="places-dialog">둘러보기</button><button id="recenter" class="quiet-button" aria-label="시점을 내 캐릭터 기준으로 되돌리기">내 위치</button><button id="sound" class="quiet-button" aria-pressed="false" aria-label="찜질방 소리 켜기">소리 꺼짐 <span>♪</span></button></header>
 <main>
 <section class="room" aria-label="따뜻한 3D 찜질방">
-<img id="backdrop" alt="소금방, 얼음방, 불가마와 목재 매점이 있는 따뜻한 찜질방" draggable="false">
-<div id="viewport" tabindex="0" role="application" aria-label="찜질방. 바닥을 누르거나 방향키로 걸어요. 좌우로 끌어 주변을 둘러보고 Home 키로 내 캐릭터를 찾아요."></div>
+<div id="viewport" tabindex="0" role="application" aria-label="3D 찜질방. 바닥을 누르거나 WASD·방향키로 걸어요. 화면을 끌면 시점이 돌아가고, 휠이나 두 손가락으로 확대해요. Home 키로 시점을 처음처럼 맞춰요."></div>
 <div id="destination-label" role="status" hidden></div>
-<div class="room-badge"><i></i> 휴게실 <span>따뜻한 쉼</span></div><div class="scene-hint" id="hint">바닥을 눌러 이동 · 좌우로 끌어 둘러보기</div>
+<div class="room-badge" aria-live="polite"><i></i> 중앙 휴게실 <span>모두 모이는 곳</span></div><div class="scene-hint" id="hint">바닥을 눌러 이동 · 끌어서 시점 회전</div>
 <div id="joystick" role="group" aria-label="이동 조이스틱"><span class="joystick-arrows" aria-hidden="true">＋</span><span id="joystick-knob" aria-hidden="true"></span><span class="joystick-caption">끌어서 이동</span></div>
 <div class="loading" id="loading" role="status"><div class="loading-mark">♨</div><h2>방을 따뜻하게 데우는 중</h2><p>포근한 쉼을 준비하고 있어요.</p></div>
 <div class="loading error" id="error" role="alert" hidden><div class="loading-mark">♨</div><h2>잠깐, 문이 잘 안 열리네요</h2><p id="error-message">3D 화면을 불러오지 못했어요. 다시 한 번 들어와 주세요.</p><button id="retry">다시 들어가기</button></div>
@@ -26,15 +25,16 @@
 </main><footer><span>몸도 마음도 말랑해지는 곳</span><span>잠시 쉬어가는 중 <i>✦</i></span></footer>
 <dialog id="places-dialog" aria-labelledby="places-title" aria-describedby="places-description">
 <div class="places-heading"><div><span class="places-eyebrow">작은 찜질방 산책</span><h2 id="places-title">어디로 가볼까요?</h2></div><button id="places-close" aria-label="둘러보기 닫기">×</button></div>
-<p id="places-description">가고 싶은 곳을 고르면 입구 앞까지 걸어가요.</p>
+<p id="places-description">가고 싶은 방을 고르면 문을 지나 안까지 걸어가요.</p>
 <div class="places-list">
-<button data-place="salt"><span aria-hidden="true">◇</span><b>소금방 앞</b><small>은은한 불빛 따라</small></button>
-<button data-place="ice"><span aria-hidden="true">❄</span><b>얼음방 앞</b><small>잠깐 시원한 기분</small></button>
-<button data-place="hot"><span aria-hidden="true">♨</span><b>불가마 앞</b><small>주황빛이 포근한 곳</small></button>
-<button data-place="shop"><span aria-hidden="true">🥤</span><b>매점 앞</b><small>간식 생각나는 시간</small></button>
-<button data-place="rest"><span aria-hidden="true">☾</span><b>휴식 자리</b><small>다시 편하게 쉬어요</small></button>
+<button data-place="hot"><span aria-hidden="true">♨</span><b>불가마</b><small>주황빛이 포근한 곳</small></button>
+<button data-place="salt"><span aria-hidden="true">◇</span><b>소금방</b><small>따끈한 소금에 눕기</small></button>
+<button data-place="shop"><span aria-hidden="true">🥚</span><b>매점</b><small>계란과 식혜</small></button>
+<button data-place="sleep"><span aria-hidden="true">☾</span><b>수면실</b><small>조용히 한숨 자기</small></button>
+<button data-place="ice"><span aria-hidden="true">❄</span><b>얼음방</b><small>잠깐 시원한 기분</small></button>
+<button data-place="lobby"><span aria-hidden="true">♧</span><b>중앙 휴게실</b><small>모두 모이는 곳</small></button>
 </div>
-<p class="places-footnote">방 안으로 입장하는 기능은 아직 준비 중이에요.</p>
+<p class="places-footnote">직접 걸어 다녀도 돼요. 문을 지나면 방 이름이 바뀌어요.</p>
 </dialog>
 <script>
 window.lockRoomControls = function(locked) { document.querySelectorAll('.header button,.controls button').forEach(button => button.disabled = locked); document.querySelector('#joystick').inert = locked; document.querySelector('#viewport').tabIndex = locked ? -1 : 0; };
@@ -42,5 +42,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=play-4').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-1').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>
