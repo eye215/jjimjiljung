@@ -69,6 +69,7 @@ const server = http.createServer((req, res) => {
       assert(controller.x + controller.width <= tray.x || controller.x >= tray.x + tray.width || controller.y + controller.height <= tray.y || controller.y >= tray.y + tray.height, 'Action tray never covers the joystick');
       for (const action of ['sit', 'lie', 'egg', 'drink', 'wave', 'stand']) {
         await page.locator(`[data-action="${action}"]`).click();
+        if (action === 'egg' || action === 'drink') await page.locator('#snack-menu [data-choice="eat"]').click();
         assert.equal(await page.locator(`[data-action="${action}"]`).getAttribute('aria-pressed'), 'true');
         // A snack layers on a pose (e.g. 앉기 + 계란), so at most two can be pressed.
         const pressed = await page.locator('.actions [aria-pressed="true"]').count();
@@ -200,6 +201,7 @@ const server = http.createServer((req, res) => {
     await page.screenshot({ path: path.join(output, 'mobile.png') });
     for (const action of ['sit', 'lie', 'egg', 'drink', 'wave']) {
       await page.locator(`[data-action="${action}"]`).click();
+      if (action === 'egg' || action === 'drink') await page.locator('#snack-menu [data-choice="eat"]').click();
       await page.waitForTimeout(1200);
       if (action === 'wave') {
         await page.waitForFunction(() => {
