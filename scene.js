@@ -1,17 +1,18 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-13';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-13';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-13';
-import { createTowelGame } from './towel.js?v=rpg-13';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-13';
-import { buildWorld } from './environment.js?v=rpg-13';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-13';
-import { createTvAds } from './ads.js?v=rpg-13';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-13';
-import { createSocial } from './social.js?v=rpg-13';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-13';
-import { createShop } from './shop.js?v=rpg-13';
-import { createInvite } from './invite.js?v=rpg-13';
+import { planPath, stepMovement } from './navigation.js?v=rpg-17';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-17';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-17';
+import { createTowelGame } from './towel.js?v=rpg-17';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-17';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-17';
+import { buildWorld } from './environment.js?v=rpg-17';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-17';
+import { createTvAds } from './ads.js?v=rpg-17';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-17';
+import { createSocial } from './social.js?v=rpg-17';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-17';
+import { createShop } from './shop.js?v=rpg-17';
+import { createInvite } from './invite.js?v=rpg-17';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -104,9 +105,9 @@ const messages = { stand: '어서 와요, 푹 쉬다 가요.', sit: '따끈따�
 const wallet = createWallet();
 const toastBox = document.querySelector('#toast'), toastText = toastBox.querySelector('span'), toastButton = toastBox.querySelector('button');
 let toastTimer2 = 0, toastAction = null;
-function toast(text, label = '', onClick = null) {
+function toast(text, label = '', onClick = null, ms = 0) {
   toastText.textContent = text; toastButton.hidden = !label; toastButton.textContent = label; toastAction = onClick;
-  toastBox.hidden = false; clearTimeout(toastTimer2); toastTimer2 = setTimeout(() => { toastBox.hidden = true; }, label ? 5000 : 2600);
+  toastBox.hidden = false; clearTimeout(toastTimer2); toastTimer2 = setTimeout(() => { toastBox.hidden = true; }, ms || (label ? 5000 : 2600));
 }
 toastButton.addEventListener('click', () => { toastBox.hidden = true; toastAction?.(); });
 let tvReady = false;
@@ -219,7 +220,7 @@ function setAction(next) {
 }
 actionButtons.forEach(button => button.addEventListener('click', () => {
   const kind = button.dataset.action;
-  if (kind === 'egg' || kind === 'drink') { if (player.snack?.kind !== kind && !shop.playing) shop.choose(kind, button); } else { shop.closeMenu(); setAction(kind); }
+  if (kind === 'egg' || kind === 'drink') { if (player.snack?.kind !== kind && !shop.playing) shop.choose(kind); } else if (kind === 'wave') startGreet(); else setAction(kind);
 }));
 // ---------- Snacks: eaten in the current pose (sitting or standing) ----------
 function interruptSnack() { if (player.snack) { player.stopSnack(); snackSig = ''; } }
@@ -428,13 +429,15 @@ document.addEventListener('keyup', e => { const direction = MOVE_KEYS[e.code] ||
 
 new ResizeObserver(resize).observe(viewport); resize();
 
+// Speaker icons (Lucide, ISC) for the sound toggle.
+const SOUND_ON = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" /> <path d="M16 9a5 5 0 0 1 0 6" /> <path d="M19.364 18.364a9 9 0 0 0 0-12.728" /></svg>', SOUND_OFF = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4.702a.7.7 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.7.7 0 0 0 11 19.298z" /> <path d="m16.5 14.5 5-5" /> <path d="m16.5 9.5 5 5" /></svg>';
 // Optional synthesized room ambience. Audio is only created after an explicit tap.
 let audioContext, source, audioGain, audioEnabled = false;
 document.querySelector('#sound').addEventListener('click', async () => {
   const button = document.querySelector('#sound');
   try {
     if (!audioContext) { const Audio = window.AudioContext || window.webkitAudioContext; if (!Audio) throw Error('Audio unavailable'); audioContext = new Audio(); const buffer = audioContext.createBuffer(1, audioContext.sampleRate * 3, audioContext.sampleRate); const data = buffer.getChannelData(0); let v = 0; for (let i = 0; i < data.length; i++) { v = (v + (Math.random() * 2 - 1) * .015) / 1.015; data[i] = v * 2; } source = audioContext.createBufferSource(); source.buffer = buffer; source.loop = true; const filter = audioContext.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 450; audioGain = audioContext.createGain(); audioGain.gain.value = 0; source.connect(filter).connect(audioGain).connect(audioContext.destination); source.start(); }
-    await audioContext.resume(); audioEnabled = !audioEnabled; audioGain.gain.setTargetAtTime(audioEnabled ? .3 : 0, audioContext.currentTime, .25); button.setAttribute('aria-pressed', String(audioEnabled)); button.setAttribute('aria-label', audioEnabled ? '찜질방 소리 끄기' : '찜질방 소리 켜기'); button.innerHTML = (audioEnabled ? '소리 켜짐' : '소리 꺼짐') + ' <span>♪</span>';
+    await audioContext.resume(); audioEnabled = !audioEnabled; audioGain.gain.setTargetAtTime(audioEnabled ? .3 : 0, audioContext.currentTime, .25); button.setAttribute('aria-pressed', String(audioEnabled)); button.setAttribute('aria-label', audioEnabled ? '찜질방 소리 끄기' : '찜질방 소리 켜기'); button.innerHTML = (audioEnabled ? SOUND_ON : SOUND_OFF) + `<span class="label">${audioEnabled ? '소리 켜짐' : '소리 꺼짐'}</span>`;
   } catch { status.textContent = '이 브라우저에서는 소리를 켤 수 없어요. 조용히 쉬어 가요.'; }
 });
 
@@ -600,7 +603,8 @@ document.querySelector('#chat-input').addEventListener('focus', () => { keys.cle
 social = createSocial({
   scene, camera, kit, viewport, actorScale: ACTOR_SCALE, makeShadow: contactShadow,
   getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
-  onTrade: payload => onTrade(payload)
+  onTrade: payload => onTrade(payload),
+  onGreet: payload => onGreet(payload)
 });
 // ---------- Tapping a visitor: wave, or offer to swap sheep-cap towels ----------
 const personCard = document.querySelector('#person-card'), tradeCard = document.querySelector('#trade-card');
@@ -618,8 +622,7 @@ function openPerson(remote) {
 function closePerson() { personCard.hidden = true; personId = null; }
 personCard.querySelector('[data-close]').addEventListener('click', closePerson);
 personCard.querySelector('[data-wave]').addEventListener('click', () => {
-  const remote = social.remotes.get(personId); closePerson(); if (!remote) return;
-  setAction('wave'); const p = remote.character.root.position; facing = Math.atan2(p.x - hero.position.x, p.z - hero.position.z);
+  const remote = social.remotes.get(personId); closePerson(); if (remote) greet(remote);
 });
 personCard.querySelector('[data-trade]').addEventListener('click', event => {
   const remote = social.remotes.get(personId), blocked = event.currentTarget.dataset.blocked; if (!remote) return;
@@ -664,6 +667,51 @@ tradeCard.querySelector('[data-copy]').addEventListener('click', () => {
 });
 tradeCard.querySelector('[data-decline]').addEventListener('click', () => { if (incoming) social.sendTrade(incoming.from, 'decline', null, incoming.tid); closeTrade(); });
 // Newcomers without a sheep cap get one gentle pointer to the towel shelf.
+// ---------- 인사: pick someone nearby, wave, and they can high-five back ----------
+const greetLog = createGreetLog();
+let picking = null, greetIn = null;
+const greetPoint = new THREE.Vector3();
+function screenOf(p) { greetPoint.set(p.x, 1.35, p.z).project(camera); return { x: (greetPoint.x + 1) / 2 * viewport.clientWidth, y: (1 - greetPoint.y) / 2 * viewport.clientHeight }; }
+// A 👋 (or 💖) flies between two visitors; everyone sees the waving itself through the shared pose.
+function fly(from, to, emoji) {
+  const a = screenOf(from), b = screenOf(to), el = document.createElement('span');
+  el.className = 'greet-fly'; el.textContent = emoji; document.querySelector('#labels').append(el);
+  el.animate([{ transform: `translate(${a.x}px,${a.y}px) scale(.6)`, opacity: 0 }, { transform: `translate(${(a.x + b.x) / 2}px,${Math.min(a.y, b.y) - 60}px) scale(1.25)`, opacity: 1, offset: .5 }, { transform: `translate(${b.x}px,${b.y}px) scale(.9)`, opacity: 0 }], { duration: reducedMotion ? 1 : 900, easing: 'ease-in-out' }).onfinish = () => el.remove();
+}
+const faceTo = p => { facing = Math.atan2(p.x - hero.position.x, p.z - hero.position.z); };
+function clearPick() { if (!picking) return; picking.buttons.forEach(b => b.remove()); clearTimeout(picking.timer); picking = null; }
+function greet(remote) {
+  clearPick(); setAction('wave'); faceTo(remote.character.root.position);
+  const wait = greetLog.wait(remote.id);
+  if (wait) { toast(`${remote.name}님에게는 ${Math.ceil(wait / 1000)}초 뒤에 다시 인사할 수 있어요`); return; }
+  greetLog.sent(remote.id); social.sendGreet(remote.id, 'hello', Math.random().toString(36).slice(2, 10));
+  fly(hero.position, remote.character.root.position, '👋'); status.textContent = `${remote.name}님에게 인사했어요 👋`;
+}
+// 인사 button: one person nearby → greet them; several → tap the 👋 over a name; nobody → just wave.
+function startGreet() {
+  const near = social ? greetTargets(social.remotes, hero.position, currentRoom.id) : [];
+  if (near.length === 1) { greet(near[0]); return; }
+  setAction('wave'); clearPick(); if (!near.length) return;
+  picking = { timer: setTimeout(clearPick, 8000), buttons: near.map(remote => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'greet-pick'; b.textContent = '👋'; b.setAttribute('aria-label', `${remote.name}님에게 인사`);
+    b.addEventListener('click', event => { event.stopPropagation(); greet(remote); }); remote.label.prepend(b); return b;
+  }) };
+  toast('누구에게 인사할까요? 이름 위 👋를 눌러요');
+}
+function highFive(remote) {
+  setAction('wave'); faceTo(remote.character.root.position); player.celebrate(); fly(hero.position, remote.character.root.position, '💖');
+  const got = greetLog.reward(remote.id) ? wallet.earn(1) : 0;
+  toast(`${remote.name}님과 하이파이브! 🙌${got ? ` 온기 +${got}♨` : ''}`);
+}
+function onGreet({ type, from, name, gid }) {
+  const remote = social.remotes.get(from); if (!remote) return;
+  if (type === 'accept') { highFive(remote); return; }
+  // Unanswered greetings quietly disappear after 10 s; nothing marks them as ignored.
+  fly(remote.character.root.position, hero.position, '👋');
+  greetIn = { from, gid }; setTimeout(() => { if (greetIn?.gid === gid) greetIn = null; }, GREET_EXPIRE);
+  toast(`${name}님이 인사했어요`, '👋 받아주기', () => { if (greetIn?.gid !== gid) return; greetIn = null; social.sendGreet(from, 'accept', gid); highFive(remote); }, GREET_EXPIRE);
+}
+
 const towelNudge = document.querySelector('#towel-nudge');
 towelNudge.querySelector('button').addEventListener('click', () => { towelNudge.hidden = true; goToTowel(); });
 if (!outfit.hasTowel) {

@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-13';
-import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-13';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-13';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-13';
+import { connect } from './net.js?v=rpg-17';
+import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-17';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-17';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-17';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -14,7 +14,7 @@ const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toS
 
 const dress = (character, code) => { const outfit = decodeOutfit(code) || decodeOutfit('peach'); character.setColors(outfitColors(outfit)); character.setTowel(capOn(outfit)); };
 
-export function createSocial({ scene, camera, kit, viewport, getLocal, makeShadow, actorScale, onLocalBubble, onTrade }) {
+export function createSocial({ scene, camera, kit, viewport, getLocal, makeShadow, actorScale, onLocalBubble, onTrade, onGreet }) {
   const id = newId();
   const ui = {
     online: $('#online'), onlineText: $('#online-text'), chat: $('#chat'), log: $('#chat-log'), form: $('#chat-form'), input: $('#chat-input'),
@@ -89,7 +89,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     remote.target.z = THREE.MathUtils.clamp(finite(payload.z), NAV_BOUNDS.minZ, NAV_BOUNDS.maxZ);
     remote.target.f = finite(payload.f);
     remote.action = ACTIONS.includes(payload.a) ? payload.a : 'stand';
-    remote.walking = payload.w === true;
+    remote.walking = payload.w === true; remote.room = typeof payload.r === 'string' ? payload.r.slice(0, 12) : remote.room;
     // Snack signature `kind:style:serial` restarts the eating animation once.
     const snack = typeof payload.s === 'string' ? payload.s.slice(0, 40) : '';
     if (snack !== remote.snack) {
@@ -207,12 +207,17 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     if (['offer', 'accept', 'gift'].includes(payload.type) && !towel) return;
     onTrade?.({ type: payload.type, from: payload.from, name: remotes.get(payload.from).name, towel, tid: String(payload.tid || '').slice(0, 40) });
   }
+  function readGreet(payload) {
+    if (!payload || payload.to !== id || typeof payload.from !== 'string' || !remotes.has(payload.from)) return;
+    if (!['hello', 'accept'].includes(payload.type)) return;
+    onGreet?.({ type: payload.type, from: payload.from, name: remotes.get(payload.from).name, gid: String(payload.gid || '').slice(0, 40) });
+  }
   const pickHits = [];
   function presencePayload() { return { id, name: nickname, outfit: getLocal().outfit }; }
   async function start() {
     status = 'connecting'; renderStatus();
     try {
-      link = await connect({ id, presence: presencePayload(), onPresence, onStatus: next => { status = next; renderStatus(); if (next === 'online') lastSent = 0; }, onMessage: (event, payload) => event === 'state' ? onState(payload) : event === 'chat' ? onChat(payload) : event === 'trade' ? readTrade(payload) : null });
+      link = await connect({ id, presence: presencePayload(), onPresence, onStatus: next => { status = next; renderStatus(); if (next === 'online') lastSent = 0; }, onMessage: (event, payload) => event === 'state' ? onState(payload) : event === 'chat' ? onChat(payload) : event === 'trade' ? readTrade(payload) : event === 'greet' ? readGreet(payload) : null });
       selfLabel.hidden = false;
       if (!ui.log.children.length) system(`${nickname}님, 찜질방에 오신 걸 환영해요!`);
     } catch { status = 'offline'; renderStatus(); }
@@ -242,6 +247,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
       }
       return best;
     },
+    sendGreet(to, type, gid) { if (link && status === 'online') link.send('greet', { from: id, to, type, gid }); },
     sendTrade(to, type, towel = null, tid = '') { if (link && status === 'online') link.send('trade', { from: id, to, type, towel, tid }); },
     outfitChanged() { if (link && status === 'online') { link.track(presencePayload()); lastSent = 0; } },
     update(dt, reducedMotion) {

@@ -69,11 +69,20 @@ const server = http.createServer((req, res) => {
     await b.waitForFunction(() => { const r = window.__mp.state().remotes[0]; return Math.hypot(r.x + 3, r.z - 1.5) < .1 && r.action === 'sit'; }, null, { timeout: 60000 });
     // Eating while sitting is visible to others.
     await a.locator('[data-action="egg"]').click();
-    await a.locator('#snack-menu [data-choice="eat"]').click();
+    await a.locator('#game [data-tap]').click();
     await b.waitForFunction(() => { const r = window.__mp.state().remotes[0]; return r.snack === 'egg' && r.action === 'sit'; }, null, { timeout: 60000 });
+    await a.locator('#game [data-game-close]').click();
     await a.locator('#outfit-random').click();
     const dyed = await a.locator('#viewport').getAttribute('data-outfit');
     await b.waitForFunction(code => window.__mp.state().remotes[0].outfit === code, dyed, { timeout: 30000 });
+    // 2b. 인사: the only visitor nearby is greeted at once; they high-five back.
+    await a.locator('[data-action="wave"]').click();
+    await b.waitForFunction(() => /보리님이 인사했어요/.test(document.querySelector('#toast span').textContent), null, { timeout: 30000 });
+    await b.locator('#toast button').click();
+    await a.waitForFunction(() => /율무님과 하이파이브/.test(document.querySelector('#toast span').textContent), null, { timeout: 30000 });
+    assert.match(await a.locator('#toast span').textContent(), /온기 \+1/, 'First greeting with a partner today gives 온기');
+    await a.locator('[data-action="wave"]').click();
+    assert.match(await a.locator('#toast span').textContent(), /초 뒤에 다시 인사/, 'Same person: 30-second cooldown');
     // 3. Chat travels both ways, with a speech bubble over the sender.
     await a.locator('#chat-open').click();
     assert.equal(await a.locator('#chat').isVisible(), true);
@@ -112,6 +121,6 @@ const server = http.createServer((req, res) => {
     assert.match(await a.locator('#online-text').textContent(), /1명 접속 중/);
     assert(await a.locator('#chat-log li.system', { hasText: '율무님이 나갔어요' }).count() >= 1, 'Leave notice appears');
     assert.deepEqual(errors, [], 'No JS errors');
-    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, chat both ways with bubbles and unread badge, rate limit, profanity masking, length cap, typing does not walk, leave handling.');
+    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, greeting with auto target, high-five, 온기 and cooldown, chat both ways with bubbles and unread badge, rate limit, profanity masking, length cap, typing does not walk, leave handling.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

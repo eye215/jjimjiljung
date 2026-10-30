@@ -39,7 +39,8 @@ const server = http.createServer((req, res) => {
     await page.locator('#join-enter').click();
     assert.equal(await page.locator('#invite').isVisible(), true, 'Invite button is visible');
     const [invite, online] = await Promise.all([page.locator('#invite').boundingBox(), page.locator('.room-badge').boundingBox()]);
-    assert(invite.x + invite.width <= online.x || invite.y + invite.height <= online.y, 'Invite button does not cover the room badge');
+    const apart = invite.x + invite.width <= online.x || online.x + online.width <= invite.x || invite.y + invite.height <= online.y || online.y + online.height <= invite.y;
+    assert(apart, 'Invite button does not cover the room badge');
     await page.locator('#invite').click();
     await page.waitForFunction(() => window.__kakaoShared);
     const shared = await page.evaluate(() => ({ message: window.__kakaoShared, key: window.Kakao._init }));
