@@ -55,7 +55,7 @@ scene.add(sun, sun.target);
 
 // The plush GLB (2.5 MB) loads behind the loading screen; without it the
 // built-in character is used so the room always opens.
-const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap', 'shoulder', 'pillow'])]);
+const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap', 'shoulder', 'pillow', 'hair'])]);
 const kit = createCharacterKit(renderer, plushModel, towelProps);
 const world = buildWorld({ scene, kit });
 const sleep = createSleepMode({ scene, canvasTexture: kit.canvasTexture });

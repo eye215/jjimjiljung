@@ -8,6 +8,7 @@ import { GLTFLoader } from './vendor/three-addons/GLTFLoader.js';
 const ROOT = new URL('./assets/', import.meta.url).href;
 export const TOWEL_FILES = {
   cap: 'meshy-model-mobile.glb',
+  hair: 'hair-mobile.glb',
   shoulder: 'towels/shoulder-towel-mobile4.glb',
   pillow: 'towels/pillow-towel-mobile.glb',
   mat: 'towels/mat-towel-mobile.glb',

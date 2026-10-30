@@ -87,6 +87,7 @@ const CLIP_LIFT = { Walking: .013, Running: .005, Sit_Cross_Legged_on_Floor: .10
 const PLUSH_SCALE = 1 / .62;
 // Towel prop fits on the plush (model metres): sheep cap on the head, shoulder
 // towel around the neck, pillow under the sleeping head. Tuned in design QA.
+const HAIR_FIT = { length: .82, y: .99, z: .0, underCap: .86 };
 const CAP_FIT = { length: 1.22, y: 1.1, z: .01, tall: 1.24 };
 const SHOULDER_FIT = { length: .44, y: .45, z: .02, depth: 1.45 };
 const PILLOW_FIT = { length: .56, z: -.6 };
@@ -102,7 +103,6 @@ export async function loadPlushModel(url = PLUSH_URL) {
       const v = track.values, x0 = v[0], z0 = v[2];
       for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; }
     }
-    trimHair(skinned);
     return gltf;
   } catch (error) { console.warn('Plush model unavailable, using the built-in character.', error); return null; }
 }
@@ -143,7 +143,39 @@ function trimHair(skinned) {
   pos.needsUpdate = true; geometry.computeBoundingBox(); geometry.computeBoundingSphere();
 }
 
+// With the separate short-hair GLB, the baked bob is instead folded flat onto a
+// skull-shaped ellipsoid so the new hair can sit over it without anything poking out.
+const SKULL = { center: [0, .93, -.02], radii: [.31, .35, .3] };
+function hairTexels(skinned) {
+  const image = skinned.material.map?.image; if (!image) return null;
+  const c = document.createElement('canvas'); c.width = image.width; c.height = image.height;
+  const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(image, 0, 0);
+  const px = ctx.getImageData(0, 0, c.width, c.height).data, uv = skinned.geometry.attributes.uv;
+  return i => { const u = Math.min(c.width - 1, Math.floor(uv.getX(i) * c.width)), v = Math.min(c.height - 1, Math.floor(uv.getY(i) * c.height)), k = (v * c.width + u) * 4; return [px[k], px[k + 1], px[k + 2]]; };
+}
+function tuckHair(skinned) {
+  const texel = hairTexels(skinned); if (!texel) return;
+  const pos = skinned.geometry.attributes.position, [cx, cy, cz] = SKULL.center, [rx, ry, rz] = SKULL.radii;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    if (y < .5) continue;
+    const [r, g, b] = texel(i), hi = Math.max(r, g, b), lo = Math.min(r, g, b);
+    // Skin (peach), cloth (light gray) and the eyes on the face front stay as they are.
+    if ((r > 150 && r - b > 30 && r >= g) || (hi > 165 && hi - lo < 40) || (z > .22 && Math.abs(x) < .22 && y < .86)) continue;
+    const dx = x - cx, dy = y - cy, dz = z - cz, k = Math.hypot(dx / rx, dy / ry, dz / rz);
+    if (k > 1) pos.setXYZ(i, cx + dx / k, cy + dy / k, cz + dz / k);
+  }
+  pos.needsUpdate = true;
+}
+
 export function createCharacterKit(renderer, plushModel = null, towels = {}) {
+  // Shared plush geometry is edited once: short-hair GLB → tuck the bob; otherwise trim it.
+  if (plushModel && !plushModel.userData.hairDone) {
+    let skinned = null; plushModel.scene.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
+    if (towels.hair) tuckHair(skinned); else trimHair(skinned);
+    skinned.geometry.computeBoundingBox(); skinned.geometry.computeBoundingSphere(); plushModel.userData.hairDone = true;
+  }
+  const hairMaterial = towels.hair ? new THREE.MeshPhysicalMaterial({ map: towels.hair.map, roughness: .85, metalness: 0, side: THREE.DoubleSide, sheen: .5, sheenRoughness: .6, sheenColor: new THREE.Color('#a07a62') }) : null;
   function canvasTexture(draw, width = 512, height = 512) {
     const c = document.createElement('canvas'); c.width = width; c.height = height; draw(c.getContext('2d'), width, height);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy()); return t;
@@ -506,6 +538,13 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       boneObject.getWorldScale(v1); model.getWorldScale(v2); object.scale.multiplyScalar(v2.x / v1.x);
       boneObject.add(object); return object;
     }
+    // Short hair from its own GLB, following the head bone.
+    let hairMesh = null;
+    if (towels.hair) {
+      hairMesh = new THREE.Group(); const m = new THREE.Mesh(towels.hair.geometry, hairMaterial);
+      m.scale.setScalar(HAIR_FIT.length / Math.max(towels.hair.size.x, towels.hair.size.z)); m.castShadow = true; hairMesh.add(m);
+      attach(headBone, hairMesh, new THREE.Vector3(0, HAIR_FIT.y, HAIR_FIT.z)); hairMesh.userData.scale = hairMesh.scale.x;
+    }
     let cap;
     if (towels.cap) {
       const capMesh = towelMesh(towels.cap, { length: CAP_FIT.length, color: colors[3], centred: true });
@@ -553,7 +592,8 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       recolor(cap, next[3]); recolor(pillow, next[3]);
     };
     character.setShoulder = (on, color) => { if (!shoulder) return; shoulder.visible = !!on; if (color) recolor(shoulder, color); };
-    character.setTowel = on => { cap.visible = !!on; };
+    // Under the sheep cap the hair is drawn in a little so none of it pokes through.
+    character.setTowel = on => { cap.visible = !!on; hairMesh?.scale.setScalar(hairMesh.userData.scale * (on ? HAIR_FIT.underCap : 1)); };
     character.setExpression = next => {
       if (next === expression) return; expression = next;
       const texture = eyeTextures[next === 'chew' ? 'happy' : next];
