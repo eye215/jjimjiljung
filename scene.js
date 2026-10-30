@@ -1,17 +1,17 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-10';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-10';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-10';
-import { createTowelGame } from './towel.js?v=rpg-10';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-10';
-import { buildWorld } from './environment.js?v=rpg-10';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-10';
-import { createTvAds } from './ads.js?v=rpg-10';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-10';
-import { createSocial } from './social.js?v=rpg-10';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-10';
-import { createShop } from './shop.js?v=rpg-10';
-import { createInvite } from './invite.js?v=rpg-10';
+import { planPath, stepMovement } from './navigation.js?v=rpg-11';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-11';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-11';
+import { createTowelGame } from './towel.js?v=rpg-11';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-11';
+import { buildWorld } from './environment.js?v=rpg-11';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-11';
+import { createTvAds } from './ads.js?v=rpg-11';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-11';
+import { createSocial } from './social.js?v=rpg-11';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-11';
+import { createShop } from './shop.js?v=rpg-11';
+import { createInvite } from './invite.js?v=rpg-11';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -55,7 +55,7 @@ scene.add(sun, sun.target);
 
 // The plush GLB (2.5 MB) loads behind the loading screen; without it the
 // built-in character is used so the room always opens.
-const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap', 'pillow', 'hair'])]);
+const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap', 'hair'])]);
 const kit = createCharacterKit(renderer, plushModel, towelProps);
 const world = buildWorld({ scene, kit });
 const sleep = createSleepMode({ scene, canvasTexture: kit.canvasTexture });
@@ -214,6 +214,7 @@ function setAction(next) {
   if (next !== 'stand' && next !== 'lie') facing = next === 'sit' && nearTv() ? TV_SEAT.facing : view.yaw;
   // On a 수면실 mat, lie along the bed with the head on its pillow.
   if (next === 'lie') facing = currentRoom?.id === 'sleep' ? 0 : view.yaw + Math.PI / 2;
+  player.sitStyle = currentRoom?.id === 'hot' || currentRoom?.id === 'salt' ? 'cross' : 'relaxed';
   hint.textContent = next === 'stand' ? walkHint : '다시 걷고 싶으면 바닥을 톡 눌러요 ↗';
 }
 actionButtons.forEach(button => button.addEventListener('click', () => {

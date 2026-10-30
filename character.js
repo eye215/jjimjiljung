@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { GLTFLoader } from './vendor/three-addons/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/three-addons/SkeletonUtils.js';
-import { towelMesh, setTowelColor } from './props.js?v=rpg-10';
+import { towelMesh, setTowelColor } from './props.js?v=rpg-11';
 
 // Reference-inspired plush silhouette: deep towel cap, tiny dot eyes,
 // barely visible neck, soft mittens and short legs. No bag or shoulder strap.
@@ -82,13 +82,14 @@ export const PLUSH_URL = new URL('./assets/chibi-mobile.glb', import.meta.url).h
 export const CLIPS = { walk: 'Walking', run: 'Running', sit: 'Sit_Cross_Legged_on_Floor', drink: 'Sit_and_Drink', lie: 'Sleep_Normally', wave: 'Wave_One_Hand' };
 // Measured lowest skin point of each clip (model metres): lift by this so
 // crossed legs and the sleeper rest on the floor instead of sinking into it.
-const CLIP_LIFT = { Walking: .013, Running: .005, Sit_Cross_Legged_on_Floor: .108, Sit_and_Drink: .023, Sleep_Normally: .35, Wave_One_Hand: .015 };
+const CLIP_LIFT = { Walking: .013, Running: .005, Sit_Cross_Legged_on_Floor: .108, Sit_and_Drink: .023, Sleep_Normally: .268, Wave_One_Hand: .015 };
 // The scene scales every actor by .62; this makes the plush 1.35 m tall in the room.
 const PLUSH_SCALE = 1 / .62;
 // Towel prop fits on the plush (model metres): sheep cap on the head, shoulder
 // towel around the neck, pillow under the sleeping head. Tuned in design QA.
 const HAIR_FIT = { length: .82, y: .99, z: .0, underCap: .86 };
-const CAP_FIT = { length: 1.22, y: 1.1, z: .01, tall: 1.24 };
+// Height option B (-15%), bottom edge kept: tall 1.24 → 1.054 and lowered by half the difference.
+const CAP_FIT = { length: 1.22, y: 1.042, z: .01, tall: 1.054 };
 const SHOULDER_FIT = { length: .44, y: .45, z: .02, depth: 1.45 };
 const PILLOW_FIT = { length: .56, z: -.6 };
 // Load once; on any failure the room falls back to the procedural character.
@@ -153,6 +154,103 @@ function hairTexels(skinned) {
   const px = ctx.getImageData(0, 0, c.width, c.height).data, uv = skinned.geometry.attributes.uv;
   return i => { const u = Math.min(c.width - 1, Math.floor(uv.getX(i) * c.width)), v = Math.min(c.height - 1, Math.floor(uv.getY(i) * c.height)), k = (v * c.width + u) * 4; return [px[k], px[k + 1], px[k + 2]]; };
 }
+// ---------- One-time clean-up of the shared plush model ----------
+// Edge-preserving smoothing: a pixel takes its blurred value only where it differs
+// little from it, so baked fuzz and speckles soften while eyes, mouth and seams stay crisp.
+function smoothPixels(px, w, h, threshold = 26, passes = 2) {
+  const tmp = new Uint8ClampedArray(px.length);
+  for (let pass = 0; pass < passes; pass++) {
+    tmp.set(px);
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      const k = (y * w + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        let sum = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) sum += tmp[k + (dy * w + dx) * 4 + c];
+        const avg = sum / 9, v = tmp[k + c];
+        if (Math.abs(v - avg) < threshold) px[k + c] = avg;
+      }
+    }
+  }
+}
+// Returns a smoothed copy of a GLB texture (glTF textures are not flipped).
+export function smoothTexture(texture, edit = null, threshold = 26) {
+  const image = texture?.image; if (!image) return texture;
+  const c = document.createElement('canvas'); c.width = image.width; c.height = image.height;
+  const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(image, 0, 0);
+  const data = ctx.getImageData(0, 0, c.width, c.height);
+  edit?.(data.data, c.width, c.height);
+  smoothPixels(data.data, c.width, c.height, threshold);
+  ctx.putImageData(data, 0, 0);
+  const out = new THREE.CanvasTexture(c); out.flipY = texture.flipY; out.colorSpace = texture.colorSpace; out.wrapS = texture.wrapS; out.wrapT = texture.wrapT; out.anisotropy = texture.anisotropy;
+  return out;
+}
+// The ♨ logo on the top is light-gray ink baked into the texture: paint it over with the
+// surrounding cloth, only inside the chest triangles' UV area.
+function hideLogo(skinned) {
+  const g = skinned.geometry, pos = g.attributes.position, uv = g.attributes.uv, index = g.index;
+  return (px, w, h) => {
+    const mask = new Uint8Array(w * h);
+    for (let t = 0; t < index.count; t += 3) {
+      const ids = [index.getX(t), index.getX(t + 1), index.getX(t + 2)];
+      if (!ids.every(i => pos.getY(i) > .36 && pos.getY(i) < .6 && Math.abs(pos.getZ(i)) > .08)) continue;
+      const us = ids.map(i => uv.getX(i) * w), vs = ids.map(i => uv.getY(i) * h);
+      for (let y = Math.floor(Math.min(...vs)); y <= Math.ceil(Math.max(...vs)); y++) for (let x = Math.floor(Math.min(...us)); x <= Math.ceil(Math.max(...us)); x++) if (x >= 0 && y >= 0 && x < w && y < h) mask[y * w + x] = 1;
+    }
+    // Ink: low-saturation mid grays. Fill it from neighbouring light cloth, growing inwards.
+    const ink = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) {
+      if (!mask[i]) continue; const r = px[i * 4], gg = px[i * 4 + 1], b = px[i * 4 + 2], hi = Math.max(r, gg, b), lo = Math.min(r, gg, b);
+      if (hi - lo < 30 && hi > 70 && hi < 205) ink[i] = 1;
+    }
+    // Take the ink's soft anti-aliased rim too.
+    for (let grow = 0; grow < 2; grow++) {
+      const edge = []; for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; if (!ink[i] && mask[i] && (ink[i - 1] || ink[i + 1] || ink[i - w] || ink[i + w])) edge.push(i); }
+      for (const i of edge) ink[i] = 1;
+    }
+    for (let round = 0; round < 160; round++) {
+      let left = 0;
+      for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+        const i = y * w + x; if (!ink[i]) continue;
+        let sr = 0, sg = 0, sb = 0, n = 0;
+        for (const j of [i - 1, i + 1, i - w, i + w]) if (!ink[j] && mask[j]) { sr += px[j * 4]; sg += px[j * 4 + 1]; sb += px[j * 4 + 2]; n++; }
+        if (n) { px[i * 4] = sr / n; px[i * 4 + 1] = sg / n; px[i * 4 + 2] = sb / n; ink[i] = 2; } else left++;
+      }
+      for (let i = 0; i < ink.length; i++) if (ink[i] === 2) ink[i] = 0;
+      if (!left) break;
+    }
+  };
+}
+// Smooth skin weights on the clothes (bind height .12–.66 m) over welded neighbours, so
+// shirt hems and shorts bend in soft curves instead of creasing like rubber when walking.
+function smoothClothWeights(skinned, texel, passes = 4) {
+  const g = skinned.geometry, pos = g.attributes.position, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, index = g.index;
+  const n = pos.count, key = i => `${Math.round(pos.getX(i) * 2000)},${Math.round(pos.getY(i) * 2000)},${Math.round(pos.getZ(i) * 2000)}`;
+  const weld = new Int32Array(n), ids = new Map();
+  for (let i = 0; i < n; i++) { const k = key(i); if (!ids.has(k)) ids.set(k, ids.size); weld[i] = ids.get(k); }
+  const m = ids.size, neighbours = Array.from({ length: m }, () => new Set());
+  for (let t = 0; t < index.count; t += 3) { const a = weld[index.getX(t)], b = weld[index.getX(t + 1)], c = weld[index.getX(t + 2)]; neighbours[a].add(b).add(c); neighbours[b].add(a).add(c); neighbours[c].add(a).add(b); }
+  let weights = Array.from({ length: m }, () => new Map()); const cloth = new Uint8Array(m);
+  for (let i = 0; i < n; i++) {
+    const w = weld[i]; if (weights[w].size) continue;
+    for (let k = 0; k < 4; k++) { const v = sw.getComponent(i, k); if (v > 0) weights[w].set(si.getComponent(i, k), (weights[w].get(si.getComponent(i, k)) || 0) + v); }
+    const y = pos.getY(i), [r, gg, b] = texel(i), hi = Math.max(r, gg, b), lo = Math.min(r, gg, b);
+    if (y > .12 && y < .66 && hi - lo < 40 && hi > 110) cloth[w] = 1;
+  }
+  for (let pass = 0; pass < passes; pass++) {
+    const next = weights.map((own, w) => {
+      if (!cloth[w]) return own;
+      const sum = new Map(own); for (const [b, v] of own) sum.set(b, v);
+      for (const nb of neighbours[w]) for (const [b, v] of weights[nb]) sum.set(b, (sum.get(b) || 0) + v * .6);
+      return sum;
+    });
+    weights = next;
+  }
+  for (let i = 0; i < n; i++) {
+    const w = weld[i]; if (!cloth[w]) continue;
+    const top = [...weights[w]].sort((a, b) => b[1] - a[1]).slice(0, 4), total = top.reduce((s, [, v]) => s + v, 0) || 1;
+    for (let k = 0; k < 4; k++) { si.setComponent(i, k, top[k]?.[0] ?? 0); sw.setComponent(i, k, (top[k]?.[1] ?? 0) / total); }
+  }
+  si.needsUpdate = sw.needsUpdate = true;
+}
 function tuckHair(skinned) {
   const texel = hairTexels(skinned); if (!texel) return;
   const pos = skinned.geometry.attributes.position, [cx, cy, cz] = SKULL.center, [rx, ry, rz] = SKULL.radii;
@@ -173,8 +271,13 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
   if (plushModel && !plushModel.userData.hairDone) {
     let skinned = null; plushModel.scene.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
     if (towels.hair) tuckHair(skinned); else trimHair(skinned);
+    const texel = hairTexels(skinned); if (texel) smoothClothWeights(skinned, texel);
+    // Softer, cleaner plush surface and no ♨ on the top.
+    skinned.material.map = smoothTexture(skinned.material.map, hideLogo(skinned));
     skinned.geometry.computeBoundingBox(); skinned.geometry.computeBoundingSphere(); plushModel.userData.hairDone = true;
   }
+  // Calmer terry and hair: soften the baked fuzz on the worn props too (once each).
+  for (const proto of [towels.cap, towels.hair, towels.pillow]) if (proto && !proto.smoothed) { proto.map = smoothTexture(proto.map, null, 30); proto.smoothed = true; }
   const hairMaterial = towels.hair ? new THREE.MeshPhysicalMaterial({ map: towels.hair.map, roughness: .85, metalness: 0, side: THREE.DoubleSide, sheen: .5, sheenRoughness: .6, sheenColor: new THREE.Color('#a07a62') }) : null;
   function canvasTexture(draw, width = 512, height = 512) {
     const c = document.createElement('canvas'); c.width = width; c.height = height; draw(c.getContext('2d'), width, height);
@@ -511,7 +614,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     // take the outfit colour; the top/bottom split is the bind-pose hem height.
     const base = skinned.material;
     const uniforms = { uTop: { value: new THREE.Color(colors[0]) }, uBottom: { value: new THREE.Color(colors[1]) } };
-    const material = new THREE.MeshPhysicalMaterial({ map: base.map, roughness: 1, metalness: 0, side: THREE.FrontSide, sheen: .55, sheenRoughness: .75, sheenColor: new THREE.Color('#fff3ea'), bumpMap: textile, bumpScale: .5 });
+    const material = new THREE.MeshPhysicalMaterial({ map: base.map, roughness: 1, metalness: 0, side: THREE.FrontSide, sheen: .3, sheenRoughness: .9, sheenColor: new THREE.Color('#fff3ea') });
     material.onBeforeCompile = shader => {
       Object.assign(shader.uniforms, uniforms);
       shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying float vRestY;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRestY = position.y;');
@@ -563,7 +666,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     shoulderMesh?.scale.set(1, 1, SHOULDER_FIT.depth);
     const shoulder = shoulderMesh ? attach(spine2, shoulderMesh, new THREE.Vector3(0, SHOULDER_FIT.y, SHOULDER_FIT.z)) : null;
     if (shoulder) shoulder.visible = false;
-    // A rolled towel pillow under the head while sleeping (sleepers lie head to -z).
+    // A rolled towel pillow under the sleeping head, only when a pillow prop is passed in (the room does not, by choice).
     const pillow = towels.pillow ? towelMesh(towels.pillow, { length: PILLOW_FIT.length, color: colors[3] }) : new THREE.Group();
     pillow.position.set(0, -CLIP_LIFT.Sleep_Normally, PILLOW_FIT.z); pillow.visible = false; frame.add(pillow);
     // Expression patches over the baked eyes.
@@ -646,7 +749,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       if (sleep && character.snack) character.stopSnack();
       updateBursts(dt);
       pillow.visible = sleep && weights[CLIPS.lie] > .5;
-      const goal = sleep ? CLIPS.lie : eating ? CLIPS.drink : sitting ? CLIPS.sit : walking ? (speed >= 1.8 ? CLIPS.run : CLIPS.walk) : action === 'wave' || cheering ? CLIPS.wave : null;
+      const goal = sleep ? CLIPS.lie : eating ? CLIPS.drink : sitting ? (character.sitStyle === 'cross' ? CLIPS.sit : CLIPS.drink) : walking ? (speed >= 1.8 ? CLIPS.run : CLIPS.walk) : action === 'wave' || cheering ? CLIPS.wave : null;
       let total = 0, lift = 0;
       for (const name of Object.values(CLIPS)) {
         const w = weights[name] = THREE.MathUtils.damp(weights[name], name === goal ? 1 : 0, 9, dt);
@@ -655,6 +758,9 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       actions[CLIPS.walk].timeScale = Math.max(.6, speed * .95); actions[CLIPS.run].timeScale = 1;
       // The drink clip is scrubbed: rest (3 s) → hand at the mouth (5 s).
       if (eating) actions[CLIPS.drink].time = 3 + 2 * Math.min(1, eating.mouth);
+      // A relaxed seat (legs out, hands in the lap) is the drink clip at rest;
+      // the cross-legged clip hugs the knees, so it is kept for 불가마 and 소금방.
+      else actions[CLIPS.drink].time = .3;
       for (const [b, q, p] of bindPose) { b.quaternion.copy(q); b.position.copy(p); }
       mixer.update(dt);
       liftHead(.85 * (weights[CLIPS.sit] + weights[CLIPS.drink]));
