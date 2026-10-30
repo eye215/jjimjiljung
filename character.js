@@ -88,7 +88,8 @@ const PLUSH_SCALE = 1 / .62;
 // Towel prop fits on the plush (model metres): sheep cap on the head, shoulder
 // towel around the neck, pillow under the sleeping head. Tuned in design QA.
 const HAIR_FIT = { length: .82, y: .99, z: .0, underCap: .86 };
-const CAP_FIT = { length: 1.22, y: 1.1, z: .01, tall: 1.24 };
+// Height option B (-15%), bottom edge kept: tall 1.24 → 1.054 and lowered by half the difference.
+const CAP_FIT = { length: 1.22, y: 1.042, z: .01, tall: 1.054 };
 const SHOULDER_FIT = { length: .44, y: .45, z: .02, depth: 1.45 };
 const PILLOW_FIT = { length: .56, z: -.6 };
 // Load once; on any failure the room falls back to the procedural character.
