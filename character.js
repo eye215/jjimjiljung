@@ -70,6 +70,7 @@ export function mergeGeometries(parts) {
   merged.computeBoundingSphere();
   return merged;
 }
+const HEAD_Y = 1.6, HEAD_SCALE = 1.15;
 let randomSeed = 137;
 export function random() { randomSeed = (randomSeed * 1664525 + 1013904223) >>> 0; return randomSeed / 4294967296; }
 
@@ -79,13 +80,13 @@ export function createCharacterKit(renderer) {
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy()); return t;
   }
   const textile = canvasTexture((ctx, w, h) => {
-    ctx.fillStyle = '#f3ead5'; ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < 17000; i++) { const v = random(); ctx.strokeStyle = v > .5 ? '#ffffff65' : '#b8a48630'; const x = random() * w, y = random() * h; ctx.beginPath(); ctx.ellipse(x, y, 1.1, 2.1, .5, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.fillStyle = '#f4f3f1'; ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 17000; i++) { const v = random(); ctx.strokeStyle = v > .5 ? '#ffffff65' : '#9c999430'; const x = random() * w, y = random() * h; ctx.beginPath(); ctx.ellipse(x, y, 1.1, 2.1, .5, 0, Math.PI * 2); ctx.stroke(); }
   }, 256, 256);
   textile.wrapS = textile.wrapT = THREE.RepeatWrapping; textile.repeat.set(3, 2);
   const skin = mat('#f3c49b', { roughness: .92 });
-  const hair = mat('#493024', { roughness: 1 });
-  const baseTowel = new THREE.MeshPhysicalMaterial({ color: '#fff2db', map: textile, bumpMap: textile, bumpScale: .045, roughness: 1, sheen: 1, sheenRoughness: .9, sheenColor: new THREE.Color('#fff8ef') });
+  const hair = mat('#5a3a2a', { roughness: .85 });
+  const baseTowel = new THREE.MeshPhysicalMaterial({ color: '#fff2db', map: textile, bumpMap: textile, bumpScale: .045, roughness: 1, sheen: 1, sheenRoughness: .9, sheenColor: new THREE.Color('#ffffff') });
   function faceTexture(expression) {
     return canvasTexture((c, w, h) => {
       const ellipse = (x, y, rx, ry, color) => { c.fillStyle = color; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); };
@@ -94,7 +95,7 @@ export function createCharacterKit(renderer) {
       c.lineCap = 'round'; c.lineWidth = 8; c.strokeStyle = '#4e3428';
       for (const x of [151, 361]) {
         if (expression === 'sleep' || expression === 'happy') { c.beginPath(); c.moveTo(x - 17, 318); c.quadraticCurveTo(x, expression === 'sleep' ? 328 : 301, x + 17, 318); c.stroke(); }
-        else ellipse(x, 318, 16, 26, '#493326');
+        else { ellipse(x, 322, 27, 35, '#33231c'); ellipse(x - 9, 307, 9.5, 11, '#ffffff'); ellipse(x + 9, 336, 4.2, 4.2, 'rgba(255,255,255,.85)'); }
       }
       c.strokeStyle = '#ba7956'; c.lineWidth = 6; c.beginPath();
       if (expression === 'sleep') { c.ellipse(256, 390, 6, 8, 0, 0, Math.PI * 2); c.stroke(); }
@@ -180,20 +181,29 @@ export function createCharacterKit(renderer) {
       ellipsoid(pivot, skin, [side * .09, -.365, .035], [.114, .12, .105]);
       ellipsoid(pivot, skin, [side * .025, -.34, .105], [.055, .065, .05]);
     }
-    const head = new THREE.Group(); head.position.y = 1.55; rig.add(head);
+    // An oversized head keeps the figure close to two heads tall.
+    const head = new THREE.Group(); head.position.y = HEAD_Y; head.scale.setScalar(HEAD_SCALE); rig.add(head);
     mesh(headGeometry, skin, head);
     for (const side of [-1, 1]) ellipsoid(head, skin, [side * .60, -.115, .005], [.085, .1, .075]);
-    ellipsoid(head, hair, [0, .12, -.055], [.632, .45, .49]);
-    // A thin scalloped hairline is mostly tucked under the towel.
-    for (let i = 0; i < 7; i++) {
-      const x = -.43 + i * .143, z = .49 * Math.sqrt(1 - (x / .66) ** 2);
-      ellipsoid(head, hair, [x, .025, z], [.087, .074, .038]);
+    // A round bob with soft bangs, visible whenever the towel cap is off.
+    ellipsoid(head, hair, [0, .12, -.055], [.66, .47, .52]);
+    ellipsoid(head, hair, [0, -.06, -.17], [.62, .4, .38]);
+    // Bangs and the cowlick hide under the towel cap.
+    const bangs = new THREE.Group(); head.add(bangs);
+    ellipsoid(bangs, hair, [0, .2, .06], [.6, .32, .48]);
+    for (const side of [-1, 1]) ellipsoid(head, hair, [side * .56, -.1, .06], [.11, .23, .22]);
+    // Three soft, wide bang locks rather than a row of beads.
+    for (const [x, tilt] of [[-.3, -.35], [0, 0], [.3, .35]]) {
+      const lock = ellipsoid(bangs, hair, [x, .11 + Math.abs(x) * .12, .5 * Math.sqrt(1 - (x / .66) ** 2) - .02], [.21, .13, .06]);
+      lock.rotation.set(-.25, -x * .9, tilt);
     }
+    tube(bangs, hair, [[0, .56, .02], [.03, .66, .02], [.1, .7, .0], [.12, .64, -.02]], .022);
     const faceMaterial = new THREE.MeshStandardMaterial({ map: faces.normal, transparent: true, roughness: 1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
     const face = mesh(faceGeometry, faceMaterial, head); face.castShadow = false;
-    mesh(capGeometry, towel, head, [0, .19, -.015]);
+    const cap = new THREE.Group(); head.add(cap);
+    mesh(capGeometry, towel, cap, [0, .19, -.015]);
     // Rounded lower hem follows the full circumference, including the back view.
-    tube(head, towel, edgePoints, .036);
+    tube(cap, towel, edgePoints, .036);
     // Two overlapping folds give the cap the wrapped silhouette of a real towel.
     for (const offset of [0, .115]) {
       const fold = [];
@@ -202,13 +212,13 @@ export function createCharacterKit(renderer) {
         const z = .605 * Math.sqrt(Math.max(.02, 1 - (x / .715) ** 2 - ((y - .19) / .64) ** 2)) - .015;
         fold.push([x, y, z + .012]);
       }
-      tube(head, towel, fold, .017);
+      tube(cap, towel, fold, .017);
     }
     // Subtle stitched arcs follow the cap's curved surface, like folded terrycloth.
     const crownSeam = []; for (let i = 0; i <= 36; i++) { const t = i / 36 * 1.68; crownSeam.push([.1 * Math.sin(t), .19 + .646 * Math.cos(t), .609 * Math.sin(t) - .015]); }
-    tube(head, seam, crownSeam, .006);
+    tube(cap, seam, crownSeam, .006);
     for (const side of [-1, 1]) {
-      const roll = new THREE.Group(); roll.position.set(side * .675, .13, .025); roll.rotation.z = -side * .10; head.add(roll);
+      const roll = new THREE.Group(); roll.position.set(side * .675, .13, .025); roll.rotation.z = -side * .10; cap.add(roll);
       ellipsoid(roll, towel, [0, 0, 0], [.235, .285, .285]);
       // Soft overlapping folds, not a hard, high-contrast cinnamon-roll spiral.
       for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2; const petal = ellipsoid(roll, towel, [Math.cos(a) * .065, Math.sin(a) * .10, .205], [.13, .16, .065]); petal.rotation.z = a - Math.PI / 2; }
@@ -240,16 +250,17 @@ export function createCharacterKit(renderer) {
       const sparkle = i >= 7, piece = mesh(sparkle ? new THREE.OctahedronGeometry(.035) : new THREE.TetrahedronGeometry(.04), sparkle ? new THREE.MeshBasicMaterial({ color: '#ffe48a' }) : mat('#a96a3c'), rig);
       piece.visible = false; piece.castShadow = false; bursts.push({ piece, sparkle, velocity: new THREE.Vector3(), life: 0 });
     }
-    compact(head);
+    compact(head, [cap, bangs]); compact(cap); compact(bangs);
     compact(rig, [...legs, ...arms, head, snackRoot, ...bursts.map(b => b.piece)]);
     legs.forEach(leg => compact(leg));
     arms.forEach(arm => compact(arm));
 
-    const character = { root, rig, head, arms, legs, faceMaterial, materials, pillow, snackRoot, snack: null, elapsed: random() * 10, blinkOffset: random() * 4 };
+    const character = { root, rig, head, cap, arms, legs, faceMaterial, materials, pillow, snackRoot, snack: null, elapsed: random() * 10, blinkOffset: random() * 4 };
     character.setColors = next => {
       materials.cloth.color.set(next[0]); materials.trouser.color.set(next[1]); materials.trim.color.set(next[2]);
       materials.towel.color.set(next[3]); materials.seam.color.set(next[4]);
     };
+    character.setTowel = on => { cap.visible = !!on; bangs.visible = !on; };
     character.setExpression = expression => { if (faceMaterial.map !== faces[expression]) { faceMaterial.map = faces[expression]; faceMaterial.needsUpdate = true; } };
     character.expression = () => Object.entries(faces).find(([, texture]) => texture === faceMaterial.map)?.[0];
     // ---------- Snacks: egg (crack, peel, three bites) and sikhye (four sips) ----------
@@ -259,7 +270,7 @@ export function createCharacterKit(renderer) {
         b.velocity.set((random() - .5) * 1.4, .6 + random() * .9, .2 + random() * .6);
       }
     };
-    const egg3 = new THREE.Vector3(), CHEST = new THREE.Vector3(0, .84, .6), MOUTH = new THREE.Vector3(0, 1.22, .62), BROW = new THREE.Vector3(0, 1.93, .66);
+    const egg3 = new THREE.Vector3(), CHEST = new THREE.Vector3(0, .84, .6), MOUTH = new THREE.Vector3(0, 1.22, .62), BROW = new THREE.Vector3(0, 1.98, .72);
     // 0→1→0 envelope: rise `up` s from `at`, hold, then lower over `down` s.
     const bump = (t, at, up, hold, down) => t < at ? 0 : t < at + up ? (t - at) / up : t < at + up + hold ? 1 : t < at + up + hold + down ? 1 - (t - at - up - hold) / down : 0;
     character.startSnack = (kind, { style = 'normal', onDone = null } = {}) => {
@@ -337,8 +348,8 @@ export function createCharacterKit(renderer) {
         damp(arms[i].rotation, 'x', eating ? -1.3 - eating.mouth * .5 : cheering ? -2.7 : waving ? -2.35 : sitting ? -.5 : sleep ? -.18 : walking ? -Math.sin(cycle + i * Math.PI) * .35 : 0, eating ? 14 : 9);
         damp(arms[i].rotation, 'z', eating ? (i === 0 ? .5 : -.5) : waving ? -.4 + (reducedMotion ? 0 : Math.sin(elapsed * 7) * .24) : i === 0 ? -.14 : .14, eating ? 14 : 9);
       }
-      if (!reducedMotion) { head.rotation.z = Math.sin(elapsed * 1.3) * .025; head.position.y = 1.55 + Math.sin(elapsed * 2) * .008 + (eating?.face === 'chew' ? Math.abs(Math.sin(elapsed * 14)) * .012 : 0); }
-      else { head.rotation.z = 0; head.position.y = 1.55; }
+      if (!reducedMotion) { head.rotation.z = Math.sin(elapsed * 1.3) * .025; head.position.y = HEAD_Y + Math.sin(elapsed * 2) * .008 + (eating?.face === 'chew' ? Math.abs(Math.sin(elapsed * 14)) * .012 : 0); }
+      else { head.rotation.z = 0; head.position.y = HEAD_Y; }
       const blink = !reducedMotion && (elapsed + character.blinkOffset) % 4.7 > 4.52;
       character.setExpression(sleep || (blink && !eating) ? 'sleep' : eating ? eating.face : action === 'wave' || cheering ? 'happy' : 'normal');
     };
