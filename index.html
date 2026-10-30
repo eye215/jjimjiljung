@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><link rel="stylesheet" href="./style.css?v=rpg-5">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="800"><meta property="og:image:height" content="400"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-6">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -10,7 +10,7 @@
 <section class="room" aria-label="따뜻한 3D 찜질방">
 <div id="viewport" tabindex="0" role="application" aria-label="3D 찜질방. 바닥을 누르거나 WASD·방향키로 걸어요. 화면을 끌면 시점이 돌아가고, 휠이나 두 손가락으로 확대해요. Home 키로 시점을 처음처럼 맞춰요."></div>
 <div id="labels" aria-hidden="true"></div>
-<button id="online" class="online-pill" data-status="solo"><i aria-hidden="true"></i><span id="online-text">혼자 쉬는 중 · 입장하기</span></button>
+<div id="social-row"><button id="online" class="online-pill" data-status="solo"><i aria-hidden="true"></i><span id="online-text">함께하기</span></button><button id="invite" aria-label="카카오톡으로 친구 초대하기"><span aria-hidden="true">💛</span> 친구 초대</button></div>
 <button id="chat-open" aria-controls="chat" aria-expanded="false" aria-label="채팅 열기"><span aria-hidden="true">💬</span><b>채팅</b><em id="chat-unread" hidden>0</em></button>
 <section id="chat" aria-label="찜질방 전체 채팅" hidden>
 <header><div><h2>전체 채팅</h2><span id="chat-count"></span></div><button id="chat-rename" type="button">이름 바꾸기</button><button id="chat-close" type="button" aria-label="채팅 닫기">×</button></header>
@@ -40,7 +40,7 @@
 <dialog id="join-dialog" aria-labelledby="join-title">
 <form id="join-form" method="dialog">
 <span class="places-eyebrow">함께 쉬는 찜질방</span><h2 id="join-title">닉네임을 정해 주세요</h2>
-<p>찜질방에 어울리는 이름을 골라 두었어요. 마음대로 고쳐도 돼요.</p>
+<p id="join-intro">찜질방에 어울리는 이름을 골라 두었어요. 마음대로 고쳐도 돼요.</p>
 <div class="nickname-row"><input id="nickname" name="nickname" maxlength="10" autocomplete="nickname" enterkeyhint="go" placeholder="예: 말랑양머리" aria-describedby="join-note"><button type="button" id="nickname-reroll" aria-label="다른 닉네임 추천받기">🎲</button></div>
 <p id="join-note" role="alert"></p>
 <div class="join-actions"><button type="button" id="join-solo">혼자 둘러보기</button><button type="submit" id="join-enter">입장하기</button></div>
@@ -75,5 +75,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-5').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-6').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>

@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/navigation.cjs && node tests/chat.cjs && node tests/economy.cjs && node tests/shop.cjs && node tests/multiplayer.cjs && node tests/sleep.cjs && node tests/smoke.cjs",
-    "check": "node --check sleep.js && node --check scene.js && node --check navigation.js && node --check world.js && node --check environment.js && node --check character.js && node --check social.js && node --check net.js && node --check chat-rules.js && node --check config.js && node --check economy.js && node --check shop.js"
+    "test": "node tests/navigation.cjs && node tests/chat.cjs && node tests/economy.cjs && node tests/shop.cjs && node tests/invite.cjs && node tests/multiplayer.cjs && node tests/sleep.cjs && node tests/smoke.cjs",
+    "check": "node --check sleep.js && node --check scene.js && node --check navigation.js && node --check world.js && node --check environment.js && node --check character.js && node --check social.js && node --check net.js && node --check chat-rules.js && node --check config.js && node --check economy.js && node --check shop.js && node --check invite.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"

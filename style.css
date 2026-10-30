@@ -141,3 +141,10 @@ body.playing .controls,body.playing #joystick,body.playing #shop-open,body.playi
 body.sleeping #wallet,body.sleeping #shop-open{opacity:0;pointer-events:none}
 body:not(.room-ready) #wallet,body:not(.room-ready) #shop-open{display:none}
 #shop-open{bottom:205px}@media(max-width:760px){#shop-open{bottom:206px}}@media(max-height:500px) and (orientation:landscape){#shop-open{bottom:120px}}
+/* 친구 초대 next to the visitor count. */
+#social-row{position:absolute;z-index:3;top:92px;left:24px;display:flex;gap:6px;align-items:center}
+#social-row .online-pill{position:static}
+#invite{min-height:34px;border:1px solid #ffe58a;border-radius:20px;padding:7px 12px;background:linear-gradient(135deg,#fee500f0,#f7d23ae6);color:#3b1e1e;font-size:11px;font-weight:700;box-shadow:0 6px 16px #3b1e1e26}
+@media(max-width:760px){#social-row{top:78px;left:13px;gap:5px}#social-row .online-pill{top:auto;left:auto}#invite{min-height:30px;padding:6px 10px;font-size:10px}}
+@media(max-height:500px) and (orientation:landscape){#social-row{top:62px;left:16px}}
+body.sleeping #social-row{opacity:0;pointer-events:none}body:not(.room-ready) #invite{display:none}

@@ -11,6 +11,7 @@ A tiny, warm 3D jjimjilbang for a quiet break. Open [the live room](https://eye2
 - **Controls.** Mobile: thumb joystick (camera-relative), tap the floor to walk, drag to orbit the camera, pinch to zoom. PC: WASD / arrow keys (hold to walk), click to walk, drag to orbit, wheel to zoom, Q/E to turn, Home or 내 위치 to reset the view. 둘러보기 walks you into any room.
 - Sit, lie down with a pillow, eat a roasted egg, drink sikhye, or wave hello. Arriving in a room picks a fitting pose (sit by the hearth, lie on the salt or a sleeping mat). Faces blink and close their eyes to rest.
 - **수면실 dream mode (Phase 3).** Lie down on a 수면실 mat and the camera glides into a first-person view under a ceiling of glow-in-the-dark stars while a soft lullaby starts. The lullaby is generated in the browser, so no audio file is downloaded and there is no licence to manage. After 30 quiet seconds the room fades into a slowly turning galaxy. 일어나기, 산책, a tap on the floor or the joystick wakes you up. A music on/off button is remembered. Reduced-motion users get a still galaxy.
+- **카카오톡 친구 초대.** The yellow 💛 친구 초대 button next to the visitor count shares a 카카오톡 feed card (a preview image of the lobby, "같이 찜질하기") with a link to https://jjimjiljung.yullul.com/?from=<nickname>. Invited friends are greeted by name. The official Kakao JavaScript SDK (2.7.2) loads from Kakao's CDN only when the button is tapped. If it cannot load, the system share sheet or a copied link is used instead. The JavaScript key is public and domain-restricted. The site domain must be registered under the app's Web platform in Kakao Developers.
 - **매점 & 간식 (Phase 4).**
   - **Eating:** eggs and sikhye are eaten in your current pose, so you can sit and snack. Both hands hold a roasted 맥반석 egg (speckled shell → crack → peeled, three bites showing the yolk) or a paper cup of 살얼음 식혜 (rice grains, straw, the level drops with each sip). The face munches with puffed cheeks, shell bits fly, and sparkles mark the finish. Others see you eat.
   - **Getting snacks:** they come from your 간식 가방. An empty bag offers a walk to the 매점, which opens on arrival. There, claim **one free egg and one free sikhye per day** (Korea time) or buy more for 5 온기 ♨.
@@ -39,6 +40,7 @@ Not yet implemented: private rooms, AI moderation, voice chat/STT and NPC conver
 | `config.js` | Public Supabase URL, publishable key and channel name. |
 | `economy.js` | Wallet rules: snack bag, 온기 points, daily free snack (Korea day), earning cap, mini-game scoring. Pure and unit-tested. |
 | `shop.js` | 매점 sheet, wallet chip, empty-bag prompt, both mini-games. |
+| `invite.js` | 카카오톡 share (lazy SDK load, feed message, fallbacks) and the invite greeting. |
 | `scene.js` | Renderer, follow camera, input, actions, residents, room detection, wall cutaway/fading, error handling. |
 
 ### Performance notes (mobile)
@@ -73,6 +75,7 @@ Use Node.js and install the pinned development dependency with `npm install`, th
 - `tests/multiplayer.cjs`: two tabs over the local transport: nickname validation, seeing each other, count and name tags, movement/pose/outfit sync, chat both ways with bubbles and unread badge, throttling, masking, typing does not walk, leaving.
 - `tests/economy.cjs`: welcome points, free snack once per Korea day, buying, persistence, tamper sanitising, daily cap, mini-game scores.
 - `tests/shop.cjs`: empty-bag prompt walks to the 매점, daily free claims, buying, eating while sitting, finishing, putting snacks away, both mini-games.
+- `tests/invite.cjs`: Kakao init with the JS key, feed content and links on the registered domain, copy-link fallback, invite greeting, rude names ignored.
 - `tests/sleep.cjs`: dream mode only in 수면실, first-person camera, lullaby on/mute, 30-second galaxy, wake-up.
 - `tests/smoke.cjs`: desktop, 390px and 320px mobile, 820px tablet and landscape layouts; joystick/tray overlap; all poses and waving; drag orbit, wheel zoom and recenter; the six-room travel dialog and focus handling; camera-relative joystick movement, release and cancel; wall collision; walking through the 불가마 door with the room badge updating; wall cutaway/fading; tap-to-walk; held-key walking; outfit persistence; audio; reduced motion; local-only assets; WebGL context loss/retry; failed module; unavailable WebGL; loading guard.
 
