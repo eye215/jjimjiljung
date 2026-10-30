@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><link rel="stylesheet" href="./style.css?v=rpg-2">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><link rel="stylesheet" href="./style.css?v=rpg-3">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -9,6 +9,15 @@
 <main>
 <section class="room" aria-label="따뜻한 3D 찜질방">
 <div id="viewport" tabindex="0" role="application" aria-label="3D 찜질방. 바닥을 누르거나 WASD·방향키로 걸어요. 화면을 끌면 시점이 돌아가고, 휠이나 두 손가락으로 확대해요. Home 키로 시점을 처음처럼 맞춰요."></div>
+<div id="labels" aria-hidden="true"></div>
+<button id="online" class="online-pill" data-status="solo"><i aria-hidden="true"></i><span id="online-text">혼자 쉬는 중 · 입장하기</span></button>
+<button id="chat-open" aria-controls="chat" aria-expanded="false" aria-label="채팅 열기"><span aria-hidden="true">💬</span><b>채팅</b><em id="chat-unread" hidden>0</em></button>
+<section id="chat" aria-label="찜질방 전체 채팅" hidden>
+<header><div><h2>전체 채팅</h2><span id="chat-count"></span></div><button id="chat-rename" type="button">이름 바꾸기</button><button id="chat-close" type="button" aria-label="채팅 닫기">×</button></header>
+<ol id="chat-log" aria-live="polite"></ol>
+<p id="chat-note" role="status" hidden></p>
+<form id="chat-form" autocomplete="off"><input id="chat-input" name="message" type="text" enterkeyhint="send" placeholder="따뜻한 한마디를 남겨요" aria-label="채팅 메시지"><button type="submit">보내기</button></form>
+</section>
 <div id="destination-label" role="status" hidden></div>
 <div id="sleep-bar" role="group" aria-label="꿈나라 모드" hidden><span>☾ 꿈나라 모드</span><button id="sleep-music" aria-pressed="true">♪ 음악 끄기</button><button id="wake">일어나기</button></div>
 <div class="room-badge" aria-live="polite"><i></i> 중앙 휴게실 <span>모두 모이는 곳</span></div><div class="scene-hint" id="hint">바닥을 눌러 이동 · 끌어서 시점 회전</div>
@@ -24,6 +33,15 @@
 <button data-action="wave" aria-pressed="false"><span class="action-icon">👋</span><b>인사</b><small>반가워요</small></button>
 </div></section>
 </main><footer><span>몸도 마음도 말랑해지는 곳</span><span>잠시 쉬어가는 중 <i>✦</i></span></footer>
+<dialog id="join-dialog" aria-labelledby="join-title">
+<form id="join-form" method="dialog">
+<span class="places-eyebrow">함께 쉬는 찜질방</span><h2 id="join-title">닉네임을 정해 주세요</h2>
+<p>다른 손님들에게 이 이름이 머리 위에 보여요.</p>
+<input id="nickname" name="nickname" maxlength="10" autocomplete="nickname" enterkeyhint="go" placeholder="예: 말랑찜질러" aria-describedby="join-note">
+<p id="join-note" role="alert"></p>
+<div class="join-actions"><button type="button" id="join-solo">혼자 둘러보기</button><button type="submit" id="join-enter">입장하기</button></div>
+</form>
+</dialog>
 <dialog id="places-dialog" aria-labelledby="places-title" aria-describedby="places-description">
 <div class="places-heading"><div><span class="places-eyebrow">작은 찜질방 산책</span><h2 id="places-title">어디로 가볼까요?</h2></div><button id="places-close" aria-label="둘러보기 닫기">×</button></div>
 <p id="places-description">가고 싶은 방을 고르면 문을 지나 안까지 걸어가요.</p>
@@ -43,5 +61,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-2').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-3').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>

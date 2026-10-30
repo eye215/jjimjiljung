@@ -31,6 +31,7 @@ const server = http.createServer((req, res) => {
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(base);
     await page.waitForSelector('#viewport[data-ready="true"]', { timeout: 120000 });
+    await page.locator('#join-solo').click();
     const state = () => page.evaluate(() => window.__sleepTest.state());
     // Lying down outside 수면실 keeps the normal quarter view.
     await page.locator('[data-action="lie"]').click();
