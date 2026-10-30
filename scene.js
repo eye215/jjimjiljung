@@ -1,8 +1,9 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-1';
-import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-1';
-import { buildWorld } from './environment.js?v=rpg-1';
-import { ROOMS, DESTINATIONS, SPAWN, roomAt } from './world.js?v=rpg-1';
+import { planPath, stepMovement } from './navigation.js?v=rpg-2';
+import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-2';
+import { buildWorld } from './environment.js?v=rpg-2';
+import { ROOMS, DESTINATIONS, SPAWN, roomAt } from './world.js?v=rpg-2';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-2';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -36,6 +37,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color('#2e1d14');
 scene.fog = new THREE.Fog('#2e1d14', 24, 46);
 const camera = new THREE.PerspectiveCamera(36, 1, .1, 90);
+camera.userData.orbitTarget = new THREE.Vector3();
 const ambient = new THREE.HemisphereLight('#fff1da', '#8a5a3c', 1.55);
 scene.add(ambient);
 const sun = new THREE.DirectionalLight('#ffd7a8', 2.1);
@@ -46,6 +48,7 @@ scene.add(sun, sun.target);
 
 const kit = createCharacterKit(renderer);
 const world = buildWorld({ scene, kit });
+const sleep = createSleepMode({ scene, canvasTexture: kit.canvasTexture });
 
 // A contact shadow supplements real shadow maps beneath the plush character.
 const shadowTexture = kit.canvasTexture((c, w, h) => { const g = c.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, w / 2); g.addColorStop(0, 'rgba(87,56,33,.32)'); g.addColorStop(.55, 'rgba(87,56,33,.14)'); g.addColorStop(1, 'rgba(87,56,33,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); }, 128, 128);
@@ -102,7 +105,8 @@ function placeCamera() {
   const distance = baseDistance() * view.zoom;
   const flat = Math.cos(view.pitch) * distance;
   camera.position.set(view.focus.x + Math.sin(view.yaw) * flat, view.focus.y + Math.sin(view.pitch) * distance, view.focus.z + Math.cos(view.yaw) * flat);
-  camera.lookAt(view.focus.x, view.focus.y + .75, view.focus.z);
+  camera.userData.orbitTarget.set(view.focus.x, view.focus.y + .75, view.focus.z);
+  camera.lookAt(camera.userData.orbitTarget);
 }
 // Screen-relative input → world direction for the current camera yaw.
 function screenToWorld(x, z) {
@@ -131,7 +135,8 @@ function setAction(next) {
   updateActionButtons();
   // Turn towards the camera for poses, so faces and snacks are visible.
   if (next !== 'stand' && next !== 'lie') facing = view.yaw;
-  if (next === 'lie') facing = view.yaw + Math.PI / 2;
+  // On a 수면실 mat, lie along the bed with the head on its pillow.
+  if (next === 'lie') facing = currentRoom?.id === 'sleep' ? 0 : view.yaw + Math.PI / 2;
   hint.textContent = next === 'stand' ? walkHint : '다시 걷고 싶으면 바닥을 톡 눌러요 ↗';
 }
 actionButtons.forEach(button => button.addEventListener('click', () => setAction(button.dataset.action)));
@@ -281,12 +286,40 @@ document.querySelector('#sound').addEventListener('click', async () => {
   } catch { status.textContent = '이 브라우저에서는 소리를 켤 수 없어요. 조용히 쉬어 가요.'; }
 });
 
+// ---------- 수면실: first-person rest, lullaby and galaxy ----------
+const sleepBar = document.querySelector('#sleep-bar'), sleepMusic = document.querySelector('#sleep-music');
+const headPoint = new THREE.Vector3(), feetPoint = new THREE.Vector3();
+let wasSleeping = false;
+function renderMusicButton() {
+  sleepMusic.setAttribute('aria-pressed', String(!sleep.music.muted));
+  sleepMusic.textContent = sleep.music.muted ? '♪ 음악 켜기' : '♪ 음악 끄기';
+}
+sleepMusic.addEventListener('click', () => { sleep.music.setMuted(!sleep.music.muted); renderMusicButton(); });
+document.querySelector('#wake').addEventListener('click', () => setAction('stand'));
+renderMusicButton();
+// Any tap or key unlocks Web Audio, so the lullaby may start when you lie down.
+for (const type of ['pointerdown', 'keydown']) document.addEventListener(type, () => sleep.music.unlock(), { capture: true, passive: true });
+function updateSleep(dt) {
+  const sleeping = action === 'lie' && currentRoom.id === 'sleep';
+  if (sleeping !== wasSleeping) {
+    wasSleeping = sleeping; sleepBar.hidden = !sleeping; document.body.classList.toggle('sleeping', sleeping);
+    if (sleeping) { status.textContent = '쉿… 눈을 감고 천천히 숨 쉬어요.'; hint.textContent = `${GALAXY_DELAY}초 동안 가만히 쉬면 꿈나라로 가요`; }
+  }
+  player.head.getWorldPosition(headPoint); hero.localToWorld(feetPoint.set(0, 0, .6));
+  const blend = sleep.update(dt, { sleeping, camera, head: headPoint, feet: feetPoint, reducedMotion, elapsed });
+  hero.visible = blend < .5; shadow.visible = hero.visible;
+  document.body.classList.toggle('dreaming', sleep.state.galaxy > .5);
+  viewport.dataset.sleep = sleeping ? (sleep.state.galaxy > .5 ? 'galaxy' : 'resting') : 'awake';
+}
+
 // ---------- Walls that hide the player fade out ----------
 const fadeMeshes = world.fadeUnits.flatMap((unit, index) => unit.meshes.map(m => { m.userData.fadeIndex = index; return m; }));
 const occluders = new Set(), eye = new THREE.Vector3(), probe = new THREE.Vector3(), towards = new THREE.Vector3();
 function updateOcclusion(dt) {
   occluders.clear();
-  for (const height of [.25, .95]) for (const side of [-.3, 0, .3]) {
+  // In the first-person sleep view the room closes around the sleeper again.
+  const firstPerson = sleep.state.blend > .05;
+  if (!firstPerson) for (const height of [.25, .95]) for (const side of [-.3, 0, .3]) {
     probe.set(hero.position.x + Math.cos(view.yaw) * side, height, hero.position.z - Math.sin(view.yaw) * side);
     eye.copy(camera.position); towards.subVectors(probe, eye); const far = towards.length() - .25; towards.normalize();
     raycaster.set(eye, towards); raycaster.far = far;
@@ -299,7 +332,7 @@ function updateOcclusion(dt) {
   const nearEdges = [
     { axis: 'z', line: room.minZ, near: viewZ > .25 }, { axis: 'z', line: room.maxZ, near: -viewZ > .25 },
     { axis: 'x', line: room.minX, near: viewX > .25 }, { axis: 'x', line: room.maxX, near: -viewX > .25 }
-  ].filter(edge => edge.near);
+  ].filter(edge => edge.near && !firstPerson);
   const onNearEdge = (axis, line, from, to) => nearEdges.some(edge => edge.axis === axis && Math.abs(edge.line - line) < 1e-6
     && to > (axis === 'z' ? room.minX : room.minZ) && from < (axis === 'z' ? room.maxX : room.maxZ));
   for (const item of world.wallDecor) item.group.visible = !onNearEdge(item.axis, item.line, item.at, item.at);
@@ -352,6 +385,7 @@ function frame(now) {
   view.focus.x = THREE.MathUtils.damp(view.focus.x, hero.position.x, 4.5, dt);
   view.focus.z = THREE.MathUtils.damp(view.focus.z, hero.position.z, 4.5, dt);
   placeCamera();
+  updateSleep(dt);
   sun.position.set(view.focus.x - 5, 12, view.focus.z + 6); sun.target.position.set(view.focus.x, 0, view.focus.z);
   destinationMarker.scale.setScalar(reducedMotion ? 1 : 1 + Math.sin(elapsed * 4) * .10);
   let angle = facing - hero.rotation.y; angle = Math.atan2(Math.sin(angle), Math.cos(angle)); hero.rotation.y += angle * Math.min(1, dt * 10);
@@ -369,9 +403,9 @@ function frame(now) {
 }
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); contextLost = true; stopJoystick(); keys.clear(); if (placesDialog.open) placesDialog.close(); cancelAnimationFrame(raf); window.showRoomError('3D 화면이 잠시 멈췄어요. 다시 들어가면 편안한 방으로 돌아갈 수 있어요.'); });
 renderer.domElement.addEventListener('webglcontextrestored', () => location.reload());
-document.addEventListener('visibilitychange', () => { if (document.hidden) { stopJoystick(); keys.clear(); pointers.clear(); gesture = null; cancelAnimationFrame(raf); if (audioContext) audioContext.suspend().catch(() => {}); } else { lastTime = performance.now(); if (!contextLost) raf = requestAnimationFrame(frame); if (audioEnabled && audioContext) audioContext.resume().catch(() => {}); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { stopJoystick(); keys.clear(); pointers.clear(); gesture = null; cancelAnimationFrame(raf); if (audioContext) audioContext.suspend().catch(() => {}); sleep.music.suspend(); } else { lastTime = performance.now(); if (!contextLost) raf = requestAnimationFrame(frame); if (audioEnabled && audioContext) audioContext.resume().catch(() => {}); sleep.music.resume(); } });
 // Compile every shader up front so the first steps into a new room do not stutter.
-renderer.compile(scene, camera);
+sleep.ceiling.visible = sleep.galaxy.visible = true; renderer.compile(scene, camera); sleep.ceiling.visible = sleep.galaxy.visible = false;
 renderer.render(scene, camera);
 clearTimeout(window.roomLoadTimer); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = true;
 hint.textContent = walkHint;
