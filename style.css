@@ -263,3 +263,33 @@ body.sleeping #towel-nudge,body.towel-playing #towel-nudge,body:not(.room-ready)
 #sleep-fade{position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(120% 90% at 50% 40%,#2b2450,#120e22);opacity:0;transition:opacity .9s ease-in-out}
 #sleep-fade.on{opacity:1;transition:opacity .5s ease-in}
 @media(prefers-reduced-motion:reduce){#sleep-fade{display:none}}
+/* ---------- 계란·식혜: eat-or-play menu and the mini-game bottom sheet ---------- */
+#snack-menu{position:fixed;z-index:9;top:auto;left:0;width:250px;padding:8px;border-radius:26px;display:flex;flex-direction:column;gap:6px}
+#snack-menu button{display:grid;grid-template-columns:40px 1fr;grid-template-rows:auto auto;align-items:center;column-gap:10px;text-align:left;padding:10px 12px;border:0;border-radius:18px;background:rgba(255,255,255,.62);color:var(--ink);min-height:62px}
+#snack-menu button span{grid-row:1/3;font-size:28px;text-align:center}#snack-menu b{font-size:16px;font-weight:800}#snack-menu small{font-size:12.5px;opacity:.75}
+#snack-menu button.hot{background:var(--hot);color:#fff;box-shadow:0 8px 20px rgba(242,104,60,.3)}
+#snack-menu button:active{transform:scale(.97)}
+#game.glass-sheet{top:auto;left:10px;right:10px;bottom:10px;transform:none;width:auto;max-width:440px;margin:0 auto;padding:18px 20px calc(20px + env(safe-area-inset-bottom));border:0;border-radius:36px;text-align:left;color:var(--ink);background:var(--lg-thick);box-shadow:var(--lg-shadow),0 18px 50px rgba(60,30,10,.18)}
+#game header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+#game h2{margin:0;font-size:21px;font-weight:800;letter-spacing:-.04em}#game #game-sub{margin:3px 0 0;font-size:14px;color:var(--ink-soft)}
+#game-close{width:34px;height:34px;flex-shrink:0;border-radius:50%;border:0;background:rgba(107,70,54,.08);color:var(--ink);font-size:20px;line-height:1}
+#game .gauge{height:64px;border-radius:32px;margin:30px 0 8px;background:linear-gradient(90deg,#efd9c2,#f7e8d6 30%,#ffe7b8 40%,#ffe7b8 60%,#f7e8d6 70%,#efd9c2);box-shadow:inset 0 2px 6px rgba(90,50,20,.15);overflow:visible}
+#game .gauge .good{background:rgba(255,215,140,.45)}#game .gauge .sweet{border-radius:8px;background:linear-gradient(#ffd45e,#f4ad2f);box-shadow:0 0 18px rgba(255,190,60,.6)}
+#game .gauge .sweet span{position:absolute;left:0;right:0;top:-22px;text-align:center;font-size:12px;font-weight:800;color:#c27a14;white-space:nowrap}
+#game .gauge .marker{top:-8px;bottom:-8px;width:10px;margin-left:-5px;border-radius:5px;background:var(--ink);box-shadow:0 0 0 3px #fff,0 4px 10px rgba(0,0,0,.25)}
+#game .game-tip{margin:0 0 16px;text-align:center;font-size:12.5px;color:var(--ink-soft)}
+#game .game-button{min-height:96px;border-radius:30px;font-size:26px;background:var(--hot);box-shadow:0 10px 24px rgba(242,104,60,.35),inset 0 1px 1px rgba(255,255,255,.45)}
+#game .oneshot{display:flex;align-items:center;gap:14px;margin:20px 0 18px}
+#game .timer-ring{position:relative;width:66px;height:66px;flex-shrink:0}#game .timer-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+#game .timer-ring circle{fill:none;stroke:rgba(107,70,54,.1);stroke-width:6}#game .timer-ring circle.left{stroke:var(--tint);stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:0}
+#game .timer-ring .timer{position:absolute;inset:0;display:grid;place-items:center;margin:0;font-size:16px;font-weight:800;color:var(--ink)}
+#game .meters{flex:1;display:flex;flex-direction:column;gap:12px}#game .meters label{margin:0;font-size:14px;font-weight:700;color:var(--ink);display:flex;flex-direction:column;gap:5px}
+#game .meter{height:16px;border-radius:8px;background:rgba(107,70,54,.08)}#game .meter i{border-radius:8px}
+#game-result{text-align:center;padding:10px 0 2px}#game-result b{display:block;font-size:24px;font-weight:800;letter-spacing:-.04em;margin:14px 0 10px;color:var(--ink)}
+#game-result .game-reward{display:inline-block;min-height:20px;padding:6px 16px;border-radius:999px;background:rgba(255,255,255,.7);color:var(--tint);font-weight:800;font-size:17px}
+#game-result .game-reward:empty{display:none}
+#game .game-actions{display:flex;gap:10px;margin-top:22px}#game .game-actions button{flex:1;min-height:52px;border:0;border-radius:999px;font-weight:800;font-size:16px;color:var(--ink);background:rgba(107,70,54,.08)}
+#game .game-actions .hot{flex:1.4;background:var(--hot);color:#fff}#game .game-actions button:disabled{opacity:.45}
+body.playing #snack-menu,body.sleeping #snack-menu{display:none}
+#game.glass-sheet{animation:sheetUp .35s ease-out}@keyframes sheetUp{from{opacity:0;transform:translateY(24px)}}
+@media(prefers-reduced-motion:reduce){#game.glass-sheet{animation:none}}

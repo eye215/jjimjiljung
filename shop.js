@@ -1,4 +1,4 @@
-import { SNACKS, REST_SECONDS, scoreEggCrack, scoreOneShot } from './economy.js?v=rpg-11';
+import { SNACKS, REST_SECONDS, scoreEggCrack, scoreOneShot } from './economy.js?v=rpg-12';
 
 // 매점 sheet, wallet chip, empty-bag prompt and the two snack mini-games.
 // scene.js owns the character; this module only calls back into it.
@@ -8,7 +8,7 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
   const ui = {
     chip: $('#wallet'), points: $('#wallet-points'), eggs: $('#wallet-egg'), drinks: $('#wallet-drink'),
     open: $('#shop-open'), dialog: $('#shop-dialog'), close: $('#shop-close'), balance: $('#shop-balance'),
-    game: $('#game'), title: $('#game-title'), body: $('#game-body'), result: $('#game-result'),
+    game: $('#game'), title: $('#game-title'), sub: $('#game-sub'), body: $('#game-body'), result: $('#game-result'), menu: $('#snack-menu'),
     tvBox: $('#shop-tv'), tvText: $('#shop-tv p'), tvGo: $('#shop-tv button')
   };
   function render() {
@@ -42,7 +42,7 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
     const free = event.target.closest('[data-free]'), buy = event.target.closest('[data-buy]'), game = event.target.closest('[data-game]');
     if (free) { const kind = free.closest('[data-snack]').dataset.snack; if (wallet.claimFree(kind)) toast(`오늘의 무료 ${SNACKS[kind].short}를 받았어요! 🎁`); }
     if (buy) { const kind = buy.closest('[data-snack]').dataset.snack; if (wallet.buy(kind)) toast(`${SNACKS[kind].short} 하나 샀어요 (♨ -${SNACKS[kind].price})`); }
-    if (game) { const kind = game.dataset.game; if (wallet.count(kind) > 0) { ui.dialog.close(); kind === 'egg' ? eggGame() : oneShotGame(); } }
+    if (game) { const kind = game.dataset.game; if (wallet.count(kind) > 0) { ui.dialog.close(); startGame(kind); } }
   });
 
   // Eating from the action tray: use one from the bag, or point to the shop.
@@ -53,24 +53,54 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
     return false;
   }
 
-  // ---------- Mini-games ----------
-  let running = null;
-  function showGame(title, html) {
-    ui.title.textContent = title; ui.body.innerHTML = html; ui.result.hidden = true; ui.game.hidden = false;
+  // ---------- 계란·식혜 button: eat it, or play its mini-game ----------
+  const GAMES = { egg: { icon: '🥚', eat: '그냥 먹기', note: '톡톡 까서 냠냠', game: '이마로 깨기 도전' }, drink: { icon: '🥤', eat: '그냥 마시기', note: '시원하게 한 모금씩', game: '원샷 도전' } };
+  function closeMenu() { ui.menu.hidden = true; ui.menu.dataset.kind = ''; }
+  function choose(kind, anchor) {
+    if (wallet.count(kind) < 1) { request(kind); return; }
+    const g = GAMES[kind], eat = ui.menu.querySelector('[data-choice="eat"]'), game = ui.menu.querySelector('[data-choice="game"]');
+    eat.querySelector('span').textContent = g.icon; eat.querySelector('b').textContent = g.eat; eat.querySelector('small').textContent = `${g.note} · 가방에 ${wallet.count(kind)}개`;
+    game.querySelector('b').textContent = g.game;
+    ui.menu.dataset.kind = kind; ui.menu.hidden = false;
+    // Sit just above the pressed button, kept on screen.
+    const a = anchor.getBoundingClientRect(), w = ui.menu.offsetWidth, h = ui.menu.offsetHeight;
+    ui.menu.style.left = `${Math.max(10, Math.min(innerWidth - w - 10, a.left + a.width / 2 - w / 2))}px`;
+    ui.menu.style.top = `${Math.max(10, a.top - h - 12)}px`;
+    eat.focus({ preventScroll: true });
+  }
+  ui.menu.addEventListener('click', event => {
+    const choice = event.target.closest('[data-choice]'), kind = ui.menu.dataset.kind; if (!choice || !kind) return;
+    closeMenu();
+    if (choice.dataset.choice === 'eat') request(kind); else startGame(kind);
+  });
+  document.addEventListener('pointerdown', event => { if (!ui.menu.hidden && !ui.menu.contains(event.target) && !event.target.closest('[data-action="egg"],[data-action="drink"]')) closeMenu(); }, true);
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !ui.menu.hidden) closeMenu(); });
+
+  // ---------- Mini-games: a bottom sheet that leaves the character in view ----------
+  let running = null, lastGame = null;
+  function startGame(kind) { if (wallet.count(kind) > 0) { lastGame = kind; kind === 'egg' ? eggGame() : oneShotGame(); } }
+  function showGame(title, sub, html) {
+    ui.title.textContent = title; ui.sub.textContent = sub; ui.body.innerHTML = html; ui.body.hidden = false; ui.result.hidden = true; ui.game.hidden = false;
     document.body.classList.add('playing');
   }
+  // The result stays until you close it or try again with the next snack.
   function finish(text, points) {
     const granted = points ? wallet.earn(points) : 0;
-    ui.result.textContent = text + (granted ? `  +${granted}♨` : points ? '  (오늘 받을 수 있는 온기를 다 모았어요)' : '');
-    ui.result.hidden = false; running = null;
-    setTimeout(() => { ui.game.hidden = true; document.body.classList.remove('playing'); }, 2200);
+    ui.result.querySelector('b').textContent = text;
+    ui.result.querySelector('.game-reward').textContent = granted ? `온기 +${granted}♨` : points ? '오늘 받을 수 있는 온기를 다 모았어요' : '';
+    const left = wallet.count(lastGame), again = ui.result.querySelector('[data-game-again]');
+    again.textContent = left ? `한 번 더 · ${SNACKS[lastGame].short} ${left}개` : `${SNACKS[lastGame].short}가 없어요`; again.disabled = !left;
+    ui.body.hidden = true; ui.result.hidden = false; running = null;
   }
   function cancelGame() { if (running) { running.stop(); running = null; } ui.game.hidden = true; document.body.classList.remove('playing'); }
+  ui.game.querySelector('#game-close').addEventListener('click', cancelGame);
+  ui.result.querySelector('[data-game-close]').addEventListener('click', cancelGame);
+  ui.result.querySelector('[data-game-again]').addEventListener('click', () => { const kind = lastGame; cancelGame(); startGame(kind); });
 
   // 이마로 계란 깨기: tap when the marker crosses the sweet spot.
   function eggGame() {
     if (!wallet.consume('egg')) return;
-    showGame('🥚 이마로 계란 깨기', '<p>가운데 금빛 칸에서 톡! 하면 깔끔하게 깨져요.</p><div class="gauge"><i class="good"></i><i class="sweet"></i><b class="marker"></b></div><button class="game-button" data-tap>톡!</button>');
+    showGame('🥚 이마로 계란 깨기', '금빛 칸에 왔을 때 톡!', '<div class="gauge"><i class="good"></i><i class="sweet"><span>완벽 ✨</span></i><b class="marker"></b></div><p class="game-tip">Space·Enter로도 돼요</p><button class="game-button" data-tap>톡!</button>');
     const marker = ui.body.querySelector('.marker'), start = performance.now();
     let position = 0, raf = 0, done = false;
     const loop = now => { const t = (now - start) / 1000; position = .5 + .5 * Math.sin(t * (2.6 + t * .35)); marker.style.left = `${position * 100}%`; raf = requestAnimationFrame(loop); };
@@ -89,9 +119,9 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
   // 식혜 원샷: hold to drink; release before the brain-freeze meter fills.
   function oneShotGame() {
     if (!wallet.consume('drink')) return;
-    showGame('🥤 살얼음 식혜 원샷', '<p>꾹 누르면 마셔요. 머리가 띵하기 전에 잠깐씩 쉬어 주세요!</p><label>마신 양<span class="meter drink"><i></i></span></label><label>머리 띵 지수<span class="meter freeze"><i></i></span></label><p class="timer">10초</p><button class="game-button" data-hold>꾹 눌러 마시기</button>');
+    showGame('🥤 살얼음 식혜 원샷', '꾹 누르면 꿀꺽, 띵하기 전에 손 떼기!', '<div class="oneshot"><div class="timer-ring"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27"/><circle class="left" cx="32" cy="32" r="27" pathLength="100"/></svg><p class="timer">10초</p></div><div class="meters"><label><span>🥤 마신 양</span><span class="meter drink"><i></i></span></label><label><span>🧊 머리 띵</span><span class="meter freeze"><i></i></span></label></div></div><button class="game-button" data-hold>꾹 누르고 있기 🥤</button>');
     const snack = play('drink', 'oneshot');
-    const drinkBar = ui.body.querySelector('.drink i'), freezeBar = ui.body.querySelector('.freeze i'), timer = ui.body.querySelector('.timer'), button = ui.body.querySelector('[data-hold]');
+    const ring = ui.body.querySelector('.timer-ring .left'), drinkBar = ui.body.querySelector('.drink i'), freezeBar = ui.body.querySelector('.freeze i'), timer = ui.body.querySelector('.timer'), button = ui.body.querySelector('[data-hold]');
     let drunk = 0, freeze = 0, peak = 0, holding = false, last = performance.now(), left = 10, raf = 0;
     const hold = value => event => { event.preventDefault(); holding = value; button.classList.toggle('active', value); };
     button.addEventListener('pointerdown', hold(true)); for (const type of ['pointerup', 'pointerleave', 'pointercancel']) button.addEventListener(type, hold(false));
@@ -104,6 +134,7 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
       peak = Math.max(peak, freeze); drunk = Math.min(1, drunk);
       drinkBar.style.width = `${drunk * 100}%`; freezeBar.style.width = `${Math.min(1, freeze) * 100}%`; freezeBar.classList.toggle('hot', freeze > .7);
       timer.textContent = `${Math.max(0, Math.ceil(left))}초`;
+      ring.style.strokeDashoffset = String(100 - Math.max(0, left) * 10);
       if (snack) { snack.hold = holding; snack.level = 1 - drunk; }
       const frozen = freeze >= 1, finished = drunk >= 1;
       if (frozen || finished || left <= 0) {
@@ -122,7 +153,7 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
 
   render();
   return {
-    request, openShop, cancelGame, render,
+    request, choose, closeMenu, openShop, cancelGame, render,
     bind({ current, stop }) { snackRef = current; stopSnack = stop; },
     get playing() { return !ui.game.hidden; },
     // Shown only inside the 매점.
