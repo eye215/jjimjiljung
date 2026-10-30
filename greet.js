@@ -1,4 +1,4 @@
-import { koreaDay } from './economy.js?v=rpg-17';
+import { koreaDay } from './economy.js?v=rpg-18';
 
 // 인사: pick a nearby visitor (auto when only one), wave at them, and they can
 // accept within 10 s for a high-five. Same person: once per 30 s. The first

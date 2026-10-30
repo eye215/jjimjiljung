@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-17';
-import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-17';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-17';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-17';
+import { connect } from './net.js?v=rpg-18';
+import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-18';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-18';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-18';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -20,7 +20,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     online: $('#online'), onlineText: $('#online-text'), chat: $('#chat'), log: $('#chat-log'), form: $('#chat-form'), input: $('#chat-input'),
     note: $('#chat-note'), open: $('#chat-open'), close: $('#chat-close'), unread: $('#chat-unread'), count: $('#chat-count'),
     labels: $('#labels'), join: $('#join-dialog'), joinForm: $('#join-form'), nickname: $('#nickname'), joinNote: $('#join-note'),
-    solo: $('#join-solo'), rename: $('#chat-rename'), reroll: $('#nickname-reroll')
+    solo: $('#join-solo'), rename: $('#chat-rename'), reroll: $('#nickname-reroll'), mode: $('#chat-mode'), history: $('#chat-history')
   };
   let nickname = ''; try { nickname = cleanNickname(localStorage.getItem('jjimjiljung-nickname') || ''); } catch { /* storage may be unavailable */ }
   let link = null, status = 'solo', presence = [], unread = 0, lastSent = 0, lastSignature = '';
@@ -168,11 +168,29 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     if (focus) ui.input.focus({ preventScroll: true });
   }
   function closeChat() {
+    ui.chat.classList.remove('history'); ui.history.setAttribute('aria-pressed', 'false');
     ui.chat.hidden = true; document.body.classList.remove('chat-open'); ui.open.setAttribute('aria-expanded', 'false');
     ui.input.blur(); ui.open.focus({ preventScroll: true });
   }
   ui.open.addEventListener('click', () => ui.chat.hidden ? openChat() : closeChat());
   ui.close.addEventListener('click', closeChat);
+  // No panel: a composer above the keyboard. Messages show as bubbles over heads (default)
+  // or as fading subtitles above the composer; swipe up / ⌃ shows the history.
+  let mode = 'bubble'; try { if (localStorage.getItem('jjimjiljung-chat-mode') === 'subtitle') mode = 'subtitle'; } catch { /* storage may be unavailable */ }
+  function setMode(next) {
+    mode = next; ui.chat.dataset.mode = mode; ui.mode.textContent = mode === 'bubble' ? '💭' : '💬';
+    ui.mode.setAttribute('aria-label', mode === 'bubble' ? '자막 모드로 보기' : '말풍선 모드로 보기');
+    try { localStorage.setItem('jjimjiljung-chat-mode', mode); } catch { /* storage may be unavailable */ }
+  }
+  function setHistory(on) { ui.chat.classList.toggle('history', on); ui.history.setAttribute('aria-pressed', String(on)); if (on) ui.log.scrollTop = ui.log.scrollHeight; }
+  ui.mode.addEventListener('click', () => setMode(mode === 'bubble' ? 'subtitle' : 'bubble'));
+  ui.history.addEventListener('click', () => setHistory(!ui.chat.classList.contains('history')));
+  let swipeY = null;
+  ui.form.addEventListener('pointerdown', event => { swipeY = event.clientY; });
+  ui.form.addEventListener('pointerup', event => { if (swipeY !== null && swipeY - event.clientY > 40) setHistory(true); else if (swipeY !== null && event.clientY - swipeY > 40) setHistory(false); swipeY = null; });
+  // Tapping anywhere else puts the composer away.
+  document.addEventListener('pointerdown', event => { if (!ui.chat.hidden && !ui.chat.contains(event.target) && !ui.open.contains(event.target)) closeChat(); }, true);
+  setMode(mode);
   ui.chat.addEventListener('keydown', event => { if (event.key === 'Escape') { event.stopPropagation(); closeChat(); } });
   ui.online.addEventListener('click', () => { if (status === 'offline') reconnect(); else openChat(false); });
 
