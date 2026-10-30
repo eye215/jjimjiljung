@@ -1,164 +1,361 @@
-# 찜질중 ♨
+# 찜질중 ♨ — 인수인계 문서
 
-A tiny, warm 3D jjimjilbang for a quiet break. Open [the live room](https://eye215.github.io/jjimjiljung/).
+귀여운 3D 캐릭터들이 한국식 찜질방을 돌아다니며 함께 쉬고 대화하는 소셜 메타버스 웹게임입니다. 모바일(세로 화면)을 우선으로 만들고, PC도 지원합니다.
 
-## Experience
+- 배포 주소: **https://jjimjiljung.yullul.com** (GitHub Pages, 저장소 루트의 `CNAME`. 옛 주소 `eye215.github.io/jjimjiljung`은 자동으로 이동)
+- 저장소: https://github.com/eye215/jjimjiljung (기본 브랜치 `main`, Pages는 `main`의 루트를 그대로 서빙)
+- 이 문서는 Claude Code에서 진행한 작업을 **Codex로 넘기기 위해** 정리한 것입니다. 2026-10-30, `main` = PR #8 병합 시점 기준입니다.
 
-- A plush two-head-tall chibi with tiny dot eyes, a deep terrycloth cap, soft folded towel rolls, short mitten hands and legs, and a sauna emblem. Three coordinated towel/outfit palettes; no crossbody bag.
-- **An explorable 3D jjimjilbang (Phase 1).** Six connected rooms built in real 3D: 중앙 휴게실 (wood floor, mats, TV, low tables, trees), 불가마 (brick dome, glowing hearth, steam, orange light), 소금방 (pink salt bricks, a warm salt bed, salt lamps), 얼음방 (ice blocks and a snowman in a sheep-towel cap), 매점 (counter with eggs, sikhye and ramen, a drinks fridge) and 수면실 (night-sky wall, sleeping mats). Residents rest in several rooms; the shopkeeper waves back.
-- **RPG quarter-view camera.** The camera follows the player smoothly at an angle. Walls on the camera side of the current room drop to a low ledge (dollhouse cutaway), and anything else that would hide the player turns translucent. Each room has its own light; the ambient light eases into the room's mood as you walk through a door, and the badge/toast shows where you are.
-- **Movement and collision.** Walls, door openings and solid furniture are shared map data (`world.js`); `navigation.js` keeps the plush body clear of them, plans tap-to-walk routes from room to room through the doorways, and lets joystick/keyboard movement slide along edges.
-- **Controls.** Mobile: thumb joystick (camera-relative), tap the floor to walk, drag to orbit the camera, pinch to zoom. PC: WASD / arrow keys (hold to walk), click to walk, drag to orbit, wheel to zoom, Q/E to turn, Home or 내 위치 to reset the view. 둘러보기 walks you into any room.
-- Sit, lie down with a pillow, eat a roasted egg, drink sikhye, or wave hello. Arriving in a room picks a fitting pose (sit by the hearth, lie on the salt or a sleeping mat). Faces blink and close their eyes to rest.
-- **수면실 dream mode (Phase 3).** Lie down on a 수면실 mat and the camera glides into a first-person view under a ceiling of glow-in-the-dark stars while a soft lullaby starts. The lullaby is generated in the browser, so no audio file is downloaded and there is no licence to manage. After 30 quiet seconds the room fades into a slowly turning galaxy. 일어나기, 산책, a tap on the floor or the joystick wakes you up. A music on/off button is remembered. Reduced-motion users get a still galaxy.
-- **중앙 휴게실 TV: rewarded ads.**
-  - **On screen:** the lobby TV runs its own little channel (a steaming roasted egg, bobbing sikhye, a fortune teaser). Sitting on the mat in front of it turns the camera to the screen and shows **📺 광고 보고 온기 받기 (+3♨)**.
-  - **The ad:** it is a Google H5 Games rewarded ad (`adBreak({type: 'reward'})`). Watching to the end (`adViewed`) gives +3♨ with a cheer and sparkles. Closing early (`adDismissed`) gives nothing ("다음에 또 봐요"). With no ad available, the TV quietly says "지금은 볼 수 있는 광고가 없어요".
-  - **Limits:** 3 ads a Korea day, at least 2 minutes apart, separate from the 60/day earning cap. Rendering and sound pause during the ad.
-  - **From the 매점:** when you are short of 온기, the 매점 offers **📺 TV 보러 가기** (walks you to the mat and sits you down). Once ads are used up or unavailable, it suggests resting in 불가마/소금방 instead.
-- **카카오톡 친구 초대.** The yellow 💛 친구 초대 button next to the visitor count shares a 카카오톡 feed card (a preview image of the lobby, "같이 찜질하기") with a link to https://jjimjiljung.yullul.com/?from=<nickname>. Invited friends are greeted by name. The official Kakao JavaScript SDK (2.7.2) loads from Kakao's CDN only when the button is tapped. If it cannot load, the system share sheet or a copied link is used instead. The JavaScript key is public and domain-restricted. The site domain must be registered under the app's Web platform in Kakao Developers.
-- **매점 & 간식 (Phase 4).**
-  - **Eating:** eggs and sikhye are eaten in your current pose, so you can sit and snack. Both hands hold a roasted 맥반석 egg (speckled shell → crack → peeled, three bites showing the yolk) or a paper cup of 살얼음 식혜 (rice grains, straw, the level drops with each sip). The face munches with puffed cheeks, shell bits fly, and sparkles mark the finish. Others see you eat.
-  - **Getting snacks:** they come from your 간식 가방. An empty bag offers a walk to the 매점, which opens on arrival. There, claim **one free egg and one free sikhye per day** (Korea time) or buy more for 5 온기 ♨.
-  - **Earning 온기:** sitting or lying earns 온기 every 30 s (double in 불가마/소금방). Newcomers start with 10, and earning is capped at 60 a day.
-  - **Mini-games:** "이마로 계란 깨기" (tap in the golden zone; the character cracks the egg on their forehead) and "식혜 원샷" (hold to drink, rest before brain freeze). Each uses one snack and rewards up to 3 ♨.
-  - **Saving:** the bag and points are saved on this device for now (moving to the server in Phase 5).
-- Full-screen mobile layout, safe-area spacing, reduced-motion support, optional user-activated synthesized ambience, and the last outfit saved locally when storage is available.
-- Clear loading, missing-module, unsupported-WebGL and context-loss states, with a retry button. Rendering and sound pause while the page is hidden.
+---
 
-- **Multiplayer and public chat (Phase 2).** Pick a nickname (a cosy jjimjilbang name such as 따끈한양머리 is suggested; 🎲 offers another and it stays editable), or look around alone, then see other visitors walk, sit, lie down and change outfits in real time, with name tags over their heads and a live visitor count. The 💬 chat opens a frosted-glass, portrait-first bottom sheet on phones (a side panel on PC and in landscape) that stays above the on-screen keyboard. Messages also pop up as speech bubbles. Visitors get join/leave notices and an unread badge. Messages are capped at 120 characters, rate-limited (at least 1.2 s apart, at most 5 per 10 s, and receivers drop floods), and a first-line word filter masks rude words with ♨. Typing never moves the character.
+## 0. 한눈에 보는 현재 상태
 
-Not yet implemented: private rooms, AI moderation, voice chat/STT and NPC conversation (see the roadmap below).
-
-## Code map
-
-| File | Role |
+| 구분 | 상태 |
 | --- | --- |
-| `world.js` | Map data: rooms, doors, furniture footprints, destinations, `roomAt()`. Pure data, shared by rendering and navigation (and later by networking/zone chat). |
-| `navigation.js` | Walkable area (rooms + doorways − furniture, inflated by the actor radius), exact segment checks, A* routes, sliding movement. No Three.js. |
-| `environment.js` | Builds the 3D rooms from `world.js`: canvas-drawn textures, walls with cutaway/fade metadata, furniture, signs, lights, steam. Static props are merged per material. |
-| `character.js` | The plush character factory and pose animation. Each character owns its outfit materials, so several visitors can wear different palettes (needed for remote players). |
-| `sleep.js` | 수면실 dream mode: first-person blend, starry ceiling, galaxy dome and spiral, generated lullaby (Web Audio). |
-| `social.js` | Remote visitors (shared character model, interpolation), name tags, speech bubbles, chat panel, nickname entry, connection status. |
-| `net.js` | Realtime transports: Supabase Realtime (Presence and Broadcast) in production; a BroadcastChannel transport between tabs for tests (`?net=local`). |
-| `chat-rules.js` | Pure chat rules: text cleaning, 120-character cap, profanity masking, nickname rules, rate limits, incoming validation. |
-| `config.js` | Public Supabase URL, publishable key and channel name. |
-| `economy.js` | Wallet rules: snack bag, 온기 points, daily free snack (Korea day), earning cap, mini-game scoring. Pure and unit-tested. |
-| `shop.js` | 매점 sheet, wallet chip, empty-bag prompt, both mini-games. |
-| `invite.js` | 카카오톡 share (lazy SDK load, feed message, fallbacks) and the invite greeting. |
-| `ads.js` | Google Ad Placement API wrapper for the rewarded TV (lazy script, reward flow, pause/resume, states). |
-| `privacy.html` | 개인정보처리방침 (saved data, Supabase, Kakao, Google ad cookies, opt-out links, clear-device button). |
-| `scene.js` | Renderer, follow camera, input, actions, residents, room detection, wall cutaway/fading, error handling. |
+| Phase 1 — 실제 3D 찜질방, RPG 쿼터뷰 카메라, 충돌·길찾기 | ✅ 배포됨 (PR #1) |
+| Phase 2 — 멀티플레이어(Supabase Realtime) + 공개 채팅 | ✅ 배포됨 (PR #3, #5). **실제 두 기기 연결은 미검증** |
+| Phase 3 — 수면실 꿈나라 모드(1인칭, 자장가, 은하계) | ✅ 배포됨 (PR #2) |
+| Phase 4 — 매점·간식(앉아서 먹기, 하루 1개 무료, 미니게임) | ✅ 배포됨 (PR #6) |
+| 카카오톡 친구 초대 | ✅ 배포됨 (PR #7). **실제 카카오톡 공유는 미검증** |
+| 중앙 휴게실 TV 보상형 광고 + 매점→TV 안내 + 개인정보처리방침 | ✅ 배포됨 (PR #8). **AdSense 퍼블리셔 ID가 없어 실제 광고는 아직 안 나옴** |
+| UI 전체 리디자인(B안) + 옷장(부위별 색) | 🟡 시안 완료, **최종 확정 대기** → [§6-A](#6-a-ui-전체-리디자인-b안--옷장) |
+| 인사 개편(대상 선택, 받아주기, 하이파이브) | 🟡 시안 완료, **확정 대기** → [§6-B](#6-b-인사-개편) |
+| 채팅 개편(신청제 그룹 채팅 + 패널 없는 채팅 UI) | 🟡 시안 완료, **확정 대기** → [§6-C](#6-c-채팅-개편-신청제-그룹-채팅--패널-없는-ui) |
+| Phase 5 — 익명 계정, 클라우드 저장, 서버 검증, AI 필터 | ⏳ 미착수. Supabase Anonymous sign-ins는 **켜져 있음** |
+| Phase 6 — 입구·탈의실·목욕탕·세신실·마사지방·사주방 | ⏳ 미착수 |
+| Phase 7 — 음성채팅 + STT | ⏳ 미착수 |
 
-### Performance notes (mobile)
+UI 리디자인, 인사, 채팅 시안 세 가지가 모두 확정 대기 중입니다. 사용자는 **B안(떠 있는 버튼)을 고르고 수정 사항까지 전달**했고, 그 수정 사항을 반영한 시안 5장(`docs/mockups/02-…jpg`)의 최종 확정만 남았습니다. 사용자가 정한 진행 순서는 **UI 적용 → 인사·채팅 UI → 서버 작업(Phase 5)**입니다.
 
-- Static scenery is merged per material and does not cast real-time shadows; soft baked blobs sit under furniture. Only characters cast shadows, from one shadow map that follows the player.
-- Each character merges its non-animated parts per material (about 16 draw calls instead of about 60).
-- Pixel ratio is capped (1.5 on touch devices), all shaders are compiled before entering, and rendering pauses while the tab is hidden.
+---
 
-## Supabase setup (Phase 2)
+## 1. 작업 규칙 (사용자 지시사항)
 
-- Project: `xojeavzrmdizganxjygj`, dedicated to 찜질중 on the Free plan. The StageFlow project is separate and untouched.
-- The browser only uses the project URL and the **publishable** key in `config.js`. Publishable keys are meant to be public. Never commit a secret/service_role key or the database password.
-- No tables are needed: visitors use Realtime **Presence** (who is here) and **Broadcast** (`state` about 5 times a second while moving with an idle heartbeat, and `chat`) on the channel `jjimjil:main`.
-- If visitors never connect, check **Realtime → Settings** in the dashboard and make sure public channel access is allowed (the app does not sign users in yet).
-- Free-plan limits: 200 concurrent connections and a monthly message quota. Movement updates are throttled to stay well inside it for small groups.
-- `supabase-js` **2.117.3** is vendored as `vendor/supabase.umd.js` (MIT, see `vendor/SUPABASE-LICENSE.txt`) and only loads after the room is ready, so a slow network never blocks entering.
+- **완료 기준은 "실제 사이트에 배포되어 쓸 수 있는 상태"입니다.** 개발 → 디자인 QA(390px 모바일 스크린샷으로 직접 확인) → 테스트 → 오류 수정 → 회귀 테스트 → 배포 → 결과 보고 순서를 지킵니다.
+- **배포**: 작업 브랜치 → PR → `main` 병합 → GitHub Pages 빌드 성공 확인 → 실제 URL 확인. 테스트를 통과한 변경은 별도 승인 없이 자동 배포해도 됩니다(사용자 승인 완료). force-push는 금지입니다.
+- 단, **기존 기능 삭제, 중요한 데이터 구조 변경, 유료 서비스, 보안 위험이 있는 작업은 먼저 확인**받습니다.
+- **UI 변경은 390px 모바일 시안 스크린샷을 먼저 보여주고 확정받은 뒤 적용**합니다. 사용자가 반복해서 요청한 방식입니다.
+- 실제로 테스트하지 못한 항목은 "완료"로 보고하지 않고 **미검증으로 따로 적습니다.**
+- API 키와 비밀 정보는 **프런트엔드에 넣지 않습니다.** 브라우저에 공개되도록 만든 키(Supabase publishable, Kakao JS 키, AdSense client id)만 예외입니다.
+- **StageFlow Supabase 프로젝트는 절대 건드리지 않습니다.** 찜질중 전용 프로젝트만 씁니다.
+- 캐릭터 디자인을 유지합니다: 2~2.5등신의 말랑한 인형, 깊게 쓴 양머리 수건, 점 눈, 파스텔 찜질복. **크로스백은 없습니다.** 캐릭터를 단순한 도형으로 대체하지 않습니다.
+- 3D 씬과 맵 데이터, 충돌, 시각 요소를 일치시킵니다. 카메라 쪽 벽을 낮춰(컷어웨이) 플레이어가 항상 보이게 하고, 모바일 세로 화면 구도를 확인합니다(`AGENTS.md`).
+- 사용자와는 **한국어**로 소통합니다.
 
-## Google AdSense setup (TV ads)
+---
 
-External scripts are avoided everywhere **except** two on-demand ones:
-- **Google's ad script** (`pagead2.googlesyndication.com/pagead/js/adsbygoogle.js`) loads only the first time a visitor sits at the lobby TV, and only when `ADSENSE_CLIENT` is set in `config.js`. It cannot be vendored, because Google serves it.
-- The **Kakao SDK** loads only when 친구 초대 is tapped.
+## 2. 실행·테스트·배포
 
-The site stays fully usable without either.
+빌드 없는 정적 사이트입니다.
 
-Owner steps:
-1. **AdSense account and site:** sign up at https://adsense.google.com, add `jjimjiljung.yullul.com` under *Sites*, and verify ownership (AdSense offers an ads.txt or meta-tag method).
-2. **Apply for H5 Games Ads:** rewarded ads in web games are only allowed through H5 Games Ads (Ad Placement API). Request access through Google's H5 Games Ads page (https://developers.google.com/ad-placement), naming this site as a game. Approval can take days or weeks.
-3. **Publisher id:** copy your `ca-pub-…` id into `ADSENSE_CLIENT` in `config.js`. Keep `ADS_TEST_MODE = true` (it adds `data-adbreak-test="on"`, so Google shows test ads) until approval, then set it to `false`.
-4. **ads.txt:** add a file named `ads.txt` at the repository root (served at https://jjimjiljung.yullul.com/ads.txt) with one line: `google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0` (your number without `ca-`).
-5. **EU/UK/Swiss consent:** in AdSense, open *Privacy & messaging → European regulations*, create and publish a GDPR consent message (Google-certified CMP) for this site. Optionally also set up the *US state regulations* message.
-6. **Privacy policy:** `privacy.html` already explains ad cookies and opt-outs. AdSense asks for its URL: https://jjimjiljung.yullul.com/privacy.html
+```bash
+python3 -m http.server 8000      # 저장소 루트에서 실행. file:// 로 열면 ES 모듈이 동작하지 않음
+npm install                      # devDependency: playwright 1.62.1
+npx playwright install chromium  # 또는 BROWSER_PATH=/path/to/chrome
+npm run check                    # 모든 모듈 node --check
+npm test                         # 테스트 10종 (아래 표)
+```
 
-## Run / deploy
+- 테스트는 Chromium 소프트웨어 WebGL(SwiftShader)로 돌아서 **느립니다**(전체 약 20~30분). `page.setDefaultTimeout(120000)`을 쓰는 이유도 이것입니다.
+- 스크린샷은 `test-results/`에 저장됩니다(git 제외). 디자인 QA에 활용하세요.
+- `TEST_URL`로 배포된 사이트를 대상으로 테스트할 수도 있습니다.
+- **캐시 무효화**: 모듈 import와 `index.html`에 `?v=rpg-7` 형식의 버전이 붙어 있습니다. 모듈을 수정하면 **모든 파일의 버전을 한 번에 올려야** 합니다(`sed -i 's/?v=rpg-7/?v=rpg-8/g' *.js index.html`). 버전이 섞이면 같은 모듈이 두 번 로드됩니다.
+- Pages 빌드 상태는 GitHub Actions의 `pages build and deployment` 실행 결과로 확인합니다.
 
-This is a buildless static site. Serve the repository root over HTTP (for example `python -m http.server 8000`), then open `http://localhost:8000`. Opening `index.html` as a local file will not load ES modules.
+### 외부 리소스 규칙
+- 기본 원칙은 **CDN 금지, `vendor/`에 직접 포함**입니다. 포함된 것: Three.js 0.170.0(MIT), supabase-js 2.117.3 UMD(MIT). 라이선스 파일도 `vendor/`에 있습니다.
+- **예외는 필요할 때만 불러오는 외부 스크립트 두 개뿐입니다.**
+  1. Kakao JS SDK 2.7.2 (`t1.kakaocdn.net`): 💛 친구 초대를 누를 때만 불러옵니다.
+  2. Google 광고 스크립트(`pagead2.googlesyndication.com`): TV 앞에 처음 앉을 때만, 그리고 `ADSENSE_CLIENT`가 설정되어 있을 때만 불러옵니다.
+- 텍스처는 모두 시작할 때 canvas로 그리고, 지오메트리도 코드로 만듭니다. 3D 모델이나 이미지 파일은 쓰지 않습니다. `assets/share.jpg`(카카오 공유 미리보기)만 예외이고, `assets/sauna-room-v1.png`는 옛 2.5D 배경으로 지금은 아트 참고용입니다.
 
-GitHub Pages serves `main` / repository root. No secret, build service, external model, font or CDN is required; the only external service is Supabase Realtime for multiplayer. Three.js **0.170.0** is vendored in `vendor/`, with its MIT license. All textures and geometry are generated locally at startup. Module URLs carry a `?v=` version so returning visitors get matching files after a deploy; bump it in `index.html` and the imports when modules change.
+---
 
-`assets/sauna-room-v1.png` is the earlier 2.5D environment plate. It is no longer loaded and is kept only as the art-direction reference for colours and props.
+## 3. 코드 구조
 
-## Checks
+| 파일 | 역할 |
+| --- | --- |
+| `index.html` | DOM 구성 전체(헤더, 하단 액션, 다이얼로그, 채팅, 매점, 미니게임, 토스트, TV 버튼). 로딩·오류 처리 인라인 스크립트, `scene.js` 진입점 |
+| `style.css` | 전체 스타일. Phase별로 아래에 이어 붙인 구조라 **리디자인 때 정리가 필요**합니다 |
+| `world.js` | 맵 데이터: `ROOMS`(6개 방), `DOORS`, `FURNITURE`(발자국 크기, `solid`), `DESTINATIONS`, `SPAWN`, `TV_SEAT`, `roomAt()`. 순수 데이터 |
+| `navigation.js` | 걸을 수 있는 영역(방 + 문 − 가구, 캐릭터 반지름만큼 확장), 정확한 선분 충돌 판정, A* 길찾기, 벽에 미끄러지는 이동. Three.js 의존 없음 |
+| `environment.js` | `world.js`를 바탕으로 3D 방 생성(canvas 텍스처, 벽 컷어웨이·투명화 정보, 가구, 간판, 조명, 김, TV 자체 화면 `drawTv`). 정적 메시는 재질별로 합쳐 그리기 호출을 줄임 |
+| `character.js` | 캐릭터 생성(`createCharacterKit` → `createCharacter(colors)`), 자세 애니메이션(`animate`), 간식 소품·애니메이션(`startSnack`/`stopSnack`), 표정(normal/sleep/happy/chew/dizzy), `celebrate()`, 파티클. 부위별로 메시를 합쳐 캐릭터당 그리기 호출이 약 16회 |
+| `scene.js` | 렌더러, 따라오는 카메라(`view` yaw/pitch/zoom), 입력(조이스틱, WASD, 탭, 드래그, 핀치, 휠), 행동, NPC 손님, 방 감지, 벽 컷어웨이·투명화, 간식 연결, 매점·TV·초대·소셜 연결 |
+| `sleep.js` | 수면실 꿈나라 모드: 1인칭 전환, 별 천장, 은하계(셰이더 돔 + 나선 입자), Web Audio로 만든 자장가 |
+| `social.js` | 다른 접속자 표시(보간), 이름표, 말풍선, 채팅 패널, 닉네임 다이얼로그(자동 추천), 접속 상태, 접속자 수 |
+| `net.js` | 실시간 전송 계층: Supabase Realtime(Presence + Broadcast), 테스트용 BroadcastChannel(`?net=local`) |
+| `chat-rules.js` | 텍스트 정리, 120자 제한, 비속어 마스킹(띄어쓰기·기호 우회 대응), 닉네임 규칙, 빈도 제한, 수신 검증, `suggestNickname()` |
+| `economy.js` | 지갑: 간식 가방, 온기 포인트, 하루 1개 무료(KST), 적립 상한, 미니게임 점수, TV 광고 제한. 순수 함수 |
+| `shop.js` | 매점 시트, 지갑 칩, 빈 가방 안내, 미니게임 2종, 온기 부족 시 TV 안내 |
+| `ads.js` | Google H5 Games Ads(Ad Placement API) 보상형 광고 래퍼. 상태: idle/loading/ready/none/cooldown/done/playing |
+| `invite.js` | 카카오톡 공유(SDK 지연 로드, 피드 카드, 공유 창·링크 복사 대체), 초대받은 사람 인사 |
+| `config.js` | 공개 설정: Supabase URL과 publishable key, 채널 이름, `ADSENSE_CLIENT`(비어 있음), `ADS_TEST_MODE` |
+| `privacy.html` | 개인정보처리방침(저장 데이터, Supabase, 카카오, Google 광고 쿠키, 수신 거부, 기기 기록 지우기 버튼) |
+| `docs/mockups/` | 확정 대기 중인 UI 시안 이미지와 시안 생성 스크립트(§6) |
 
-Use Node.js and install the pinned development dependency with `npm install`, then `npx playwright install chromium`, `npm run check` and `npm test`. Alternatively set `BROWSER_PATH` to an installed Chromium/Chrome executable. `TEST_URL` can target the deployed site instead of the local test server. Test screenshots go to ignored `test-results/`.
+### localStorage 키 (모두 `jjimjiljung` 접두사)
+`jjimjiljung-nickname`, `jjimjiljung-outfit`(peach/mint/lilac), `jjimjiljung-sleep-music`, `jjimjiljung-wallet-v1`(points, bag, free, earnedDay, earned, ads). `privacy.html`의 지우기 버튼이 이 접두사로 일괄 삭제합니다.
 
-- `tests/navigation.cjs`: every room-to-room route through doorways, routes never leave the floor or cut furniture (sampled every centimetre), blocked/off-map taps, walls block, doorways open, sliding, wall glide, anti-tunnelling.
-- `tests/chat.cjs`: text cleaning, length cap, profanity masking including spacing tricks (and no false positives on everyday words), nickname rules, rate limits, incoming validation.
-- `tests/multiplayer.cjs`: two tabs over the local transport: nickname validation, seeing each other, count and name tags, movement/pose/outfit sync, chat both ways with bubbles and unread badge, throttling, masking, typing does not walk, leaving.
-- `tests/economy.cjs`: welcome points, free snack once per Korea day, buying, persistence, tamper sanitising, daily cap, mini-game scores, TV ad limits.
-- `tests/shop.cjs`: empty-bag prompt walks to the 매점, daily free claims, buying, eating while sitting, finishing, putting snacks away, both mini-games.
-- `tests/invite.cjs`: Kakao init with the JS key, feed content and links on the registered domain, copy-link fallback, invite greeting, rude names ignored.
-- `tests/tv.cjs`: stand-in for Google's ad script. Ad button when seated (script loads only then), shop shortage → walk to the TV, reward after a full view with rendering paused, nothing when closed early, 2-minute gap, 3 a day, rest tip afterwards, midnight reset, no-ad and no-publisher-id fallbacks.
-- `tests/sleep.cjs`: dream mode only in 수면실, first-person camera, lullaby on/mute, 30-second galaxy, wake-up.
-- `tests/smoke.cjs`: desktop, 390px and 320px mobile, 820px tablet and landscape layouts; joystick/tray overlap; all poses and waving; drag orbit, wheel zoom and recenter; the six-room travel dialog and focus handling; camera-relative joystick movement, release and cancel; wall collision; walking through the 불가마 door with the room badge updating; wall cutaway/fading; tap-to-walk; held-key walking; outfit persistence; audio; reduced motion; local-only assets; WebGL context loss/retry; failed module; unavailable WebGL; loading guard.
+### 맵
+- 6개 방: lobby(중앙 휴게실, 가운데), hot(불가마, 북쪽), ice(얼음방, 북서), sleep(수면실, 북동), salt(소금방, 서쪽), shop(매점, 동쪽)
+- 좌표는 미터 단위이고, +x가 동쪽, +z가 남쪽(기본 카메라 쪽)입니다.
+- 새 방을 추가할 때는 `world.js`에 ROOMS, DOORS, FURNITURE, DESTINATIONS를 넣으면 충돌, 길찾기, 컷어웨이, 둘러보기가 자동으로 따라옵니다. `tests/navigation.cjs`의 "모든 방에 destination이 있어야 함" 검사에 맞춰야 합니다.
 
-Chromium uses software WebGL in CI-like environments, so these tests are slow but functional. They do not replace testing on physical iOS Safari or low-memory Android devices.
+---
 
-## Roadmap
+## 4. 구현된 기능 상세
 
-Each phase ships only after design QA, tests and a verified Pages deploy.
+### 3D 공간과 이동 (Phase 1)
+- **카메라**: 쿼터뷰가 캐릭터를 부드럽게 따라갑니다(기본 yaw .42, pitch .52). 드래그로 회전, 핀치·휠로 확대, Q/E로 회전, Home 또는 "내 위치"로 원래 시점 복귀.
+- **컷어웨이**: 현재 방에서 카메라 쪽 벽은 낮은 턱으로 내려갑니다. 그 밖에 캐릭터를 가리는 벽·문틀·나무는 반투명해집니다.
+- **조작**: 조이스틱과 WASD는 카메라 방향 기준으로 움직이고, 바닥을 탭하면 A* 경로로 걸어갑니다. "둘러보기"로 6개 방 중 하나로 이동합니다.
+- **방 연출**: 방마다 조명 색이 다르고, 들어가면 배지와 토스트로 방 이름을 보여 줍니다. NPC 손님이 5명 있습니다(매점 주인은 내가 인사하면 손을 흔들어 줌).
+- **행동**: 산책, 앉기, 눕기, 계란, 식혜, 인사. 둘러보기로 도착하면 방에 맞는 자세를 자동으로 취합니다.
 
-### Phase 2 — multiplayer and public text chat ✅ done
-- Supabase Realtime (free plan): **Presence** for nickname, outfit, current room, visitor count, join/leave; **Broadcast** for positions (~8 Hz while moving, interpolated) and chat.
-- Portrait-first mobile chat: a bottom-sheet chat panel that sits above the on-screen keyboard (`visualViewport`), speech bubbles over heads, nickname labels, recent history, open/close. Landscape and PC stay supported.
-- Basic safety from day one: message length and send-rate limits, plus a local Korean/English profanity filter.
-- Only the project URL and the public anon key are used in the browser.
+### 멀티플레이어·채팅 (Phase 2, 2.1)
+- **입장**: 처음 들어오면 닉네임 다이얼로그가 뜹니다. 찜질방 느낌의 이름을 자동으로 채워 주고(🎲로 다시 추천, 직접 수정 가능), "혼자 둘러보기"도 있습니다.
+- **Supabase Realtime 채널 `jjimjil:main`**
+  - Presence: id, name, outfit
+  - Broadcast `state`: x, z, facing, action, snack 상태, walking, outfit, room. 걸을 때 약 5Hz, 쉴 때 2.5초마다 보냅니다.
+  - Broadcast `chat`
+- **표시**: 다른 사람의 위치는 보간해서 부드럽게 움직이고, 이름표, 말풍선, 접속자 수, 입장·퇴장 알림이 있습니다.
+- **채팅창**: 지금은 공개 전체 채팅입니다. 모바일은 글라스 바텀시트, PC와 가로 화면은 측면 패널이고, 키보드가 열리면 그 위로 올라갑니다(`visualViewport`). 안 읽은 수 배지가 있습니다.
+  - **§6-C에서 전체 채팅을 없애고 신청제 그룹 채팅으로 바꿀 예정입니다.**
+- **제한**: 120자, 1.2초 간격, 10초에 5개. 받는 쪽에서도 같은 사람의 도배를 걸러내고, 비속어는 ♨로 가립니다.
 
-### Phase 3 — 수면실 immersion ✅ done
-- Lying down in 수면실 moves the camera smoothly into a first-person view looking up at a starry ceiling (the room gains a ceiling only in this view).
-- Calm sleep music starts automatically. Lying down is a tap, so browsers allow the sound to play. Music is generated in the browser or uses a properly licensed track, with a volume control and mute.
-- After 30 seconds of lying still, the view fades into a slowly turning galaxy (stars, nebula, and a gentle shader). Waking up (the button, walking, or tapping the floor) fades back to the room. Reduced-motion users get a static starfield.
+### 수면실 꿈나라 모드 (Phase 3)
+- 수면실 매트에 누우면 1인칭 시점으로 바뀌어 야광별 천장을 올려다봅니다. 자장가가 자동으로 재생되고(음악 끄기 설정은 저장), 30초 동안 가만히 있으면 은하계가 fade-in 됩니다.
+- 일어나기, 산책, 바닥 탭으로 원래 시점에 돌아옵니다. 다른 방에서 누우면 일반 눕기입니다.
 
-### Phase 4 — 매점 & 간식 ✅ done
-- **Eat while sitting:** egg and sikhye become something you do in a pose, so you can sit (or stand) and snack. Other visitors see it too.
-- **Buy at the 매점:** walk up to the counter and a 매점 button appears. Pick 구운 계란 or 식혜 and they go into a small snack bag in the action tray (계란 ×2). With an empty bag, the snack buttons point you to the shop.
-- **One free each per day:** one free egg and one free sikhye every day, resetting at midnight Korea time. Anything more costs 온기 points (♨), earned by resting in 불가마/소금방, chatting and the mini-games.
-- **Proper snack art and animation:**
-  - Roasted egg (speckled brown shell): crack and peel it, then take bites.
-  - Sikhye in a cup with floating rice grains and a straw: hold it in both hands.
-  - Bringing food to the mouth, puffed chewing cheeks, a happy face, crumbs and sparkles, then an empty cup or shell.
-- **Mini-games:**
-  - "이마로 계란 깨기": tap when the gauge hits the sweet spot for a clean crack.
-  - "식혜 원샷": hold to drink and keep the meter in the safe zone to avoid brain freeze.
-  - Both reward 온기 points. Optional quick reactions for others watching.
-- Saved on the device at first. The daily free item and points move to the server in Phase 5 (with Supabase tables) so they cannot be faked.
+### 매점·간식 (Phase 4)
+- **앉아서 먹기**: 간식은 자세 위에 겹쳐지는 동작이라 앉은 채로 먹을 수 있습니다.
+  - 맥반석 계란: 껍질을 깨고 까서 세 입에 먹고, 베어 물면 노른자가 보입니다.
+  - 살얼음 식혜: 밥알이 뜬 컵에 빨대가 꽂혀 있고, 네 모금에 다 마십니다.
+  - 다른 사용자에게도 먹는 모습이 동기화됩니다.
+- **간식 얻기**: 간식 가방에서 꺼내 먹습니다. 가방이 비면 매점으로 안내하고, 도착하면 매점 창이 자동으로 열립니다. 하루 1개씩 무료(KST)이고, 그 이상은 5온기입니다.
+- **온기**: 처음 10을 줍니다. 앉거나 누우면 30초마다 +1(불가마·소금방은 +2)이고, 하루 상한은 60입니다.
+- **미니게임**: "이마로 계란 깨기"(타이밍)와 "식혜 원샷"(누르고 있되 머리 띵 게이지 관리). 각각 간식 1개를 쓰고 최대 +3입니다.
 
-### Phase 5 — invisible accounts, cloud save, private chat and AI moderation (Supabase)
-- **Signing up without noticing:** the first visit silently creates an anonymous Supabase account (Anonymous Sign-ins), so nickname, outfit, snacks, points and progress are saved on the server with no email, phone or password.
-- **Same character on any device:** to open your save elsewhere, the settings show a short **이어하기 코드** or QR (an expiring one-time code). Optionally the anonymous account can later be linked to Kakao or Google with one tap (requires app keys from those services).
-- **Minimal personal data:** only a random user id, the nickname and game data. Birth date and time for 사주 stay on the device unless you choose to sync them. A 'delete my data' button is included. Abuse protection with CAPTCHA (Cloudflare Turnstile, free) when needed.
-- Owner setup: enable **Anonymous sign-ins** in Supabase Authentication; tables and RLS policies are provided as SQL in the repo.
-- Private chat: create a room, get a short invite code, and share it; anyone who enters the code joins. Codes are generated on the server with an expiry, and membership is enforced with Row Level Security and Realtime authorization, so a code cannot be guessed or bypassed from the browser.
-- AI moderation: chat messages go through an Edge Function that calls an NVIDIA safety model (e.g. NemoGuard content safety, via build.nvidia.com/NIM). Inappropriate messages are blocked or masked before anyone sees them. The NVIDIA API key lives only in Supabase secrets.
-- Report, mute and block buttons.
-- Anonymous sign-in plus a small profile table, so 매점 points, daily free snacks and nicknames are checked on the server.
-- To check before starting: the current free-tier terms and rate limits of the NVIDIA API, and how well the safety model handles Korean (the local filter stays as a fallback).
+### 카카오톡 친구 초대
+- 💛 버튼을 누르면 `Kakao.Share.sendDefault` 피드 카드를 보냅니다(`assets/share.jpg`, 버튼 "같이 찜질하기").
+- 링크는 `https://jjimjiljung.yullul.com/?from=<닉네임>`입니다. 받은 사람에게 "○○님의 초대로 왔어요"를 보여 주고, 주소창에서 `from`을 지웁니다.
+- SDK를 불러오지 못하면 휴대폰 공유 창(`navigator.share`), 그것도 안 되면 클립보드 복사로 대체합니다.
+- JS 키는 `invite.js`에 있습니다. **사이트 도메인을 Kakao Developers → 앱 → 플랫폼 → Web에 등록해야 동작합니다.** 등록 여부는 확인되지 않았습니다.
 
-### Phase 6 — 새 공간: 입구·탈의실·목욕탕·세신실·마사지방·사주방
-- **입구 카운터:** check in, get a locker key and a 찜질복. A short welcome scene, with the key shown in the UI.
-- **탈의실:** wooden lockers. Open yours to change into the 찜질복, which is where outfit colours are chosen.
-- **목욕탕:** hot and cold tubs with steam, shower stations and small stools. Sitting in a tub shows a soak pose and shoulder-deep water.
-- **세신실 / 마사지방:** lie on the bed and a friendly NPC attendant gives a 때밀이 or massage, as a short animation or light rhythm game that rewards 온기 points.
-- **사주방:** enter your birth date and (optional) time to get a free **오늘의 운세**.
-  - It works out the day pillar and today's 일진 locally and builds a fortune from the five-element (오행) relation: overall, money, love, health, lucky colour and number.
-  - It is presented as entertainment. The birth data stays on the device.
-  - An NVIDIA AI fortune-teller voice can be added later.
-- New rooms extend `world.js`, so collision, travel and the cutaway work as before.
+### 중앙 휴게실 TV (보상형 광고)
+- **TV 앞 방석(`TV_SEAT`)에 앉으면** 카메라가 TV 쪽으로 돌고, 화면 아래에 "📺 광고 보고 온기 받기 (+3♨)" 버튼이 뜹니다.
+- **광고 흐름**: `adBreak({type:'reward'})`를 호출해 `beforeReward`가 오면 버튼을 켜고, 누르면 `showAdFn()`을 실행합니다.
+  - `adViewed`: +3과 축하 모션
+  - `adDismissed`: "다음에 또 봐요"
+  - 광고 없음: "지금은 볼 수 있는 광고가 없어요"
+- **광고 중**: 렌더링과 소리를 멈췄다가, 끝나면 이어집니다.
+- **제한**: 하루 3회, 2분 간격, KST 자정 초기화. 적립 상한 60과는 따로 계산합니다(`economy.js`).
+- **TV 자체 채널**: 김 나는 계란, 식혜, "오늘의 운세 · 사주방 곧 오픈" 화면이 번갈아 나옵니다.
+- **매점에서 온기가 부족할 때**: "♨ 5 필요해요"와 [📺 TV 보러 가기]를 보여 주고, 누르면 TV 앞까지 걸어가 앉습니다. 광고를 다 봤거나 볼 광고가 없으면 "불가마나 소금방에서 쉬면 온기가 두 배로 쌓여요"로 안내합니다.
+- **설정**: `config.js`의 `ADSENSE_CLIENT`가 비어 있으면 광고 스크립트를 아예 불러오지 않습니다(지금 상태). `ADS_TEST_MODE = true`이면 `data-adbreak-test="on"`이 붙습니다.
 
-### Phase 7 — voice chat and speech-to-text
-- Voice chat over WebRTC with Supabase Realtime for connection setup (signaling): push-to-talk or a toggled mic, speaking indicators over heads, per-person mute, and nearby-only or room-only audio. Peer-to-peer suits small groups; mobile networks may need a TURN relay (free tiers are limited).
-- STT: the browser's Web Speech API (Korean, free, works in iOS Safari and Chrome) turns speech into chat text or live captions. Transcripts pass through the same AI moderation. Live voice audio itself cannot be filtered in real time, so mute/report/block and push-to-talk are the safeguards there.
+---
 
-### Later — AI residents
-Characters share one factory and every room has an id, so AI residents (shopkeeper, chatty guest, counsellor) can be added as actors whose replies come from an LLM (e.g. NVIDIA NIM) through a server-side function.
+## 5. 외부 서비스 설정 현황
+
+| 서비스 | 현황 | 남은 일 |
+| --- | --- | --- |
+| **Supabase** (프로젝트 `xojeavzrmdizganxjygj`, Free, 찜질중 전용) | URL과 publishable key가 `config.js`에 있음. **Anonymous sign-ins 켜짐**. NVIDIA 키가 **Supabase Secrets의 `NVIDIA_API_KEY`**에 저장됨 | 테이블과 RLS 없음(Phase 5). 접속이 안 되면 Realtime 설정의 public channel 허용 여부 확인. service_role/secret key는 받지도 쓰지도 않음 |
+| **도메인** `jjimjiljung.yullul.com` | 사용자가 `CNAME` 파일 추가, Pages 배포 정상 | DNS(CNAME → `eye215.github.io`)와 Enforce HTTPS는 사용자 쪽에서 확인 필요 |
+| **Kakao** | JS 키 사용 중 | Kakao Developers의 Web 플랫폼에 사이트 도메인 등록(미확인) |
+| **Google AdSense / H5 Games Ads** | 코드 준비 완료, ID 비어 있음 | ① AdSense 가입과 사이트 등록 ② H5 Games Ads 신청(https://developers.google.com/ad-placement) ③ `ca-pub-…`를 `config.js`에 입력하고 승인 전까지 테스트 모드 유지 ④ 저장소 루트에 `ads.txt` 추가: `google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0` ⑤ AdSense **개인정보 보호 및 메시지 → 유럽 규정**에서 GDPR 동의 메시지 게시 ⑥ 개인정보처리방침 URL: `/privacy.html` |
+| **NVIDIA NIM** (AI 필터) | 키가 Supabase Secrets에 있음 | **한국어를 지원하는 안전 모델 비교는 아직 못 함.** 작업 환경에서 build.nvidia.com과 huggingface.co 접속이 막혀 있었음. 기억으로는 nemoguard-8b-content-safety는 영어 중심이고, 다국어 safety guard의 공식 언어 목록에도 한국어가 없었음(확인 필요). 사용자는 "AI 필터만 빼고 먼저 진행"해도 된다고 함 |
+
+개인정보처리방침의 문의처는 임시로 GitHub Issues 링크입니다. 운영자 이메일로 바꿀지는 사용자 확인이 필요합니다.
+
+---
+
+## 6. 대기 중인 작업 (사용자 사양 원문 요약)
+
+> 시안 이미지: `docs/mockups/`
+> - `01-ui-redesign-B-main-wardrobe.jpg`: 사용자가 고른 B안 원본
+> - `00-…A-rejected.jpg`: 선택되지 않은 A안
+> - `02-B-refined-main-wardrobe-greeting-highfive.jpg`: B안 수정 사항과 인사 개편 시안 5장. **최종 확정 대기**
+> - `03-chat-request-card-and-notice.jpg`, `04-chat-bubble-subtitle-history.jpg`: 채팅 개편 시안. 확정 대기
+>
+> 시안 생성 스크립트는 `docs/mockups/source/*.cjs`에 있습니다(정적 HTML → Playwright 스크린샷). 실행하려면 npm 패키지 `pretendard@1.3.9`, `@fontsource/jua@5.2.5`, `@fontsource/dongle@5.2.5`, `lucide-static@1.55.0`과 게임에서 찍은 배경 PNG(`bg*.png`)가 같은 폴더에 있어야 합니다. 배경은 게임 화면에서 UI를 숨기고 찍은 것입니다.
+
+### 6-A. UI 전체 리디자인 (B안) + 옷장
+3D 씬은 그대로 두고, 화면 위 UI 전체를 **말랑한 글래스모피즘 + 힐링 컬러**로 통일합니다.
+
+**컬러** (김 서린 찜질방, 우유빛 + 파스텔)
+- 글라스 배경: `rgba(255,250,245,0.55)`. 어두운 바닥 위에서 칙칙해 보여 0.65로 올릴지 제안해 둠(미확정)
+- 글자: `#5B4A42`(순검정 금지)
+- **피치 `#FFB59A`는 가장 중요한 버튼 1개와 선택된 타일에만** 씁니다
+- 보조색 민트 `#BFE3D0`, 라벤더 `#D8CCF2`, 버터 `#FFE6A7`은 뱃지와 상태 표시에만 연하게 씁니다
+- 어두운 버튼과 진한 갈색 패널은 모두 없앱니다
+
+**글래스 재질**
+- `backdrop-filter: blur(20px) saturate(160%)`. 미지원 브라우저는 불투명 크림색으로 대체
+- 테두리 `1px rgba(255,255,255,0.7)`, 안쪽 상단 하이라이트(`inset 0 1px 0 #fff`), 그림자 `0 8px 32px rgba(120,80,60,0.12)`
+- 모서리: 버튼은 999px, 카드와 시트는 24~28px
+
+**말랑한 느낌**
+- 누르면 `scale(0.94)`로 줄었다가 스프링처럼 튀어오릅니다. 선택된 버튼만 피치색으로 살짝 부풀립니다
+- 아이콘은 둥글고 굵은 선 아이콘 한 세트로 통일합니다(시안은 **Lucide**, ISC 라이선스, stroke-width 2.5)
+- reduced-motion 사용자에게는 애니메이션을 끕니다
+
+**폰트** (CDN 금지. `vendor/`에 woff2 서브셋과 라이선스 파일)
+- 본문: **Pretendard Variable**(OFL, npm `pretendard@1.3.9`, `dist/web/variable/woff2-dynamic-subset` + unicode-range CSS)
+- 로고와 큰 제목: **동글(Dongle) 700**(OFL, `@fontsource/dongle`). B안에서 확정했고, A안은 주아(Jua)였습니다
+- 최소 13px, 대비 WCAG AA 이상
+
+**화면 배치 (B안 확정 + 수정 사항)**
+- **상단**: 왼쪽에 로고와 현재 방 칩, 오른쪽에 **메뉴 버튼 하나**. 메뉴 안에 둘러보기, 내 위치, 소리, (친구 초대, 개인정보처리방침)
+- **상단 칩**: 온기·계란·식혜(와 접속자 수)를 작은 글라스 칩 하나로 묶습니다
+- **하단 버튼**: 떠 있는 둥근 젤리 버튼 6개(산책·앉기·눕기·계란·식혜·인사). 이름은 **알약 배경 없이 동그라미 아래 작은 글자**로만 씁니다(크림색 테두리로 가독성 확보)
+- **안내 문구**: "어서 와요, 푹 쉬다 가요."(3초)와 "바닥을 눌러 이동해요"(첫 이동 전까지)를 **처음에 한 번씩만, 겹치지 않게 순서대로** 보여 줍니다
+- **조이스틱**: 버튼 줄과의 여백을 넓힙니다(시안 기준 약 48px)
+- **오른쪽 위**: 채팅 버튼과 **"옷장" 버튼**을 쌓아 둡니다. 하단의 색 동그라미 3개는 없앱니다
+
+**옷장 (컬러 커스텀 + 랜덤)**
+- **부위별 색**: 양머리 수건, 상의, 하의, **어깨 수건**. 어깨 수건은 새 부위이므로 `character.js`에 추가해야 하며, 크로스백처럼 보이면 안 됩니다
+- **부위마다 파스텔 12색**(채도·명도 통일). 시안 값: 피치 `#F6B49B`, 살구 `#F5C79F`, 버터 `#F3DD9E`, 민트 `#AEDCC6`, 세이지 `#BACBA6`, 하늘 `#ABCDEA`, 라벤더 `#C6BBE8`, 라일락 `#DDB9DC`, 핑크 `#F3B7C6`, 크림 `#F4EBDC`, 코코아 `#B08D78`, 차콜 `#77707A`
+- **🎲 랜덤**: 4개 부위가 한 번에 바뀌고, 캐릭터가 통 튀면서 반짝입니다(`character.celebrate()` 재사용 가능). 조합 규칙은 톤온톤, 보색 포인트 1개, 수건과 옷의 대비입니다
+- **❤ 저장**: 마음에 드는 조합을 3개까지 저장합니다. **처음 들어온 사람은 랜덤 조합으로 시작**합니다
+- **글래스 바텀시트**: 아이콘이 있는 부위 탭 → 색 칩 → 🎲 랜덤, 저장 순서입니다. **열면 카메라가 캐릭터 정면을 화면 위쪽 절반에 크게 잡고**(시트에 가리지 않게), 닫으면 원래 시점으로 돌아갑니다
+- **동기화**: 색은 다른 접속자에게 실시간으로 반영하고(지금 `outfit` 문자열 대신 부위별 색 4개를 보내야 함 → `social.js`, `net.js` 페이로드 변경) 기기에 저장합니다. Phase 5 이후에는 서버에 저장합니다
+- **확장**: 나중에 Phase 6 탈의실 사물함에서도 같은 시트가 열리도록, 여는 함수를 따로 노출해 둡니다
+- **기존 `PALETTES`(peach/mint/lilac)와 `jjimjiljung-outfit` 키**는 새 구조로 옮겨야 합니다(기존 사용자 데이터 이전)
+
+**테스트**: 옷장(부위별 변경, 랜덤, 저장, 멀티 동기화, 카메라 전환)을 추가하고 기존 테스트도 통과시킵니다. 기존 `tests/*.cjs`의 셀렉터(`.controls`, `#places-open`, `#recenter`, `[data-color]` 등)가 바뀌므로 함께 수정해야 합니다.
+
+### 6-B. 인사 개편
+**대상 정하기**
+- [인사]를 누르면 **같은 방의 가까운 사람들 머리 위에 👋 선택 표시**가 뜨고, 탭해서 인사할 사람을 고릅니다
+- 근처에 한 명만 있으면 그 사람을 자동으로 고르고, 아무도 없으면 지금처럼 혼자 손을 흔듭니다
+- 캐릭터를 탭하면 뜨는 카드의 [👋 인사]로도 바로 인사할 수 있습니다
+- 그룹에 속해 있으면 **"우리 그룹에게 인사"**(그룹 멤버 전원)도 고를 수 있습니다
+
+**연출** (모두에게 보임): 내 캐릭터가 상대 쪽으로 몸을 돌려 손을 흔들고, 👋나 하트가 상대 쪽으로 날아갑니다.
+
+**받아주기**
+- 받는 사람에게 "○○님이 인사했어요 [👋 받아주기]"를 띄웁니다
+- 받아주면 두 캐릭터가 **마주 보고 하이파이브**하고, 하트와 반짝이가 터집니다
+- **10초 안에 받지 않으면 알림을 조용히 지웁니다.** 무시당했다는 표시는 남기지 않습니다
+- 받아준 뒤에는 바로 [💬 대화 신청]을 보여 줍니다
+- **하루에 처음 서로 인사를 주고받은 상대마다 온기 +1, 하루 최대 +5**입니다
+
+**괴롭힘 방지**
+- 같은 사람에게는 **30초에 한 번**만 인사할 수 있습니다
+- 나를 차단한 사람이나 "신청 받지 않기"를 켠 사람에게는 알림 없이 동작만 보입니다
+
+**테스트**: 대상 선택과 자동 선택, 그룹 인사, 받아주기와 10초 만료, 30초 쿨다운, 차단 상대, 온기 지급 한도.
+
+### 6-C. 채팅 개편: 신청제 그룹 채팅 + 패널 없는 UI
+**1. 신청하고 수락해야 그룹 채팅**
+- **전체 채팅을 없앱니다.** 모르는 여러 사람에게 한꺼번에 말을 걸 수 없게 합니다
+- **흐름**
+  1. 캐릭터를 탭하면 글라스 카드가 뜹니다(닉네임, [💬 대화 신청], [👋 인사], [차단])
+  2. 받는 사람에게 "○○님이 대화를 신청했어요"와 [수락] [거절], 남은 시간을 보여 줍니다
+  3. **1분 안에 수락하지 않으면 자동 거절**합니다
+  4. 수락하면 두 사람의 그룹이 생깁니다
+  5. 그룹 멤버가 다른 사람에게 신청해 수락받으면 그 사람이 합류합니다. **그룹은 최대 6명**입니다
+  6. **카카오 초대 링크로 들어온 사람은 초대한 사람의 그룹에 바로 합류**합니다(링크 클릭을 수락으로 처리). 이를 위해 지금의 `?from=닉네임` 대신 **서버가 발급하는 일회용 초대 토큰**이 필요합니다
+  7. 누구든 그룹을 나갈 수 있고, 마지막 사람이 나가면 그룹을 없앱니다
+- **괴롭힘 방지**
+  - 같은 상대에게 **3번 거절되면 10분 동안 신청 불가**입니다. 1분 시간 초과도 1번으로 세고, 1~2번째 거절 뒤에는 바로 다시 신청할 수 있으며, 10분이 지나면 횟수를 0으로 초기화합니다
+  - 신청은 **1분에 3회**까지만 보낼 수 있습니다
+  - 거절과 시간 초과는 신청자에게 똑같이 **"응답이 없어요"**로만 보여 줍니다
+  - 설정에 **"대화 신청 받지 않기"**를 넣습니다
+  - 차단한 상대는 나에게 신청할 수 없고, 서로의 말풍선도 보이지 않습니다
+  - 그룹 안에 **신고** 버튼을 넣습니다(신고는 `reports` 테이블에 저장해 대시보드에서 확인)
+  - **말풍선은 같은 그룹 멤버에게만** 보이고, 그룹 밖 사람에게는 동작만 보입니다
+- **보안 (서버에서 확인)**
+  - 신청, 그룹, 멤버십은 Supabase 테이블과 RLS로 관리합니다
+  - 채팅은 **Realtime private channel 인증**으로, 멤버가 아니면 메시지를 받거나 보낼 수 없게 합니다
+  - 1분 만료, 거절 횟수와 10분 대기, 신청 횟수 제한을 모두 서버(DB 함수, RPC)에서 막습니다
+  - Phase 5의 익명 로그인·비공개 방 작업과 함께 진행합니다
+
+**2. 채팅 UI: 배경 패널 없이 입력 필드만**
+- 채팅 패널과 바텀시트를 없앱니다. 채팅 버튼을 누르면 **키보드 바로 위에 둥근 입력 필드와 보내기(↑) 버튼만** 뜹니다(Claude 앱 스타일). 보내거나 바깥을 탭하면 내려갑니다
+- **표시 방식 2가지**: 입력 필드 옆 토글로 바꾸고, 고른 방식은 기기에 저장합니다
+  - ① **말풍선 모드(기본)**: 머리 위 말풍선만 보이고 몇 초 뒤 사라집니다. 연달아 말하면 위로 쌓입니다
+  - ② **하단 자막 모드**: 입력 필드 위에 최근 3~4줄을 배경 없이 "닉네임: 내용" 형식으로 띄웁니다. 옅은 글자 그림자를 넣고, 서서히 사라집니다
+- **지난 대화**: 입력 필드를 위로 쓸어올리면 보입니다. 옅은 블러만 넣고, 높이는 화면의 40% 이하입니다
+- **안 읽은 메시지**: 채팅 버튼에 점으로 표시합니다
+
+**진행 순서**: 2번 UI 먼저, 1번 서버 작업은 그다음.
+
+**테스트**
+- 신청 → 수락 → 대화
+- 거절, 1분 자동 거절
+- 3번 거절 뒤 10분 대기와 그 뒤 거절 횟수 초기화
+- 1분 3회 신청 제한
+- 차단, 신청 받지 않기
+- 그룹 밖 사람에게 메시지·말풍선이 안 보이는지
+- 초대 링크 합류, 6명 제한
+- 채팅 두 모드 전환
+
+**작업 환경 제약**: Claude 세션에서는 supabase.co 접속이 막혀 있어서, 테이블·RLS·RPC를 **SQL 파일(`supabase/migrations/*.sql`)로 만들고 사용자가 SQL Editor에서 실행**하는 방식으로 진행할 계획이었습니다. Codex 환경에서 Supabase CLI와 접근 권한이 있다면 직접 적용해도 되지만, **service_role key를 저장소나 프런트엔드에 넣으면 안 됩니다.**
+
+### 6-D. Phase 5 — 보이지 않는 회원가입과 클라우드 저장
+- **자동 익명 가입**: 첫 방문 때 Supabase 익명 계정을 자동으로 만들어, 사용자는 가입했다는 걸 느끼지 못하게 합니다. 이메일, 전화번호, 비밀번호는 받지 않습니다. 닉네임, 옷 색, 간식과 온기, 진행 상황을 서버에 저장합니다
+- **다른 기기에서 이어하기**: 만료되는 일회용 **이어하기 코드나 QR**을 씁니다. 나중에 카카오나 구글 계정 연결도 선택지로 둡니다
+- **최소 개인정보**: 랜덤 ID, 닉네임, 게임 데이터만 저장합니다. 사주용 생년월일은 기기에만 둡니다. "내 데이터 삭제" 버튼을 넣고, 필요하면 Cloudflare Turnstile을 씁니다
+- **서버 검증**: 매점 포인트, 하루 무료 간식, TV 광고 횟수와 간격, 인사 온기 한도를 서버에서 검증합니다(지금은 localStorage라 조작 가능)
+- **AI 필터**: Edge Function이 Supabase Secrets의 `NVIDIA_API_KEY`로 NVIDIA 안전 모델을 호출합니다. 한국어 정확도를 실제 문장으로 측정한 뒤 붙이고, 그동안은 지금의 비속어 필터를 유지합니다
+- **도메인 등록**: Supabase **Authentication → URL Configuration**에 `https://jjimjiljung.yullul.com`을 등록합니다
+- **개인정보처리방침**: 위 변경을 적용하기 전에 먼저 고칩니다
+
+### 6-E. Phase 6 — 새 공간
+- 입구 카운터: 키와 찜질복 받기
+- 탈의실: 사물함에서 갈아입기. **옷장 시트와 연결**합니다
+- 목욕탕: 온탕, 냉탕, 샤워
+- 세신실·마사지방: 누우면 NPC가 해 주는 애니메이션이나 리듬게임, 온기 보상
+- **사주방**: 생년월일과 시간을 넣으면 무료로 오늘의 운세를 보여 줍니다
+  - 일주(日柱)와 오늘의 일진을 브라우저에서 계산하고, 오행 관계로 총운·재물·연애·건강·행운색·숫자를 만듭니다
+  - 오락용이고, 생년월일은 기기에만 저장합니다
+  - TV 채널에 "사주방 곧 오픈" 예고가 이미 나오고 있습니다
+
+### 6-F. Phase 7 이후
+- 음성채팅: WebRTC로 연결하고, 연결 설정 신호(시그널링)는 Supabase로 주고받습니다. 누르고 말하기, 말하는 중 표시, 개인별 음소거를 넣습니다. 일부 모바일 망에서는 TURN 서버가 필요할 수 있습니다
+- STT: Web Speech API(한국어)를 쓰고, 변환된 글자는 AI 필터를 거칩니다
+- AI NPC: 매점 주인, 수다쟁이 손님, 고민 상담 NPC. NVIDIA NIM은 서버 함수를 거쳐 호출합니다
+
+---
+
+## 7. 테스트 목록 (`npm test` 순서)
+
+| 파일 | 확인 내용 |
+| --- | --- |
+| `tests/navigation.cjs` | 방 사이 49개 경로, 경로가 바닥 밖이나 가구를 지나지 않는지(1cm 간격 검사), 벽·문, 미끄러짐, 벽을 뚫고 지나가지 않는지 |
+| `tests/chat.cjs` | 닉네임 추천, 텍스트 정리, 120자, 비속어(우회 표현 포함, 일상어 오탐 없음), 빈도 제한, 수신 검증 |
+| `tests/economy.cjs` | 지갑 규칙, KST 하루 경계, 적립 상한, 저장값 변조 정리, 미니게임 점수, TV 광고 제한 |
+| `tests/shop.cjs` | 빈 가방 안내 → 매점 자동 이동, 무료 받기와 구매, 앉아서 먹기, 미니게임 2종 |
+| `tests/invite.cjs` | 카카오 피드 내용, 등록 도메인 링크, 링크 복사 대체, 초대 인사 |
+| `tests/tv.cjs` | 가짜 광고 스크립트로: 앉을 때만 로드, TV 자동 이동, 끝까지 보면 지급, 닫으면 미지급, 2분 간격, 하루 3회, 자정 초기화, 광고 없음·ID 없음 |
+| `tests/multiplayer.cjs` | 탭 2개를 로컬 전송(`?net=local`)으로 연결: 닉네임, 서로 보이기, 위치·자세·옷·간식 동기화, 채팅과 말풍선, 제한, 퇴장 |
+| `tests/sleep.cjs` | 꿈나라 모드, 1인칭 전환, 음악, 30초 은하계, 깨어나기 |
+| `tests/smoke.cjs` | 데스크톱·390·320·태블릿·가로 화면 레이아웃, 카메라, 조작 전반, 벽 충돌, 문 통과, 컷어웨이, 오류 처리(컨텍스트 손실, 모듈 실패, WebGL 미지원) |
+
+테스트는 `scene.js` 응답 끝에 `window.__…` 디버그 훅을 붙여서 내부 상태를 읽습니다. 그래서 **배포 코드에는 디버그 코드가 없습니다.** 내부 변수 이름(`action`, `hero`, `player`, `wallet`, `tvAds`, `social`, `view`, `route`, `target`, `currentRoom` 등)을 바꾸면 테스트 훅도 함께 고쳐야 합니다.
+
+### 미검증 항목 (실기기나 외부 서비스가 필요)
+- 실제 Supabase로 서로 다른 두 기기가 연결되는지 (Claude 작업 환경은 supabase.co 접속이 막혀 있었음)
+- 실제 카카오톡 공유(도메인 등록 필요), 실제 Google 광고(ID와 승인 필요)
+- iPhone Safari에서의 동작(키보드와 채팅, 소리 자동재생, 성능), 저사양 안드로이드 성능
+
+---
+
+## 8. 변경 이력
+
+| PR | 내용 |
+| --- | --- |
+| (이전, Codex) | 2.5D 이미지 배경 + 3D 캐릭터 프로토타입 |
+| #1 | Phase 1: 실제 3D 찜질방 6개 방, 쿼터뷰 카메라, 충돌·길찾기, 컷어웨이, 모바일 최적화 |
+| #2 | Phase 3: 수면실 꿈나라 모드 |
+| #3 | Phase 2: 멀티플레이어와 공개 채팅(Supabase Realtime) |
+| #4 | 로드맵: 매점·간식 Phase 추가 |
+| #5 | Phase 2.1: 닉네임 자동 추천, 글래스 채팅 |
+| #6 | Phase 4: 매점·간식, 하루 무료, 미니게임 |
+| (사용자) | `CNAME` → jjimjiljung.yullul.com |
+| #7 | 카카오톡 친구 초대 |
+| #8 | 중앙 휴게실 TV 보상형 광고, 매점→TV 안내, 개인정보처리방침 |
+| #9 | 이 인수인계 문서와 `docs/mockups/` |
