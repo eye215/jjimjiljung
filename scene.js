@@ -1,17 +1,17 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-12';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-12';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-12';
-import { createTowelGame } from './towel.js?v=rpg-12';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-12';
-import { buildWorld } from './environment.js?v=rpg-12';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-12';
-import { createTvAds } from './ads.js?v=rpg-12';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-12';
-import { createSocial } from './social.js?v=rpg-12';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-12';
-import { createShop } from './shop.js?v=rpg-12';
-import { createInvite } from './invite.js?v=rpg-12';
+import { planPath, stepMovement } from './navigation.js?v=rpg-13';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-13';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-13';
+import { createTowelGame } from './towel.js?v=rpg-13';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-13';
+import { buildWorld } from './environment.js?v=rpg-13';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-13';
+import { createTvAds } from './ads.js?v=rpg-13';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-13';
+import { createSocial } from './social.js?v=rpg-13';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-13';
+import { createShop } from './shop.js?v=rpg-13';
+import { createInvite } from './invite.js?v=rpg-13';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
