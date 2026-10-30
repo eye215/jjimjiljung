@@ -69,8 +69,10 @@ const server = http.createServer((req, res) => {
       assert(controller.x + controller.width <= tray.x || controller.x >= tray.x + tray.width || controller.y + controller.height <= tray.y || controller.y >= tray.y + tray.height, 'Action tray never covers the joystick');
       for (const action of ['sit', 'lie', 'egg', 'drink', 'wave', 'stand']) {
         await page.locator(`[data-action="${action}"]`).click();
-        if (action === 'egg' || action === 'drink') await page.locator('#snack-menu [data-choice="eat"]').click();
+        // Snack buttons open their mini-game; the snack starts when you play (egg: tap, sikhye: at once).
+        if (action === 'egg') await page.locator('#game [data-tap]').click();
         assert.equal(await page.locator(`[data-action="${action}"]`).getAttribute('aria-pressed'), 'true');
+        if (action === 'egg' || action === 'drink') await page.locator(action === 'egg' ? '#game [data-game-close]' : '#game-close').click();
         // A snack layers on a pose (e.g. 앉기 + 계란), so at most two can be pressed.
         const pressed = await page.locator('.actions [aria-pressed="true"]').count();
         assert(pressed >= 1 && pressed <= 2);
@@ -201,7 +203,7 @@ const server = http.createServer((req, res) => {
     await page.screenshot({ path: path.join(output, 'mobile.png') });
     for (const action of ['sit', 'lie', 'egg', 'drink', 'wave']) {
       await page.locator(`[data-action="${action}"]`).click();
-      if (action === 'egg' || action === 'drink') await page.locator('#snack-menu [data-choice="eat"]').click();
+      if (action === 'egg') await page.locator('#game [data-tap]').click();
       await page.waitForTimeout(1200);
       if (action === 'wave') {
         await page.waitForFunction(() => {
@@ -210,6 +212,8 @@ const server = http.createServer((req, res) => {
         }, null, { timeout: 8000 });
       }
       await page.screenshot({ path: path.join(output, `${action}.png`) });
+      if (action === 'egg') await page.locator('#game [data-game-close]').click();
+      if (action === 'drink') await page.locator('#game-close').click();
     }
     await page.locator('#sound').click();
     assert.equal(await page.locator('#sound').getAttribute('aria-pressed'), 'true');

@@ -69,7 +69,7 @@ const server = http.createServer((req, res) => {
     await b.waitForFunction(() => { const r = window.__mp.state().remotes[0]; return Math.hypot(r.x + 3, r.z - 1.5) < .1 && r.action === 'sit'; }, null, { timeout: 60000 });
     // Eating while sitting is visible to others.
     await a.locator('[data-action="egg"]').click();
-    await a.locator('#snack-menu [data-choice="eat"]').click();
+    await a.locator('#game [data-tap]').click();
     await b.waitForFunction(() => { const r = window.__mp.state().remotes[0]; return r.snack === 'egg' && r.action === 'sit'; }, null, { timeout: 60000 });
     await a.locator('#outfit-random').click();
     const dyed = await a.locator('#viewport').getAttribute('data-outfit');

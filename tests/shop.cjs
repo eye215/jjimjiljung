@@ -58,46 +58,32 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('#shop-tv').isVisible(), true, 'The shop points to the TV or resting');
     await page.locator('#shop-close').click();
     assert.equal(await page.locator('[data-action="egg"] .count').textContent(), '2');
-    // Sit down and eat: the pose stays seated while both hands bring the egg up.
+    // 계란 button = the mini-game at once; the cracked egg is then eaten, seated.
     await page.locator('[data-action="sit"]').click();
-    // The 계란 button asks: eat it, or play the mini-game.
     await page.locator('[data-action="egg"]').click();
-    assert.equal(await page.locator('#snack-menu').isVisible(), true, 'Eat-or-play menu opens');
-    assert.match(await page.locator('#snack-menu [data-choice="eat"]').textContent(), /그냥 먹기.*2개/);
-    await page.locator('#snack-menu [data-choice="eat"]').click();
-    s = await state();
-    assert.equal(s.action, 'sit'); assert.equal(s.snack.kind, 'egg', 'Eating while sitting');
-    assert.equal(await page.locator('[data-action="sit"]').getAttribute('aria-pressed'), 'true');
-    assert.equal(await page.locator('[data-action="egg"]').getAttribute('aria-pressed'), 'true');
-    await page.waitForFunction(() => { const t = window.__shopTest.state(); return t.snack && t.snack.t > 2.2; });
-    await page.screenshot({ path: path.join(output, 'eat-egg.png') });
-    await page.waitForFunction(() => window.__shopTest.state().snack === null);
-    assert.match(await page.locator('#status').textContent(), /다 먹었다/);
-    assert.equal((await state()).wallet.bag.egg, 1);
-    // Sipping sikhye; walking puts it away.
-    await page.locator('[data-action="drink"]').click();
-    await page.locator('#snack-menu [data-choice="eat"]').click();
-    await page.waitForFunction(() => { const t = window.__shopTest.state(); return t.snack && t.snack.t > 1.3; });
-    await page.screenshot({ path: path.join(output, 'eat-drink.png') });
-    await page.locator('[data-action="stand"]').click();
-    assert.equal((await state()).snack, null, 'Changing pose puts the snack away');
-    // Mini-game: 이마로 계란 깨기, started straight from the 계란 button.
-    await page.locator('[data-action="egg"]').click();
-    await page.locator('#snack-menu [data-choice="game"]').click();
-    assert.equal(await page.locator('#game').isVisible(), true);
+    assert.equal(await page.locator('#game').isVisible(), true, 'The 계란 button starts the mini-game');
     await page.screenshot({ path: path.join(output, 'game-egg.png') });
     await page.locator('#game [data-tap]').click();
     await page.locator('#game-result').waitFor({ state: 'visible' });
     assert.match(await page.locator('#game-result').textContent(), /깨졌어요|아야/);
-    assert.equal((await state()).snack.style, 'forehead', 'Forehead crack animation plays');
-    // The result waits for the player: try again (if there is an egg) or close.
+    s = await state();
+    assert.equal(s.action, 'sit'); assert.equal(s.snack.style, 'forehead', 'Cracked on the forehead, then eaten');
     await page.waitForTimeout(2600);
     assert.equal(await page.locator('#game-result').isVisible(), true, 'Result stays on screen');
+    assert.match(await page.locator('#game [data-game-again]').textContent(), /한 번 더.*1개/);
     await page.locator('#game [data-game-close]').click();
     await page.locator('#game').waitFor({ state: 'hidden' });
-    // Mini-game: 식혜 원샷 (hold, rest, hold until the timer ends).
-    await page.locator('#wallet').click();
-    await page.locator('[data-game="drink"]').click();
+    await page.waitForFunction(() => window.__shopTest.state().snack === null);
+    assert.match(await page.locator('#status').textContent(), /다 먹었다/);
+    assert.equal((await state()).wallet.bag.egg, 1);
+    // 한 번 더 from the result uses the next egg.
+    await page.locator('[data-action="egg"]').click();
+    await page.locator('#game [data-tap]').click();
+    await page.locator('#game-result').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#game [data-game-again]').isDisabled(), true, 'No 한 번 더 without an egg left');
+    await page.locator('#game [data-game-close]').click();
+    // 식혜 button = 원샷 (hold, then let go until the timer ends).
+    await page.locator('[data-action="drink"]').click();
     const hold = await page.locator('#game [data-hold]').boundingBox();
     await page.mouse.move(hold.x + hold.width / 2, hold.y + hold.height / 2);
     await page.mouse.down();
@@ -106,10 +92,15 @@ const server = http.createServer((req, res) => {
     await page.mouse.up();
     await page.locator('#game-result').waitFor({ state: 'visible', timeout: 120000 });
     assert.match(await page.locator('#game-result').textContent(), /원샷|띵|시간/);
+    await page.locator('#game [data-game-close]').click();
+    // Closing a game midway puts the cup away.
+    await page.locator('[data-action="drink"]').click();
+    await page.waitForFunction(() => window.__shopTest.state().snack?.style === 'oneshot');
+    await page.locator('#game-close').click();
+    assert.equal((await state()).snack, null, 'Closing the game puts the snack away');
     s = await state();
     assert.deepEqual(s.wallet.bag, { egg: 0, drink: 0 }, 'Each mini-game uses one snack');
-    assert.equal(await page.locator('#game [data-game-again]').isDisabled(), true, 'No 한 번 더 without a snack left');
     assert.deepEqual(errors, [], 'No JS errors');
-    console.log('PASS: welcome 온기, empty-bag prompt walks to the 매점 and opens it, daily free egg/sikhye, buying and price checks, eating while sitting, finishing a snack, walking/pose change puts snacks away, eat-or-play menu on the snack buttons, egg-crack and sikhye one-shot mini-games in a bottom sheet with a lasting result.');
+    console.log('PASS: welcome 온기, empty-bag prompt walks to the 매점 and opens it, daily free egg/sikhye, buying and price checks, snack buttons start their mini-games (forehead egg crack then eating while seated, sikhye one-shot) in a bottom sheet with a lasting result, 한 번 더, closing puts the snack away.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

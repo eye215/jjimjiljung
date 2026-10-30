@@ -1,17 +1,17 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-15';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-15';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-15';
-import { createTowelGame } from './towel.js?v=rpg-15';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-15';
-import { buildWorld } from './environment.js?v=rpg-15';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-15';
-import { createTvAds } from './ads.js?v=rpg-15';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-15';
-import { createSocial } from './social.js?v=rpg-15';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-15';
-import { createShop } from './shop.js?v=rpg-15';
-import { createInvite } from './invite.js?v=rpg-15';
+import { planPath, stepMovement } from './navigation.js?v=rpg-16';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-16';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-16';
+import { createTowelGame } from './towel.js?v=rpg-16';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-16';
+import { buildWorld } from './environment.js?v=rpg-16';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-16';
+import { createTvAds } from './ads.js?v=rpg-16';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-16';
+import { createSocial } from './social.js?v=rpg-16';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-16';
+import { createShop } from './shop.js?v=rpg-16';
+import { createInvite } from './invite.js?v=rpg-16';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -219,7 +219,7 @@ function setAction(next) {
 }
 actionButtons.forEach(button => button.addEventListener('click', () => {
   const kind = button.dataset.action;
-  if (kind === 'egg' || kind === 'drink') { if (player.snack?.kind !== kind && !shop.playing) shop.choose(kind, button); } else { shop.closeMenu(); setAction(kind); }
+  if (kind === 'egg' || kind === 'drink') { if (player.snack?.kind !== kind && !shop.playing) shop.choose(kind); } else setAction(kind);
 }));
 // ---------- Snacks: eaten in the current pose (sitting or standing) ----------
 function interruptSnack() { if (player.snack) { player.stopSnack(); snackSig = ''; } }
