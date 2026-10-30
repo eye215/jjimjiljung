@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
-import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-6';
-import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-6';
+import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-7';
+import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-7';
 
 // Procedural, cosy jjimjilbang built from the shared map data. Everything is
 // generated locally: textures are drawn on canvases and static props are merged
@@ -16,6 +16,44 @@ export function buildWorld({ scene, kit }) {
   const { canvasTexture, textile } = kit;
   const staticGroup = new THREE.Group(); scene.add(staticGroup);
   const fadeUnits = [], animated = [], lights = {};
+  const tv = { panel: null, texture: null, ctx: null, mode: 'channel', last: -1 };
+  // TV channel scenes: a steaming roasted egg, bobbing sikhye and a fortune teaser.
+  function drawTv(t, reducedMotion) {
+    const c = tv.ctx; if (!c) return;
+    const W = 320, H = 200, round = (x, y, w, h, r, fill) => { c.fillStyle = fill; c.beginPath(); c.roundRect(x, y, w, h, r); c.fill(); };
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    if (tv.mode === 'ad') {
+      const g = c.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#ffe3d6'); g.addColorStop(1, '#ffc4ad'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+      const pulse = reducedMotion ? 1 : 1 + Math.sin(t * 4) * .04;
+      c.save(); c.translate(W / 2, H / 2); c.scale(pulse, pulse); round(-118, -40, 236, 80, 40, '#fffaf5');
+      c.fillStyle = '#5B4A42'; c.font = `800 26px ${FONT}`; c.fillText('▶ 광고 보고 온기', 0, -10); c.font = `800 22px ${FONT}`; c.fillStyle = '#c0663b'; c.fillText('+3 ♨', 0, 20); c.restore();
+      return;
+    }
+    const scene = reducedMotion ? 0 : Math.floor(t / 5) % 3;
+    if (scene === 0) {
+      const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#fff1df'); g.addColorStop(1, '#f7cfa5'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+      c.fillStyle = '#e7b98c'; c.beginPath(); c.ellipse(W / 2, 150, 70, 16, 0, 0, 7); c.fill();
+      const eg = c.createRadialGradient(W / 2 - 12, 92, 4, W / 2, 110, 46); eg.addColorStop(0, '#d79a62'); eg.addColorStop(1, '#94592e');
+      c.fillStyle = eg; c.beginPath(); c.ellipse(W / 2, 112, 34, 42, 0, 0, 7); c.fill();
+      c.fillStyle = 'rgba(80,40,20,.35)'; for (const [x, y] of [[-10, -12], [8, 4], [-4, 18], [14, -20], [-16, 8]]) { c.beginPath(); c.arc(W / 2 + x, 112 + y, 2, 0, 7); c.fill(); }
+      c.strokeStyle = 'rgba(255,255,255,.85)'; c.lineWidth = 4; c.lineCap = 'round';
+      for (let i = 0; i < 3; i++) { const x = W / 2 - 20 + i * 20, rise = (t * 18 + i * 12) % 30; c.globalAlpha = 1 - rise / 30; c.beginPath(); c.moveTo(x, 60 - rise); c.bezierCurveTo(x - 8, 48 - rise, x + 8, 38 - rise, x, 26 - rise); c.stroke(); }
+      c.globalAlpha = 1; c.fillStyle = '#7a4321'; c.font = `800 22px ${FONT}`; c.fillText('따끈한 맥반석 계란', W / 2, 180);
+    } else if (scene === 1) {
+      const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#e8f6ff'); g.addColorStop(1, '#cde9f6'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+      c.fillStyle = '#fff6e6'; c.beginPath(); c.moveTo(W / 2 - 40, 60); c.lineTo(W / 2 + 40, 60); c.lineTo(W / 2 + 30, 160); c.lineTo(W / 2 - 30, 160); c.closePath(); c.fill();
+      c.fillStyle = '#f2e2bf'; c.fillRect(W / 2 - 37, 64, 74, 16);
+      for (let i = 0; i < 7; i++) { c.fillStyle = '#fffdf6'; c.beginPath(); c.ellipse(W / 2 - 28 + i * 9, 71 + Math.sin(t * 3 + i) * 2, 3.5, 2, .4, 0, 7); c.fill(); }
+      c.strokeStyle = '#ef8f7a'; c.lineWidth = 6; c.beginPath(); c.moveTo(W / 2 + 10, 70); c.lineTo(W / 2 + 26, 30); c.stroke();
+      c.fillStyle = '#b5652e'; c.font = `800 18px ${FONT}`; c.fillText('식혜', W / 2, 118);
+      c.fillStyle = '#3f6f8f'; c.font = `800 22px ${FONT}`; c.fillText('살얼음 동동 식혜', W / 2, 184);
+    } else {
+      const g = c.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#463a7a'); g.addColorStop(1, '#7d6bb3'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+      for (let i = 0; i < 18; i++) { c.globalAlpha = .4 + .6 * Math.abs(Math.sin(t * 2 + i)); c.fillStyle = '#fff6d4'; c.beginPath(); c.arc((i * 73) % W, (i * 41) % 120 + 8, 2, 0, 7); c.fill(); }
+      c.globalAlpha = 1; c.fillStyle = '#fff1b8'; c.beginPath(); c.arc(W / 2, 78, 30, 0, 7); c.fill(); c.fillStyle = '#5a4a92'; c.beginPath(); c.arc(W / 2 + 13, 70, 26, 0, 7); c.fill();
+      c.fillStyle = '#fff6e8'; c.font = `800 24px ${FONT}`; c.fillText('오늘의 운세', W / 2, 140); c.font = `600 17px ${FONT}`; c.fillText('사주방 곧 오픈 ✦', W / 2, 172);
+    }
+  }
   const tiled = (texture, size) => { texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.userData.size = size; return texture; };
   const noise = (c, w, h, count, colors, size = 2) => { for (let i = 0; i < count; i++) { c.fillStyle = colors[Math.floor(random() * colors.length)]; c.fillRect(random() * w, random() * h, size * (.5 + random()), size * (.5 + random())); } };
 
@@ -208,14 +246,11 @@ export function buildWorld({ scene, kit }) {
       box(g, M.darkWood, [0, .3, 0], [w, .6, d * .8], .06, 4);
       box(g, M.lightWood, [0, .62, 0], [w + .06, .05, d * .85], .02, 4);
       box(g, mat('#2f2724'), [0, 1.45, -.05], [w * .9, 1.2, .12], .05, 4);
-      const screen = canvasTexture((c, cw, ch) => {
-        const sky = c.createLinearGradient(0, 0, 0, ch); sky.addColorStop(0, '#9fd8f5'); sky.addColorStop(1, '#e6f6ff'); c.fillStyle = sky; c.fillRect(0, 0, cw, ch);
-        c.fillStyle = '#ffe48a'; c.beginPath(); c.arc(cw * .8, ch * .22, 26, 0, 7); c.fill();
-        for (const [x, y, r] of [[.2, .2, 30], [.3, .18, 24], [.55, .28, 22]]) { c.fillStyle = '#ffffffee'; c.beginPath(); c.arc(cw * x, ch * y, r, 0, 7); c.fill(); }
-        c.fillStyle = '#8fcf72'; c.beginPath(); c.ellipse(cw * .3, ch, cw * .5, ch * .35, 0, 0, 7); c.fill(); c.fillStyle = '#76bd60'; c.beginPath(); c.ellipse(cw * .85, ch, cw * .45, ch * .28, 0, 0, 7); c.fill();
-        c.fillStyle = '#fff2db'; c.beginPath(); c.arc(cw * .45, ch * .66, 26, 0, 7); c.fill(); c.fillStyle = '#c9b2d8'; c.beginPath(); c.arc(cw * .6, ch * .7, 20, 0, 7); c.fill();
-      }, 256, 160);
-      const panel = new THREE.Mesh(new THREE.PlaneGeometry(w * .82, 1.02), new THREE.MeshStandardMaterial({ map: screen, emissive: '#ffffff', emissiveMap: screen, emissiveIntensity: .75 }));
+      // The lobby TV runs a little in-house channel, redrawn a few times a second.
+      const screen = canvasTexture(() => {}, 320, 200);
+      tv.texture = screen; tv.ctx = screen.image.getContext('2d');
+      const panel = new THREE.Mesh(new THREE.PlaneGeometry(w * .82, 1.02), new THREE.MeshStandardMaterial({ map: screen, emissive: '#ffffff', emissiveMap: screen, emissiveIntensity: .8 }));
+      panel.userData.dynamic = true; tv.panel = panel;
       panel.position.set(0, 1.45, .015); g.add(panel);
       cylinder(g, mat('#e7c48f'), [-w * .38, .82, .1], .1, .14, .34, 16); ellipsoid(g, M.leaf, [-w * .38, 1.07, .1], [.2, .16, .2]);
     },
@@ -388,7 +423,13 @@ export function buildWorld({ scene, kit }) {
   scene.traverse(object => { object.castShadow = false; });
   return {
     fadeUnits, lights, steam, wallDecor,
-    update(t, reducedMotion) { if (!reducedMotion) for (const fn of animated) fn(t); steam.visible = !reducedMotion; }
+    tv: { panel: tv.panel, setMode(mode) { if (tv.mode !== mode) { tv.mode = mode; tv.last = -1; } } },
+    update(t, reducedMotion) {
+      if (!reducedMotion) for (const fn of animated) fn(t); steam.visible = !reducedMotion;
+      // Redraw the TV ~8 times a second (once per scene with reduced motion).
+      const frameKey = reducedMotion ? tv.mode : Math.floor(t * 8);
+      if (frameKey !== tv.last) { tv.last = frameKey; drawTv(t, reducedMotion); tv.texture.needsUpdate = true; }
+    }
   };
 }
 

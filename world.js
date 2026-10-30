@@ -74,6 +74,9 @@ export const DESTINATIONS = Object.freeze({
   sleep: { id: 'sleep', name: '수면실', x: 7.3, z: -11.5, action: 'lie', arrival: '수면실이에요. 조용히 한숨 자요.' }
 });
 
+// The mat in front of the lobby TV, facing the screen (west).
+export const TV_SEAT = Object.freeze({ id: 'tv', name: 'TV 앞 방석', x: -4.6, z: 2.4, facing: -Math.PI / 2, action: 'sit', arrival: 'TV 앞에 앉았어요. 광고를 보면 온기를 받을 수 있어요 📺' });
+
 export function roomAt(x, z) {
   for (const room of ROOMS) if (x >= room.minX && x <= room.maxX && z >= room.minZ && z <= room.maxZ) return room;
   return null;

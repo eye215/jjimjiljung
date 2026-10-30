@@ -267,6 +267,9 @@ export function createCharacterKit(renderer) {
       snackRoot.visible = true; egg.visible = kind === 'egg'; cup.visible = kind === 'drink';
       shell.visible = true; peeled.visible = false; peeled.scale.setScalar(1); yolk.visible = false; liquid.visible = true; liquid.position.y = .15;
     };
+    // A happy cheer: both hands up, a little hop and a burst of sparkles.
+    let cheer = 0;
+    character.celebrate = () => { cheer = 1.6; snackRoot.getWorldPosition(egg3); rig.worldToLocal(egg3); burst(true, egg3.set(0, 1.2, .5)); };
     character.stopSnack = () => { const done = character.snack?.onDone; character.snack = null; snackRoot.visible = false; done?.(false); };
     function snackPose(dt) {
       const s = character.snack; if (!s) return null;
@@ -318,11 +321,12 @@ export function createCharacterKit(renderer) {
       if (action === 'egg' || action === 'drink') action = 'stand';
       const elapsed = character.elapsed, sleep = action === 'lie', sitting = action === 'sit', cycle = elapsed * 9 * speed;
       const eating = sleep ? null : snackPose(dt);
+      cheer = Math.max(0, cheer - dt); const cheering = cheer > 0 && !eating && !sleep;
       if (sleep && character.snack) character.stopSnack();
       updateBursts(dt);
       pillow.visible = sleep;
       damp(rig.rotation, 'x', sleep ? -Math.PI / 2 : eating ? eating.nod * .35 : 0, 6);
-      damp(rig.position, 'y', sleep ? .46 : sitting ? -.29 : walking && !reducedMotion ? Math.abs(Math.sin(cycle)) * .035 : 0);
+      damp(rig.position, 'y', (sleep ? .46 : sitting ? -.29 : walking && !reducedMotion ? Math.abs(Math.sin(cycle)) * .035 : 0) + (cheering && !reducedMotion ? Math.abs(Math.sin(cheer * 9)) * .12 : 0), cheering ? 18 : 9);
       // A reclining rig rests along the mat, with a pillow under its head.
       damp(rig.position, 'z', sleep ? .72 : 0, 6);
       for (let i = 0; i < 2; i++) {
@@ -330,13 +334,13 @@ export function createCharacterKit(renderer) {
         damp(legs[i].rotation, 'z', sitting ? (i === 0 ? -.25 : .25) : 0);
         const waving = action === 'wave' && i === 1;
         // Both hands cradle the snack and lift it to the mouth together.
-        damp(arms[i].rotation, 'x', eating ? -1.3 - eating.mouth * .5 : waving ? -2.35 : sitting ? -.5 : sleep ? -.18 : walking ? -Math.sin(cycle + i * Math.PI) * .35 : 0, eating ? 14 : 9);
+        damp(arms[i].rotation, 'x', eating ? -1.3 - eating.mouth * .5 : cheering ? -2.7 : waving ? -2.35 : sitting ? -.5 : sleep ? -.18 : walking ? -Math.sin(cycle + i * Math.PI) * .35 : 0, eating ? 14 : 9);
         damp(arms[i].rotation, 'z', eating ? (i === 0 ? .5 : -.5) : waving ? -.4 + (reducedMotion ? 0 : Math.sin(elapsed * 7) * .24) : i === 0 ? -.14 : .14, eating ? 14 : 9);
       }
       if (!reducedMotion) { head.rotation.z = Math.sin(elapsed * 1.3) * .025; head.position.y = 1.55 + Math.sin(elapsed * 2) * .008 + (eating?.face === 'chew' ? Math.abs(Math.sin(elapsed * 14)) * .012 : 0); }
       else { head.rotation.z = 0; head.position.y = 1.55; }
       const blink = !reducedMotion && (elapsed + character.blinkOffset) % 4.7 > 4.52;
-      character.setExpression(sleep || (blink && !eating) ? 'sleep' : eating ? eating.face : action === 'wave' ? 'happy' : 'normal');
+      character.setExpression(sleep || (blink && !eating) ? 'sleep' : eating ? eating.face : action === 'wave' || cheering ? 'happy' : 'normal');
     };
     return character;
   }

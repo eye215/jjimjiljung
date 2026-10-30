@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="800"><meta property="og:image:height" content="400"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-6">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="800"><meta property="og:image:height" content="400"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-7">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -19,6 +19,7 @@
 <form id="chat-form" autocomplete="off"><input id="chat-input" name="message" type="text" enterkeyhint="send" placeholder="따뜻한 한마디를 남겨요" aria-label="채팅 메시지"><button type="submit">보내기</button></form>
 </section>
 <button id="wallet" aria-label="온기와 간식 가방, 매점 열기"><span>♨ <b id="wallet-points">0</b></span><span>🥚 <b id="wallet-egg">0</b></span><span>🥤 <b id="wallet-drink">0</b></span></button>
+<button id="tv-ad" hidden><span></span></button>
 <button id="shop-open" hidden>🛒 매점 이용하기</button>
 <section id="game" aria-live="polite" hidden><h2 id="game-title"></h2><div id="game-body"></div><p id="game-result" hidden></p></section>
 <div id="toast" role="status" hidden><span></span><button type="button" hidden></button></div>
@@ -43,15 +44,17 @@
 <p id="join-intro">찜질방에 어울리는 이름을 골라 두었어요. 마음대로 고쳐도 돼요.</p>
 <div class="nickname-row"><input id="nickname" name="nickname" maxlength="10" autocomplete="nickname" enterkeyhint="go" placeholder="예: 말랑양머리" aria-describedby="join-note"><button type="button" id="nickname-reroll" aria-label="다른 닉네임 추천받기">🎲</button></div>
 <p id="join-note" role="alert"></p>
+<p class="join-privacy"><a href="./privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
 <div class="join-actions"><button type="button" id="join-solo">혼자 둘러보기</button><button type="submit" id="join-enter">입장하기</button></div>
 </form>
 </dialog>
 <dialog id="shop-dialog" aria-labelledby="shop-title">
 <div class="places-heading"><div><span class="places-eyebrow">따끈한 간식 코너</span><h2 id="shop-title">매점</h2></div><span id="shop-balance">♨ 0</span><button id="shop-close" aria-label="매점 닫기">×</button></div>
 <div class="shop-items">
-<article data-snack="egg"><div class="snack-art egg" aria-hidden="true"></div><div><h3>맥반석 구운 계란</h3><p>껍질 톡톡 까서 세 입에 냠냠</p><span class="bag"></span></div><div class="shop-actions"><button data-free>🎁 오늘 무료 받기</button><button data-buy>♨ 5 사기</button></div></article>
-<article data-snack="drink"><div class="snack-art drink" aria-hidden="true"></div><div><h3>살얼음 식혜</h3><p>밥알 동동, 시원하게 쭈욱</p><span class="bag"></span></div><div class="shop-actions"><button data-free>🎁 오늘 무료 받기</button><button data-buy>♨ 5 사기</button></div></article>
+<article data-snack="egg"><div class="snack-art egg" aria-hidden="true"></div><div><h3>맥반석 구운 계란</h3><p>껍질 톡톡 까서 세 입에 냠냠</p><span class="bag"></span></div><div class="shop-actions"><button data-free>🎁 오늘 무료 받기</button><button data-buy>♨ 5 사기</button><span class="short" hidden>♨ 5 필요해요</span></div></article>
+<article data-snack="drink"><div class="snack-art drink" aria-hidden="true"></div><div><h3>살얼음 식혜</h3><p>밥알 동동, 시원하게 쭈욱</p><span class="bag"></span></div><div class="shop-actions"><button data-free>🎁 오늘 무료 받기</button><button data-buy>♨ 5 사기</button><span class="short" hidden>♨ 5 필요해요</span></div></article>
 </div>
+<div id="shop-tv" hidden><p></p><button type="button">📺 TV 보러 가기</button></div>
 <h3 class="shop-sub">미니게임 <small>성공하면 온기를 받아요</small></h3>
 <div class="shop-games"><button data-game="egg">🥚 이마로 계란 깨기<small>계란 1개 사용</small></button><button data-game="drink">🥤 식혜 원샷<small>식혜 1개 사용</small></button></div>
 <p class="places-footnote">계란·식혜는 하루에 하나씩 무료예요. 앉거나 누워서 쉬면 30초마다 온기 ♨가 모여요 (불가마·소금방은 두 배).</p>
@@ -67,7 +70,7 @@
 <button data-place="ice"><span aria-hidden="true">❄</span><b>얼음방</b><small>잠깐 시원한 기분</small></button>
 <button data-place="lobby"><span aria-hidden="true">♧</span><b>중앙 휴게실</b><small>모두 모이는 곳</small></button>
 </div>
-<p class="places-footnote">직접 걸어 다녀도 돼요. 문을 지나면 방 이름이 바뀌어요.</p>
+<p class="places-footnote">직접 걸어 다녀도 돼요. 문을 지나면 방 이름이 바뀌어요.<br><a href="./privacy.html">개인정보처리방침</a></p>
 </dialog>
 <script>
 window.lockRoomControls = function(locked) { document.querySelectorAll('.header button,.controls button').forEach(button => button.disabled = locked); document.querySelector('#joystick').inert = locked; document.querySelector('#viewport').tabIndex = locked ? -1 : 0; };
@@ -75,5 +78,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-6').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-7').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>

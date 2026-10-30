@@ -148,3 +148,16 @@ body:not(.room-ready) #wallet,body:not(.room-ready) #shop-open{display:none}
 @media(max-width:760px){#social-row{top:78px;left:13px;gap:5px}#social-row .online-pill{top:auto;left:auto}#invite{min-height:30px;padding:6px 10px;font-size:10px}}
 @media(max-height:500px) and (orientation:landscape){#social-row{top:62px;left:16px}}
 body.sleeping #social-row{opacity:0;pointer-events:none}body:not(.room-ready) #invite{display:none}
+/* ---------- 중앙 휴게실 TV ads ---------- */
+#tv-ad{position:absolute;z-index:4;transform:translate(-50%,-50%);max-width:calc(100% - 28px);min-height:48px;padding:11px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.75);background:rgba(255,250,245,.72);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);box-shadow:0 8px 28px rgba(120,80,60,.18),inset 0 1px 0 #fff;color:#5B4A42;font-size:14px;font-weight:800;white-space:nowrap;transition:transform .15s}
+#tv-ad[data-state=ready]{background:linear-gradient(160deg,#FFD0BD,#FFB59A);border-color:#fff;box-shadow:0 10px 26px rgba(255,140,110,.38),inset 0 2px 0 rgba(255,255,255,.7);animation:tvPulse 1.6s ease-in-out infinite}
+#tv-ad:disabled{cursor:default;opacity:1;font-weight:700;font-size:13px}
+#tv-ad:active:not(:disabled){transform:translate(-50%,-50%) scale(.94)}
+@keyframes tvPulse{50%{box-shadow:0 10px 26px rgba(255,140,110,.38),0 0 0 8px rgba(255,181,154,.25),inset 0 2px 0 rgba(255,255,255,.7)}}
+#shop-tv{margin-top:12px;padding:12px 14px;border-radius:20px;background:#fff6e0cc;border:1px solid #fff;display:flex;flex-direction:column;gap:10px;align-items:stretch}
+#shop-tv p{margin:0;font-size:13px;line-height:1.5;color:#6b4429;font-weight:600}
+#shop-tv button{min-height:44px;border-radius:999px;border:1px solid #fff;background:linear-gradient(160deg,#FFD0BD,#FFB59A);color:#5B4A42;font-weight:800;font-size:14px;box-shadow:0 8px 20px rgba(255,140,110,.3),inset 0 2px 0 rgba(255,255,255,.7)}
+.shop-actions .short{flex:1;display:grid;place-items:center;min-height:42px;border-radius:14px;border:1.5px dashed #e3c39e;color:#9a7a5d;font-size:13px;font-weight:700}
+.places-footnote a,.join-privacy a{color:#8a6448;text-decoration:underline;text-underline-offset:2px}
+.join-privacy{margin:0 0 10px!important;text-align:right;font-size:12px!important}
+body.sleeping #tv-ad{display:none}

@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 (async () => {
-  const { createWallet, koreaDay, scoreEggCrack, scoreOneShot, WELCOME_POINTS, DAILY_EARN_CAP } = await import('../economy.js');
+  const { createWallet, koreaDay, scoreEggCrack, scoreOneShot, WELCOME_POINTS, DAILY_EARN_CAP, AD_REWARD, AD_DAILY, AD_GAP_MS } = await import('../economy.js');
   const memory = () => { const data = new Map(); return { getItem: k => data.get(k) ?? null, setItem: (k, v) => data.set(k, String(v)) }; };
   // 2026-10-30 23:30 KST is 14:30 UTC; midnight KST is 15:00 UTC.
   let clock = new Date('2026-10-30T14:30:00Z');
@@ -28,5 +28,21 @@ const assert = require('node:assert/strict');
   assert.equal(scoreOneShot({ finished: true, frozen: false, peak: .5 }).points, 3);
   assert.equal(scoreOneShot({ finished: true, frozen: false, peak: .9 }).points, 2);
   assert.equal(scoreOneShot({ finished: false, frozen: true, peak: 1 }).points, 0);
-  console.log('PASS: wallet welcome points, empty bag, one free egg/sikhye per Korea day, buying, persistence, sanitising, daily earning cap, mini-game scoring.');
+  // TV ads: 3 a Korea day, 2 minutes apart, outside the daily earning cap.
+  const adStore = memory(); let adClock = new Date('2026-10-31T14:00:00Z');
+  const ads = createWallet({ storage: adStore, now: () => adClock });
+  for (let i = 0; i < 100; i++) ads.earn(5);
+  const capped = ads.snapshot().points;
+  assert.equal(ads.rewardAd(), AD_REWARD, 'A watched ad pays even after the earning cap');
+  assert.equal(ads.snapshot().points, capped + AD_REWARD);
+  assert.equal(ads.rewardAd(), 0, 'Ads are at least 2 minutes apart');
+  assert(ads.adStatus().waitMs > 0 && ads.adStatus().waitMs <= AD_GAP_MS);
+  adClock = new Date(adClock.getTime() + AD_GAP_MS); assert.equal(ads.rewardAd(), AD_REWARD);
+  adClock = new Date(adClock.getTime() + AD_GAP_MS); assert.equal(ads.rewardAd(), AD_REWARD);
+  adClock = new Date(adClock.getTime() + AD_GAP_MS); assert.equal(ads.rewardAd(), 0, 'Three ads a day');
+  assert.deepEqual(ads.adStatus(), { left: 0, waitMs: 0 });
+  adClock = new Date('2026-10-31T15:00:00Z');
+  assert.equal(ads.adStatus().left, AD_DAILY, 'Ad count resets at midnight Korea time');
+  assert.equal(createWallet({ storage: adStore, now: () => adClock }).adStatus().left, AD_DAILY, 'Ad state persists and resets');
+  console.log('PASS: wallet welcome points, empty bag, one free egg/sikhye per Korea day, buying, persistence, sanitising, daily earning cap, mini-game scoring, TV ads (3/day, 2-minute gap, midnight reset, outside the cap).');
 })().catch(error => { console.error(error); process.exitCode = 1; });
