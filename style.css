@@ -342,3 +342,7 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke
 @media(max-width:340px){.brand>:not(.brand-icon){display:none}.brand{padding:0 7px}.actions b{font-size:11.5px}}
 @media(max-height:500px) and (orientation:landscape){.controls{max-width:520px}.actions>button{min-height:54px}#joystick{width:84px;height:84px;bottom:calc(var(--safe-bottom) + 84px)}#chat-open{bottom:calc(var(--safe-bottom) + 84px)}#dress{bottom:calc(var(--safe-bottom) + 84px);right:80px}.room-badge{top:var(--safe-top);right:auto;left:50%;transform:translateX(-50%)}#social-row{top:calc(var(--safe-top) + 98px)}.scene-hint{display:none}}
 body.sleeping .room-badge{opacity:0}
+/* 인사 */
+.greet-pick{pointer-events:auto;width:40px;height:40px;border-radius:50%;border:0;font-size:22px;background:var(--lg-thick);box-shadow:var(--glass-ring),0 6px 14px rgba(120,60,30,.2);animation:pickPop .5s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pickPop{from{transform:scale(.3);opacity:0}}
+.greet-fly{position:absolute;left:0;top:0;margin:-14px 0 0 -14px;font-size:28px;pointer-events:none;will-change:transform}
