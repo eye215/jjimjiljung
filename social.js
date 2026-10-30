@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-5';
-import { PALETTES } from './character.js?v=rpg-5';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-5';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-5';
+import { connect } from './net.js?v=rpg-6';
+import { PALETTES } from './character.js?v=rpg-6';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-6';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-6';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -211,7 +211,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   function renderStatus() {
     const count = presence.length + 1;
     ui.online.dataset.status = status;
-    ui.onlineText.textContent = status === 'online' ? `${count}명 접속 중` : status === 'connecting' ? '연결 중…' : status === 'offline' ? '오프라인 · 다시 연결' : '혼자 쉬는 중 · 입장하기';
+    ui.onlineText.textContent = status === 'online' ? `${count}명 접속 중` : status === 'connecting' ? '연결 중…' : status === 'offline' ? '다시 연결' : '함께하기';
     ui.count.textContent = status === 'online' ? `${count}명` : '';
     viewport.dataset.online = status === 'online' ? String(count) : status;
   }
@@ -220,7 +220,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   if (nickname) start(); else openJoin();
 
   return {
-    get status() { return status; }, get count() { return presence.length + 1; }, remotes, id,
+    get status() { return status; }, get nickname() { return nickname; }, get count() { return presence.length + 1; }, remotes, id,
     isChatOpen: () => !ui.chat.hidden,
     outfitChanged() { if (link && status === 'online') { link.track(presencePayload()); lastSent = 0; } },
     update(dt, reducedMotion) {

@@ -1,12 +1,13 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-5';
-import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-5';
-import { buildWorld } from './environment.js?v=rpg-5';
-import { ROOMS, DESTINATIONS, SPAWN, roomAt } from './world.js?v=rpg-5';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-5';
-import { createSocial } from './social.js?v=rpg-5';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-5';
-import { createShop } from './shop.js?v=rpg-5';
+import { planPath, stepMovement } from './navigation.js?v=rpg-6';
+import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-6';
+import { buildWorld } from './environment.js?v=rpg-6';
+import { ROOMS, DESTINATIONS, SPAWN, roomAt } from './world.js?v=rpg-6';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-6';
+import { createSocial } from './social.js?v=rpg-6';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-6';
+import { createShop } from './shop.js?v=rpg-6';
+import { createInvite } from './invite.js?v=rpg-6';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -474,3 +475,10 @@ social = createSocial({
   scene, camera, kit, viewport, actorScale: ACTOR_SCALE, makeShadow: contactShadow,
   getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, snack: snackSig, walking: localWalking, outfit: savedOutfit, room: currentRoom.id, visible: hero.visible })
 });
+// 카카오톡 친구 초대, and a warm hello for visitors who came from an invite.
+const invite = createInvite({ button: document.querySelector('#invite'), getNickname: () => social.nickname, toast });
+if (invite.invitedBy) {
+  const joinText = document.querySelector('#join-intro');
+  if (document.querySelector('#join-dialog').open && joinText) joinText.textContent = `${invite.invitedBy}님의 초대로 왔어요! 이름을 정하고 함께 찜질해요 ♨`;
+  else toast(`${invite.invitedBy}님이 초대했어요! 같이 찜질해요 ♨`);
+}
