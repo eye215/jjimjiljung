@@ -83,13 +83,28 @@ Each phase ships only after design QA, tests and a verified Pages deploy.
 - Calm sleep music starts automatically. Lying down is a tap, so browsers allow the sound to play. Music is generated in the browser or uses a properly licensed track, with a volume control and mute.
 - After 30 seconds of lying still, the view fades into a slowly turning galaxy (stars, nebula, and a gentle shader). Waking up (the button, walking, or tapping the floor) fades back to the room. Reduced-motion users get a static starfield.
 
-### Phase 4 — private chat rooms and AI moderation (Supabase Edge Functions)
+### Phase 4 — 매점 & 간식 (no external setup)
+- **Eat while sitting:** egg and sikhye become something you do in a pose, so you can sit (or stand) and snack. Other visitors see it too.
+- **Buy at the 매점:** walk up to the counter and a 매점 button appears. Pick 구운 계란 or 식혜 and they go into a small snack bag in the action tray (계란 ×2). With an empty bag, the snack buttons point you to the shop.
+- **One free each per day:** one free egg and one free sikhye every day, resetting at midnight Korea time. Anything more costs 온기 points (♨), earned by resting in 불가마/소금방, chatting and the mini-games.
+- **Proper snack art and animation:**
+  - Roasted egg (speckled brown shell): crack and peel it, then take bites.
+  - Sikhye in a cup with floating rice grains and a straw: hold it in both hands.
+  - Bringing food to the mouth, puffed chewing cheeks, a happy face, crumbs and sparkles, then an empty cup or shell.
+- **Mini-games:**
+  - "이마로 계란 깨기": tap when the gauge hits the sweet spot for a clean crack.
+  - "식혜 원샷": hold to drink and keep the meter in the safe zone to avoid brain freeze.
+  - Both reward 온기 points. Optional quick reactions for others watching.
+- Saved on the device at first. The daily free item and points move to the server in Phase 5 (with Supabase tables) so they cannot be faked.
+
+### Phase 5 — private chat rooms and AI moderation (Supabase Edge Functions)
 - Private chat: create a room, get a short invite code, and share it; anyone who enters the code joins. Codes are generated on the server with an expiry, and membership is enforced with Row Level Security and Realtime authorization, so a code cannot be guessed or bypassed from the browser.
 - AI moderation: chat messages go through an Edge Function that calls an NVIDIA safety model (e.g. NemoGuard content safety, via build.nvidia.com/NIM). Inappropriate messages are blocked or masked before anyone sees them. The NVIDIA API key lives only in Supabase secrets.
 - Report, mute and block buttons.
+- Anonymous sign-in plus a small profile table, so 매점 points, daily free snacks and nicknames are checked on the server.
 - To check before starting: the current free-tier terms and rate limits of the NVIDIA API, and how well the safety model handles Korean (the local filter stays as a fallback).
 
-### Phase 5 — voice chat and speech-to-text
+### Phase 6 — voice chat and speech-to-text
 - Voice chat over WebRTC with Supabase Realtime for connection setup (signaling): push-to-talk or a toggled mic, speaking indicators over heads, per-person mute, and nearby-only or room-only audio. Peer-to-peer suits small groups; mobile networks may need a TURN relay (free tiers are limited).
 - STT: the browser's Web Speech API (Korean, free, works in iOS Safari and Chrome) turns speech into chat text or live captions. Transcripts pass through the same AI moderation. Live voice audio itself cannot be filtered in real time, so mute/report/block and push-to-talk are the safeguards there.
 
