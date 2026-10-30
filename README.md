@@ -50,17 +50,28 @@ Chromium uses software WebGL in CI-like environments, so these tests are slow bu
 
 ## Roadmap
 
-### Phase 2 — multiplayer and group chat (planned, needs a Supabase project)
+Each phase ships only after design QA, tests and a verified Pages deploy.
 
-Plan: Supabase Realtime only (free tier), no database tables required for the first version.
+### Phase 2 — multiplayer and public text chat (needs a Supabase project)
+- Supabase Realtime (free plan): **Presence** for nickname, outfit, current room, visitor count, join/leave; **Broadcast** for positions (~8 Hz while moving, interpolated) and chat.
+- Portrait-first mobile chat: a bottom-sheet chat panel that sits above the on-screen keyboard (`visualViewport`), speech bubbles over heads, nickname labels, recent history, open/close. Landscape and PC stay supported.
+- Basic safety from day one: message length and send-rate limits, plus a local Korean/English profanity filter.
+- Only the project URL and the public anon key are used in the browser.
 
-- **Presence** on a channel such as `room:main` tracks who is in the jjimjilbang (nickname, outfit, current room) → visitor count, join/leave.
-- **Broadcast** sends position updates (`x`, `z`, facing, action, walking) at ~8 Hz while moving; remote characters are drawn with `character.js` and interpolated.
-- **Broadcast** chat messages (length and rate limited on the client) → chat panel + speech bubbles over heads. The channel name is the extension point for per-room (`world.js` room ids) or private chats later.
-- Only the Supabase project URL and the public **anon** key would be used in the browser (they are designed to be public). No service-role keys or other secrets go in the frontend.
+### Phase 3 — 수면실 immersion (no external services)
+- Lying down in 수면실 moves the camera smoothly into a first-person view looking up at a starry ceiling (the room gains a ceiling only in this view).
+- Calm sleep music starts automatically. Lying down is a tap, so browsers allow the sound to play. Music is generated in the browser or uses a properly licensed track, with a volume control and mute.
+- After 30 seconds of lying still, the view fades into a slowly turning galaxy (stars, nebula, and a gentle shader). Any input fades back to the room. Reduced-motion users get a static starfield.
 
-Setup the owner needs to do (not done yet): create a **new** Supabase project dedicated to 찜질중 on the free plan (do not reuse the StageFlow project), then share its Project URL and anon public key.
+### Phase 4 — private chat rooms and AI moderation (Supabase Edge Functions)
+- Private chat: create a room, get a short invite code, and share it; anyone who enters the code joins. Codes are generated on the server with an expiry, and membership is enforced with Row Level Security and Realtime authorization, so a code cannot be guessed or bypassed from the browser.
+- AI moderation: chat messages go through an Edge Function that calls an NVIDIA safety model (e.g. NemoGuard content safety, via build.nvidia.com/NIM). Inappropriate messages are blocked or masked before anyone sees them. The NVIDIA API key lives only in Supabase secrets.
+- Report, mute and block buttons.
+- To check before starting: the current free-tier terms and rate limits of the NVIDIA API, and how well the safety model handles Korean (the local filter stays as a fallback).
 
-### Later — NPC conversation
+### Phase 5 — voice chat and speech-to-text
+- Voice chat over WebRTC with Supabase Realtime for connection setup (signaling): push-to-talk or a toggled mic, speaking indicators over heads, per-person mute, and nearby-only or room-only audio. Peer-to-peer suits small groups; mobile networks may need a TURN relay (free tiers are limited).
+- STT: the browser's Web Speech API (Korean, free, works in iOS Safari and Chrome) turns speech into chat text or live captions. Transcripts pass through the same AI moderation. Live voice audio itself cannot be filtered in real time, so mute/report/block and push-to-talk are the safeguards there.
 
-Characters already share one factory and pose animation, and every room has an id, so AI-driven residents (shopkeeper, chatty guest, counsellor) can be added as extra actors. Calls to an LLM API (e.g. NVIDIA NIM) must go through a server-side function so API keys never reach the browser.
+### Later — AI residents
+Characters share one factory and every room has an id, so AI residents (shopkeeper, chatty guest, counsellor) can be added as actors whose replies come from an LLM (e.g. NVIDIA NIM) through a server-side function.
