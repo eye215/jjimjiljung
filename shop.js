@@ -1,14 +1,15 @@
-import { SNACKS, REST_SECONDS, scoreEggCrack, scoreOneShot } from './economy.js?v=rpg-6';
+import { SNACKS, REST_SECONDS, scoreEggCrack, scoreOneShot } from './economy.js?v=rpg-7';
 
 // 매점 sheet, wallet chip, empty-bag prompt and the two snack mini-games.
 // scene.js owns the character; this module only calls back into it.
 const $ = selector => document.querySelector(selector);
 
-export function createShop({ wallet, eat, play, goToShop, toast }) {
+export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
   const ui = {
     chip: $('#wallet'), points: $('#wallet-points'), eggs: $('#wallet-egg'), drinks: $('#wallet-drink'),
     open: $('#shop-open'), dialog: $('#shop-dialog'), close: $('#shop-close'), balance: $('#shop-balance'),
-    game: $('#game'), title: $('#game-title'), body: $('#game-body'), result: $('#game-result')
+    game: $('#game'), title: $('#game-title'), body: $('#game-body'), result: $('#game-result'),
+    tvBox: $('#shop-tv'), tvText: $('#shop-tv p'), tvGo: $('#shop-tv button')
   };
   function render() {
     const snap = wallet.snapshot();
@@ -18,11 +19,17 @@ export function createShop({ wallet, eat, play, goToShop, toast }) {
       const card = ui.dialog.querySelector(`[data-snack="${kind}"]`);
       card.querySelector('.bag').textContent = `가방에 ${snap.bag[kind]}개`;
       const free = card.querySelector('[data-free]'), buy = card.querySelector('[data-buy]');
-      free.hidden = !snap.freeLeft[kind]; buy.disabled = snap.points < SNACKS[kind].price;
+      const short = snap.points < SNACKS[kind].price;
+      free.hidden = !snap.freeLeft[kind]; buy.hidden = short; card.querySelector('.short').hidden = !short;
       ui.dialog.querySelector(`[data-game="${kind}"]`).disabled = snap.bag[kind] < 1;
       document.querySelector(`[data-action="${kind}"] .count`).textContent = snap.bag[kind];
       document.querySelector(`[data-action="${kind}"]`).classList.toggle('empty', snap.bag[kind] < 1);
     }
+    // Not enough 온기: point to the lobby TV, or to the hot rooms once ads are used up.
+    const needs = Object.keys(SNACKS).some(kind => !snap.freeLeft[kind] && snap.points < SNACKS[kind].price);
+    const worth = tv?.worth();
+    ui.tvBox.hidden = !needs; ui.tvGo.hidden = !worth;
+    ui.tvText.textContent = worth ? '온기가 조금 모자라요 ♨ 중앙 휴게실 TV를 보고 오면 받을 수 있어요' : '온기가 조금 모자라요 ♨ 불가마나 소금방에서 쉬면 온기가 두 배로 쌓여요';
   }
   wallet.onChange(render);
 
@@ -30,6 +37,7 @@ export function createShop({ wallet, eat, play, goToShop, toast }) {
   ui.open.addEventListener('click', openShop);
   ui.chip.addEventListener('click', openShop);
   ui.close.addEventListener('click', () => ui.dialog.close());
+  ui.tvGo.addEventListener('click', () => { ui.dialog.close(); tv?.go(); });
   ui.dialog.addEventListener('click', event => {
     const free = event.target.closest('[data-free]'), buy = event.target.closest('[data-buy]'), game = event.target.closest('[data-game]');
     if (free) { const kind = free.closest('[data-snack]').dataset.snack; if (wallet.claimFree(kind)) toast(`오늘의 무료 ${SNACKS[kind].short}를 받았어요! 🎁`); }

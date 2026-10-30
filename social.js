@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-6';
-import { PALETTES } from './character.js?v=rpg-6';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-6';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-6';
+import { connect } from './net.js?v=rpg-7';
+import { PALETTES } from './character.js?v=rpg-7';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-7';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-7';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.

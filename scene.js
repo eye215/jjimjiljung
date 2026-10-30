@@ -1,13 +1,14 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-6';
-import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-6';
-import { buildWorld } from './environment.js?v=rpg-6';
-import { ROOMS, DESTINATIONS, SPAWN, roomAt } from './world.js?v=rpg-6';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-6';
-import { createSocial } from './social.js?v=rpg-6';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-6';
-import { createShop } from './shop.js?v=rpg-6';
-import { createInvite } from './invite.js?v=rpg-6';
+import { planPath, stepMovement } from './navigation.js?v=rpg-7';
+import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-7';
+import { buildWorld } from './environment.js?v=rpg-7';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, roomAt } from './world.js?v=rpg-7';
+import { createTvAds } from './ads.js?v=rpg-7';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-7';
+import { createSocial } from './social.js?v=rpg-7';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-7';
+import { createShop } from './shop.js?v=rpg-7';
+import { createInvite } from './invite.js?v=rpg-7';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -103,8 +104,10 @@ function toast(text, label = '', onClick = null) {
   toastBox.hidden = false; clearTimeout(toastTimer2); toastTimer2 = setTimeout(() => { toastBox.hidden = true; }, label ? 5000 : 2600);
 }
 toastButton.addEventListener('click', () => { toastBox.hidden = true; toastAction?.(); });
+let tvReady = false;
 const shop = createShop({
   wallet, toast,
+  tv: { worth: () => tvReady && tvAds.worthVisiting, go: () => goToTv() },
   eat: (kind, style) => eat(kind, style),
   play: (kind, style) => eat(kind, style),
   goToShop: () => {
@@ -114,6 +117,47 @@ const shop = createShop({
   }
 });
 shop.bind({ current: () => player.snack, stop: () => interruptSnack() });
+// ---------- 중앙 휴게실 TV: rewarded ads ----------
+let adPlaying = false, tvSeated = false, tvCheck = 0, tvTurn = 0;
+const tvButton = document.querySelector('#tv-ad');
+const tvAds = createTvAds({
+  wallet, button: tvButton,
+  // Pause rendering and sound while Google shows the ad, then carry on.
+  onPause: () => { adPlaying = true; cancelAnimationFrame(raf); if (audioContext) audioContext.suspend().catch(() => {}); sleep.music.suspend(); },
+  onResume: () => { adPlaying = false; lastTime = performance.now(); if (!contextLost && !document.hidden) raf = requestAnimationFrame(frame); if (audioEnabled && audioContext) audioContext.resume().catch(() => {}); sleep.music.resume(); },
+  onReward: granted => { if (granted) { player.celebrate(); toast(`끝까지 봐 줘서 고마워요! 온기 +${granted}♨`); status.textContent = '온기를 받았어요. 따끈따끈 ♨'; } shop.render(); },
+  onDismiss: () => toast('다음에 또 봐요 📺')
+});
+tvReady = true; shop.render();
+function goToTv() {
+  if (Math.hypot(hero.position.x - TV_SEAT.x, hero.position.z - TV_SEAT.z) < .3) { setAction('sit'); return; }
+  moveTo(TV_SEAT.x, TV_SEAT.z); activeDestination = TV_SEAT; status.textContent = 'TV 앞 방석으로 걸어가는 중이에요.';
+}
+const nearTv = () => currentRoom?.id === 'lobby' && Math.hypot(hero.position.x - TV_SEAT.x, hero.position.z - TV_SEAT.z) < .8;
+const tvPoint = new THREE.Vector3();
+function updateTv(dt) {
+  const seated = action === 'sit' && nearTv();
+  if (seated !== tvSeated) {
+    tvSeated = seated; tvButton.hidden = !seated;
+    // Swing the camera round behind the sitter so the TV fills the view.
+    if (seated) { tvCheck = 0; tvTurn = 1.6; tvAds.prepare(); } else { tvTurn = 0; tvAds.leave(); }
+  }
+  if (tvTurn > 0) {
+    tvTurn -= dt; const goal = TV_SEAT.facing + Math.PI + .3;
+    let delta = goal - view.yaw; delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+    view.yaw += delta * Math.min(1, dt * 3.5); viewport.dataset.yaw = view.yaw.toFixed(3);
+  }
+  world.tv.setMode(seated && tvAds.state === 'ready' ? 'ad' : 'channel');
+  if (!seated) return;
+  // Re-check each second (cooldowns end, midnight resets); retry "no ad" every 30 s.
+  tvCheck += dt;
+  if (tvCheck > 1 && ['idle', 'cooldown', 'done'].includes(tvAds.state)) { tvCheck = 0; tvAds.prepare(); }
+  else if (tvCheck > 30 && tvAds.state === 'none') { tvCheck = 0; tvAds.retry(); }
+  // Pin the button to the TV screen.
+  world.tv.panel.getWorldPosition(tvPoint); tvPoint.project(camera);
+  tvButton.style.left = `${THREE.MathUtils.clamp((tvPoint.x + 1) / 2 * viewport.clientWidth, 120, viewport.clientWidth - 120)}px`;
+  tvButton.style.top = `${THREE.MathUtils.clamp((1 - tvPoint.y) / 2 * viewport.clientHeight + 64, 170, viewport.clientHeight * .62)}px`;
+}
 const walkHint = coarsePointer ? '바닥을 눌러 이동 · 끌어서 시점 회전' : 'WASD·방향키 이동 · 끌어서 회전 · 휠 확대';
 const destinationMarker = mesh(new THREE.TorusGeometry(.2, .025, 8, 40), new THREE.MeshBasicMaterial({ color: '#ffe1a0', transparent: true, opacity: .9, depthWrite: false }), scene);
 destinationMarker.rotation.x = -Math.PI / 2; destinationMarker.castShadow = false; destinationMarker.visible = false;
@@ -160,7 +204,7 @@ function setAction(next) {
   action = next; target.copy(hero.position); status.textContent = messages[next];
   updateActionButtons();
   // Turn towards the camera for poses, so faces and snacks are visible.
-  if (next !== 'stand' && next !== 'lie') facing = view.yaw;
+  if (next !== 'stand' && next !== 'lie') facing = next === 'sit' && nearTv() ? TV_SEAT.facing : view.yaw;
   // On a 수면실 mat, lie along the bed with the head on its pillow.
   if (next === 'lie') facing = currentRoom?.id === 'sleep' ? 0 : view.yaw + Math.PI / 2;
   hint.textContent = next === 'stand' ? walkHint : '다시 걷고 싶으면 바닥을 톡 눌러요 ↗';
@@ -285,6 +329,7 @@ viewport.addEventListener('pointermove', e => {
   const dx = e.clientX - gesture.x, dy = e.clientY - gesture.y;
   if (Math.hypot(dx, dy) > 8) gesture.moved = true;
   if (gesture.moved) {
+    tvTurn = 0;
     view.yaw = gesture.yaw - dx * .006; view.pitch = THREE.MathUtils.clamp(gesture.pitch + dy * .003, .42, 1.15);
     viewport.dataset.yaw = view.yaw.toFixed(3);
   }
@@ -409,7 +454,7 @@ for (const m of fadeMeshes) if (m.material.transparent) m.material.userData.alwa
 function damp(object, key, to, dt, speed = 9) { object[key] = THREE.MathUtils.damp(object[key], to, speed, dt); }
 const ambientColor = new THREE.Color(), ambientGoal = new THREE.Color();
 function frame(now) {
-  if (contextLost || document.hidden) return;
+  if (contextLost || document.hidden || adPlaying) return;
   // A queued RAF timestamp can precede initialization after shader compilation.
   // Negative dt makes exponential damping diverge and spins the limbs wildly.
   const dt = THREE.MathUtils.clamp((now - lastTime) / 1000, 0, .05); lastTime = now; elapsed += dt;
@@ -449,6 +494,7 @@ function frame(now) {
   world.update(elapsed, reducedMotion);
   updateOcclusion(dt);
   localWalking = walking; social?.update(dt, reducedMotion);
+  updateTv(dt);
   // Resting earns 온기: every 30 s sitting or lying (double in 불가마 and 소금방).
   if ((action === 'sit' || action === 'lie') && !shop.playing) {
     restTimer += dt;
@@ -460,7 +506,7 @@ function frame(now) {
 }
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); contextLost = true; stopJoystick(); keys.clear(); if (placesDialog.open) placesDialog.close(); cancelAnimationFrame(raf); window.showRoomError('3D 화면이 잠시 멈췄어요. 다시 들어가면 편안한 방으로 돌아갈 수 있어요.'); });
 renderer.domElement.addEventListener('webglcontextrestored', () => location.reload());
-document.addEventListener('visibilitychange', () => { if (document.hidden) { stopJoystick(); keys.clear(); pointers.clear(); gesture = null; cancelAnimationFrame(raf); if (audioContext) audioContext.suspend().catch(() => {}); sleep.music.suspend(); } else { lastTime = performance.now(); if (!contextLost) raf = requestAnimationFrame(frame); if (audioEnabled && audioContext) audioContext.resume().catch(() => {}); sleep.music.resume(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { stopJoystick(); keys.clear(); pointers.clear(); gesture = null; cancelAnimationFrame(raf); if (audioContext) audioContext.suspend().catch(() => {}); sleep.music.suspend(); } else { lastTime = performance.now(); if (!contextLost && !adPlaying) raf = requestAnimationFrame(frame); if (audioEnabled && audioContext) audioContext.resume().catch(() => {}); sleep.music.resume(); } });
 // Compile every shader up front so the first steps into a new room do not stutter.
 sleep.ceiling.visible = sleep.galaxy.visible = true; renderer.compile(scene, camera); sleep.ceiling.visible = sleep.galaxy.visible = false;
 renderer.render(scene, camera);

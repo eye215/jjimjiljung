@@ -5,6 +5,8 @@ export const SNACKS = Object.freeze({
   drink: Object.freeze({ id: 'drink', name: '살얼음 식혜', short: '식혜', price: 5 })
 });
 export const WELCOME_POINTS = 10, DAILY_EARN_CAP = 60, REST_SECONDS = 30;
+// Rewarded TV ads: separate from the daily earning cap.
+export const AD_REWARD = 3, AD_DAILY = 3, AD_GAP_MS = 120000;
 const KEY = 'jjimjiljung-wallet-v1';
 
 // Days roll over at midnight Korea time, wherever the visitor is.
@@ -18,7 +20,8 @@ export function createWallet({ storage = globalThis.localStorage, now = () => ne
     points: whole(state?.points, WELCOME_POINTS),
     bag: { egg: whole(state?.bag?.egg), drink: whole(state?.bag?.drink) },
     free: { egg: typeof state?.free?.egg === 'string' ? state.free.egg : '', drink: typeof state?.free?.drink === 'string' ? state.free.drink : '' },
-    earnedDay: typeof state?.earnedDay === 'string' ? state.earnedDay : '', earned: whole(state?.earned)
+    earnedDay: typeof state?.earnedDay === 'string' ? state.earnedDay : '', earned: whole(state?.earned),
+    ads: { day: typeof state?.ads?.day === 'string' ? state.ads.day : '', count: whole(state?.ads?.count), last: Number.isFinite(state?.ads?.last) ? state.ads.last : 0 }
   };
   const listeners = new Set();
   const save = () => { try { storage?.setItem(KEY, JSON.stringify(state)); } catch { /* storage may be unavailable */ } for (const fn of listeners) fn(wallet.snapshot()); };
@@ -39,6 +42,20 @@ export function createWallet({ storage = globalThis.localStorage, now = () => ne
     consume(kind) {
       if (!known(kind) || state.bag[kind] < 1) return false;
       state.bag[kind]--; save(); return true;
+    },
+    // TV ads: 3 a Korea day, at least 2 minutes apart. Returns { left, waitMs }.
+    adStatus() {
+      const at = now(), today = koreaDay(at);
+      const count = state.ads.day === today ? state.ads.count : 0;
+      const waitMs = Math.max(0, state.ads.last + AD_GAP_MS - at.getTime());
+      return { left: Math.max(0, AD_DAILY - count), waitMs: count >= AD_DAILY ? 0 : waitMs };
+    },
+    // Called only after a fully watched ad (adViewed). Returns the amount granted.
+    rewardAd() {
+      const status = wallet.adStatus(); if (!status.left || status.waitMs) return 0;
+      const at = now(), today = koreaDay(at);
+      if (state.ads.day !== today) { state.ads.day = today; state.ads.count = 0; }
+      state.ads.count++; state.ads.last = at.getTime(); state.points += AD_REWARD; save(); return AD_REWARD;
     },
     // Points from resting and mini-games, capped per Korea day. Returns the amount granted.
     earn(amount) {

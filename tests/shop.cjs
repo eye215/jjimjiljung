@@ -53,7 +53,9 @@ const server = http.createServer((req, res) => {
     assert.deepEqual(s.wallet.bag, { egg: 1, drink: 2 }); assert.equal(s.wallet.points, 5);
     await page.screenshot({ path: path.join(output, 'shop.png') });
     await page.locator('[data-snack="egg"] [data-buy]').click();
-    assert.equal(await page.locator('[data-snack="drink"] [data-buy]').isDisabled(), true, 'Buying needs enough 온기');
+    assert.equal(await page.locator('[data-snack="drink"] [data-buy]').isVisible(), false, 'Buying needs enough 온기');
+    assert.equal(await page.locator('[data-snack="drink"] .short').isVisible(), true, 'Shortage is explained instead');
+    assert.equal(await page.locator('#shop-tv').isVisible(), true, 'The shop points to the TV or resting');
     await page.locator('#shop-close').click();
     assert.equal(await page.locator('[data-action="egg"] .count').textContent(), '2');
     // Sit down and eat: the pose stays seated while both hands bring the egg up.

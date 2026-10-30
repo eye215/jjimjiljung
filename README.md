@@ -11,6 +11,11 @@ A tiny, warm 3D jjimjilbang for a quiet break. Open [the live room](https://eye2
 - **Controls.** Mobile: thumb joystick (camera-relative), tap the floor to walk, drag to orbit the camera, pinch to zoom. PC: WASD / arrow keys (hold to walk), click to walk, drag to orbit, wheel to zoom, Q/E to turn, Home or 내 위치 to reset the view. 둘러보기 walks you into any room.
 - Sit, lie down with a pillow, eat a roasted egg, drink sikhye, or wave hello. Arriving in a room picks a fitting pose (sit by the hearth, lie on the salt or a sleeping mat). Faces blink and close their eyes to rest.
 - **수면실 dream mode (Phase 3).** Lie down on a 수면실 mat and the camera glides into a first-person view under a ceiling of glow-in-the-dark stars while a soft lullaby starts. The lullaby is generated in the browser, so no audio file is downloaded and there is no licence to manage. After 30 quiet seconds the room fades into a slowly turning galaxy. 일어나기, 산책, a tap on the floor or the joystick wakes you up. A music on/off button is remembered. Reduced-motion users get a still galaxy.
+- **중앙 휴게실 TV: rewarded ads.**
+  - **On screen:** the lobby TV runs its own little channel (a steaming roasted egg, bobbing sikhye, a fortune teaser). Sitting on the mat in front of it turns the camera to the screen and shows **📺 광고 보고 온기 받기 (+3♨)**.
+  - **The ad:** it is a Google H5 Games rewarded ad (`adBreak({type: 'reward'})`). Watching to the end (`adViewed`) gives +3♨ with a cheer and sparkles. Closing early (`adDismissed`) gives nothing ("다음에 또 봐요"). With no ad available, the TV quietly says "지금은 볼 수 있는 광고가 없어요".
+  - **Limits:** 3 ads a Korea day, at least 2 minutes apart, separate from the 60/day earning cap. Rendering and sound pause during the ad.
+  - **From the 매점:** when you are short of 온기, the 매점 offers **📺 TV 보러 가기** (walks you to the mat and sits you down). Once ads are used up or unavailable, it suggests resting in 불가마/소금방 instead.
 - **카카오톡 친구 초대.** The yellow 💛 친구 초대 button next to the visitor count shares a 카카오톡 feed card (a preview image of the lobby, "같이 찜질하기") with a link to https://jjimjiljung.yullul.com/?from=<nickname>. Invited friends are greeted by name. The official Kakao JavaScript SDK (2.7.2) loads from Kakao's CDN only when the button is tapped. If it cannot load, the system share sheet or a copied link is used instead. The JavaScript key is public and domain-restricted. The site domain must be registered under the app's Web platform in Kakao Developers.
 - **매점 & 간식 (Phase 4).**
   - **Eating:** eggs and sikhye are eaten in your current pose, so you can sit and snack. Both hands hold a roasted 맥반석 egg (speckled shell → crack → peeled, three bites showing the yolk) or a paper cup of 살얼음 식혜 (rice grains, straw, the level drops with each sip). The face munches with puffed cheeks, shell bits fly, and sparkles mark the finish. Others see you eat.
@@ -41,6 +46,8 @@ Not yet implemented: private rooms, AI moderation, voice chat/STT and NPC conver
 | `economy.js` | Wallet rules: snack bag, 온기 points, daily free snack (Korea day), earning cap, mini-game scoring. Pure and unit-tested. |
 | `shop.js` | 매점 sheet, wallet chip, empty-bag prompt, both mini-games. |
 | `invite.js` | 카카오톡 share (lazy SDK load, feed message, fallbacks) and the invite greeting. |
+| `ads.js` | Google Ad Placement API wrapper for the rewarded TV (lazy script, reward flow, pause/resume, states). |
+| `privacy.html` | 개인정보처리방침 (saved data, Supabase, Kakao, Google ad cookies, opt-out links, clear-device button). |
 | `scene.js` | Renderer, follow camera, input, actions, residents, room detection, wall cutaway/fading, error handling. |
 
 ### Performance notes (mobile)
@@ -58,6 +65,22 @@ Not yet implemented: private rooms, AI moderation, voice chat/STT and NPC conver
 - Free-plan limits: 200 concurrent connections and a monthly message quota. Movement updates are throttled to stay well inside it for small groups.
 - `supabase-js` **2.117.3** is vendored as `vendor/supabase.umd.js` (MIT, see `vendor/SUPABASE-LICENSE.txt`) and only loads after the room is ready, so a slow network never blocks entering.
 
+## Google AdSense setup (TV ads)
+
+External scripts are avoided everywhere **except** two on-demand ones:
+- **Google's ad script** (`pagead2.googlesyndication.com/pagead/js/adsbygoogle.js`) loads only the first time a visitor sits at the lobby TV, and only when `ADSENSE_CLIENT` is set in `config.js`. It cannot be vendored, because Google serves it.
+- The **Kakao SDK** loads only when 친구 초대 is tapped.
+
+The site stays fully usable without either.
+
+Owner steps:
+1. **AdSense account and site:** sign up at https://adsense.google.com, add `jjimjiljung.yullul.com` under *Sites*, and verify ownership (AdSense offers an ads.txt or meta-tag method).
+2. **Apply for H5 Games Ads:** rewarded ads in web games are only allowed through H5 Games Ads (Ad Placement API). Request access through Google's H5 Games Ads page (https://developers.google.com/ad-placement), naming this site as a game. Approval can take days or weeks.
+3. **Publisher id:** copy your `ca-pub-…` id into `ADSENSE_CLIENT` in `config.js`. Keep `ADS_TEST_MODE = true` (it adds `data-adbreak-test="on"`, so Google shows test ads) until approval, then set it to `false`.
+4. **ads.txt:** add a file named `ads.txt` at the repository root (served at https://jjimjiljung.yullul.com/ads.txt) with one line: `google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0` (your number without `ca-`).
+5. **EU/UK/Swiss consent:** in AdSense, open *Privacy & messaging → European regulations*, create and publish a GDPR consent message (Google-certified CMP) for this site. Optionally also set up the *US state regulations* message.
+6. **Privacy policy:** `privacy.html` already explains ad cookies and opt-outs. AdSense asks for its URL: https://jjimjiljung.yullul.com/privacy.html
+
 ## Run / deploy
 
 This is a buildless static site. Serve the repository root over HTTP (for example `python -m http.server 8000`), then open `http://localhost:8000`. Opening `index.html` as a local file will not load ES modules.
@@ -73,9 +96,10 @@ Use Node.js and install the pinned development dependency with `npm install`, th
 - `tests/navigation.cjs`: every room-to-room route through doorways, routes never leave the floor or cut furniture (sampled every centimetre), blocked/off-map taps, walls block, doorways open, sliding, wall glide, anti-tunnelling.
 - `tests/chat.cjs`: text cleaning, length cap, profanity masking including spacing tricks (and no false positives on everyday words), nickname rules, rate limits, incoming validation.
 - `tests/multiplayer.cjs`: two tabs over the local transport: nickname validation, seeing each other, count and name tags, movement/pose/outfit sync, chat both ways with bubbles and unread badge, throttling, masking, typing does not walk, leaving.
-- `tests/economy.cjs`: welcome points, free snack once per Korea day, buying, persistence, tamper sanitising, daily cap, mini-game scores.
+- `tests/economy.cjs`: welcome points, free snack once per Korea day, buying, persistence, tamper sanitising, daily cap, mini-game scores, TV ad limits.
 - `tests/shop.cjs`: empty-bag prompt walks to the 매점, daily free claims, buying, eating while sitting, finishing, putting snacks away, both mini-games.
 - `tests/invite.cjs`: Kakao init with the JS key, feed content and links on the registered domain, copy-link fallback, invite greeting, rude names ignored.
+- `tests/tv.cjs`: stand-in for Google's ad script. Ad button when seated (script loads only then), shop shortage → walk to the TV, reward after a full view with rendering paused, nothing when closed early, 2-minute gap, 3 a day, rest tip afterwards, midnight reset, no-ad and no-publisher-id fallbacks.
 - `tests/sleep.cjs`: dream mode only in 수면실, first-person camera, lullaby on/mute, 30-second galaxy, wake-up.
 - `tests/smoke.cjs`: desktop, 390px and 320px mobile, 820px tablet and landscape layouts; joystick/tray overlap; all poses and waving; drag orbit, wheel zoom and recenter; the six-room travel dialog and focus handling; camera-relative joystick movement, release and cancel; wall collision; walking through the 불가마 door with the room badge updating; wall cutaway/fading; tap-to-walk; held-key walking; outfit persistence; audio; reduced motion; local-only assets; WebGL context loss/retry; failed module; unavailable WebGL; loading guard.
 
