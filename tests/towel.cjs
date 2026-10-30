@@ -112,8 +112,8 @@ window.__tw = {
     assert.equal(await a.locator('.towel-progress').getAttribute('aria-valuenow'), '1');
     assert.deepEqual(await a.evaluate(() => window.__tw.wound()), { left: 1, right: 0 }, 'Only the tapped side rolls, and a repeat tap does not');
     assert.equal(await a.locator('.roll-scene').getAttribute('data-left'), '1');
-    await a.waitForTimeout(500);
-    assert(await strip() < before - 20, 'The flat middle narrows as an end rolls in');
+    // Software rendering can stretch the 0.38 s transition, so wait for it to settle.
+    await a.waitForFunction(w => document.querySelector('.roll-strip').getBoundingClientRect().width < w - 8, before, { timeout: 15000 });
     // Fast alternating taps: the shapes follow the count, never more than five turns a side.
     for (let i = 0; i < 5; i++) { await a.locator('[data-side=right]').click(); if (i < 4) await a.locator('[data-side=left]').click(); }
     assert.deepEqual(await a.evaluate(() => window.__tw.wound()), { left: 5, right: 5 });

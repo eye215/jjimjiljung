@@ -55,7 +55,7 @@ scene.add(sun, sun.target);
 
 // The plush GLB (2.5 MB) loads behind the loading screen; without it the
 // built-in character is used so the room always opens.
-const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap', 'shoulder', 'pillow'])]);
+const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap', 'shoulder', 'pillow', 'hair'])]);
 const kit = createCharacterKit(renderer, plushModel, towelProps);
 const world = buildWorld({ scene, kit });
 const sleep = createSleepMode({ scene, canvasTexture: kit.canvasTexture });
@@ -176,6 +176,8 @@ function baseDistance() {
   return THREE.MathUtils.clamp(THREE.MathUtils.mapLinear(aspect, .45, 1.6, 13, 9.6), 9.2, 13.5);
 }
 function placeCamera() {
+  // Never let a bad input leave the camera at NaN (the room would render empty).
+  if (!Number.isFinite(view.yaw) || !Number.isFinite(view.pitch) || !Number.isFinite(view.zoom)) { view.yaw = DEFAULT_YAW; view.pitch = DEFAULT_PITCH; view.zoom = 1; }
   const distance = baseDistance() * view.zoom;
   const flat = Math.cos(view.pitch) * distance;
   camera.position.set(view.focus.x + Math.sin(view.yaw) * flat, view.focus.y + Math.sin(view.pitch) * distance, view.focus.z + Math.cos(view.yaw) * flat);
@@ -386,12 +388,20 @@ viewport.addEventListener('pointermove', e => {
     viewport.dataset.yaw = view.yaw.toFixed(3);
   }
 });
+// Lifting one finger of a pinch: the other one carries on orbiting from where it is
+// (a gesture without a start point turned the camera angles into NaN, blanking the room).
+function pointerGone() {
+  if (!pointers.size) gesture = null;
+  else if (gesture?.pinch) { const [id, p] = [...pointers.entries()][0]; gesture = { id, x: p.x, y: p.y, yaw: view.yaw, pitch: view.pitch, moved: true }; }
+}
 function endPointer(e, cancelled) {
   if (!pointers.has(e.pointerId)) return;
   pointers.delete(e.pointerId);
   if (viewport.hasPointerCapture(e.pointerId)) viewport.releasePointerCapture(e.pointerId);
   const tap = gesture && !gesture.pinch && !gesture.moved && gesture.id === e.pointerId && !cancelled;
-  if (!pointers.size) gesture = null; else if (gesture?.pinch) gesture = { moved: true, id: -1 };
+  // Lifting one finger of a pinch: the other one carries on orbiting from where it is
+  // (a gesture without a start point turned the camera angles into NaN, blanking the room).
+  pointerGone();
   if (!tap || placesDialog.open || towelGame.isOpen) return;
   const r = viewport.getBoundingClientRect(); raycaster.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
   const someone = social?.pick(raycaster);
@@ -401,7 +411,7 @@ function endPointer(e, cancelled) {
 }
 viewport.addEventListener('pointerup', e => endPointer(e, false));
 viewport.addEventListener('pointercancel', e => endPointer(e, true));
-viewport.addEventListener('lostpointercapture', e => { pointers.delete(e.pointerId); if (!pointers.size) gesture = null; });
+viewport.addEventListener('lostpointercapture', e => { if (pointers.delete(e.pointerId)) pointerGone(); });
 viewport.addEventListener('wheel', e => { e.preventDefault(); view.zoom = THREE.MathUtils.clamp(view.zoom * Math.exp(e.deltaY * .0012), .6, 1.45); }, { passive: false });
 
 // ---------- Keyboard: WASD / arrows walk relative to the camera ----------
