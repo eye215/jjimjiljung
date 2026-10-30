@@ -36,6 +36,11 @@ const server = http.createServer((req, res) => {
       await page.goto(base);
       await page.waitForSelector('#viewport[data-ready="true"]', { timeout: 120000 });
       assert.equal(await page.locator('#join-dialog').evaluate(dialog => dialog.open), true, 'First visit asks for a nickname');
+      const suggested = await page.locator('#nickname').inputValue();
+      assert(suggested.length >= 2 && suggested.length <= 10, 'A cosy nickname is suggested');
+      await page.locator('#nickname-reroll').click();
+      assert.notEqual(await page.locator('#nickname').inputValue(), suggested, 'Dice offers another suggestion');
+      await page.locator('#nickname').fill('');
       await page.locator('#join-enter').click();
       assert.match(await page.locator('#join-note').textContent(), /닉네임/, 'Empty nickname is rejected');
       await page.locator('#nickname').fill('씨발');
@@ -101,6 +106,6 @@ const server = http.createServer((req, res) => {
     assert.match(await a.locator('#online-text').textContent(), /1명 접속 중/);
     assert(await a.locator('#chat-log li.system', { hasText: '율무님이 나갔어요' }).count() >= 1, 'Leave notice appears');
     assert.deepEqual(errors, [], 'No JS errors');
-    console.log('PASS (local transport): nickname validation, two visitors see each other with name tags and count, movement/pose/outfit sync, chat both ways with bubbles and unread badge, rate limit, profanity masking, length cap, typing does not walk, leave handling.');
+    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit sync, chat both ways with bubbles and unread badge, rate limit, profanity masking, length cap, typing does not walk, leave handling.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

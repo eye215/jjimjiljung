@@ -14,7 +14,7 @@ A tiny, warm 3D jjimjilbang for a quiet break. Open [the live room](https://eye2
 - Full-screen mobile layout, safe-area spacing, reduced-motion support, optional user-activated synthesized ambience, and the last outfit saved locally when storage is available.
 - Clear loading, missing-module, unsupported-WebGL and context-loss states, with a retry button. Rendering and sound pause while the page is hidden.
 
-- **Multiplayer and public chat (Phase 2).** Pick a nickname (or look around alone), then see other visitors walk, sit, lie down and change outfits in real time, with name tags over their heads and a live visitor count. The 💬 chat opens a portrait-first bottom sheet on phones (a side panel on PC and in landscape) that stays above the on-screen keyboard. Messages also pop up as speech bubbles. Visitors get join/leave notices and an unread badge. Messages are capped at 120 characters, rate-limited (at least 1.2 s apart, at most 5 per 10 s, and receivers drop floods), and a first-line word filter masks rude words with ♨. Typing never moves the character.
+- **Multiplayer and public chat (Phase 2).** Pick a nickname (a cosy jjimjilbang name such as 따끈한양머리 is suggested; 🎲 offers another and it stays editable), or look around alone, then see other visitors walk, sit, lie down and change outfits in real time, with name tags over their heads and a live visitor count. The 💬 chat opens a frosted-glass, portrait-first bottom sheet on phones (a side panel on PC and in landscape) that stays above the on-screen keyboard. Messages also pop up as speech bubbles. Visitors get join/leave notices and an unread badge. Messages are capped at 120 characters, rate-limited (at least 1.2 s apart, at most 5 per 10 s, and receivers drop floods), and a first-line word filter masks rude words with ♨. Typing never moves the character.
 
 Not yet implemented: private rooms, AI moderation, voice chat/STT and NPC conversation (see the roadmap below).
 
@@ -97,14 +97,29 @@ Each phase ships only after design QA, tests and a verified Pages deploy.
   - Both reward 온기 points. Optional quick reactions for others watching.
 - Saved on the device at first. The daily free item and points move to the server in Phase 5 (with Supabase tables) so they cannot be faked.
 
-### Phase 5 — private chat rooms and AI moderation (Supabase Edge Functions)
+### Phase 5 — invisible accounts, cloud save, private chat and AI moderation (Supabase)
+- **Signing up without noticing:** the first visit silently creates an anonymous Supabase account (Anonymous Sign-ins), so nickname, outfit, snacks, points and progress are saved on the server with no email, phone or password.
+- **Same character on any device:** to open your save elsewhere, the settings show a short **이어하기 코드** or QR (an expiring one-time code). Optionally the anonymous account can later be linked to Kakao or Google with one tap (requires app keys from those services).
+- **Minimal personal data:** only a random user id, the nickname and game data. Birth date and time for 사주 stay on the device unless you choose to sync them. A 'delete my data' button is included. Abuse protection with CAPTCHA (Cloudflare Turnstile, free) when needed.
+- Owner setup: enable **Anonymous sign-ins** in Supabase Authentication; tables and RLS policies are provided as SQL in the repo.
 - Private chat: create a room, get a short invite code, and share it; anyone who enters the code joins. Codes are generated on the server with an expiry, and membership is enforced with Row Level Security and Realtime authorization, so a code cannot be guessed or bypassed from the browser.
 - AI moderation: chat messages go through an Edge Function that calls an NVIDIA safety model (e.g. NemoGuard content safety, via build.nvidia.com/NIM). Inappropriate messages are blocked or masked before anyone sees them. The NVIDIA API key lives only in Supabase secrets.
 - Report, mute and block buttons.
 - Anonymous sign-in plus a small profile table, so 매점 points, daily free snacks and nicknames are checked on the server.
 - To check before starting: the current free-tier terms and rate limits of the NVIDIA API, and how well the safety model handles Korean (the local filter stays as a fallback).
 
-### Phase 6 — voice chat and speech-to-text
+### Phase 6 — 새 공간: 입구·탈의실·목욕탕·세신실·마사지방·사주방
+- **입구 카운터:** check in, get a locker key and a 찜질복. A short welcome scene, with the key shown in the UI.
+- **탈의실:** wooden lockers. Open yours to change into the 찜질복, which is where outfit colours are chosen.
+- **목욕탕:** hot and cold tubs with steam, shower stations and small stools. Sitting in a tub shows a soak pose and shoulder-deep water.
+- **세신실 / 마사지방:** lie on the bed and a friendly NPC attendant gives a 때밀이 or massage, as a short animation or light rhythm game that rewards 온기 points.
+- **사주방:** enter your birth date and (optional) time to get a free **오늘의 운세**.
+  - It works out the day pillar and today's 일진 locally and builds a fortune from the five-element (오행) relation: overall, money, love, health, lucky colour and number.
+  - It is presented as entertainment. The birth data stays on the device.
+  - An NVIDIA AI fortune-teller voice can be added later.
+- New rooms extend `world.js`, so collision, travel and the cutaway work as before.
+
+### Phase 7 — voice chat and speech-to-text
 - Voice chat over WebRTC with Supabase Realtime for connection setup (signaling): push-to-talk or a toggled mic, speaking indicators over heads, per-person mute, and nearby-only or room-only audio. Peer-to-peer suits small groups; mobile networks may need a TURN relay (free tiers are limited).
 - STT: the browser's Web Speech API (Korean, free, works in iOS Safari and Chrome) turns speech into chat text or live captions. Transcripts pass through the same AI moderation. Live voice audio itself cannot be filtered in real time, so mute/report/block and push-to-talk are the safeguards there.
 

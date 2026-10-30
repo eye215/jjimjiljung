@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-3';
-import { PALETTES } from './character.js?v=rpg-3';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-3';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, MAX_MESSAGE } from './chat-rules.js?v=rpg-3';
+import { connect } from './net.js?v=rpg-4';
+import { PALETTES } from './character.js?v=rpg-4';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-4';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-4';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -18,7 +18,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     online: $('#online'), onlineText: $('#online-text'), chat: $('#chat'), log: $('#chat-log'), form: $('#chat-form'), input: $('#chat-input'),
     note: $('#chat-note'), open: $('#chat-open'), close: $('#chat-close'), unread: $('#chat-unread'), count: $('#chat-count'),
     labels: $('#labels'), join: $('#join-dialog'), joinForm: $('#join-form'), nickname: $('#nickname'), joinNote: $('#join-note'),
-    solo: $('#join-solo'), rename: $('#chat-rename')
+    solo: $('#join-solo'), rename: $('#chat-rename'), reroll: $('#nickname-reroll')
   };
   let nickname = ''; try { nickname = cleanNickname(localStorage.getItem('jjimjiljung-nickname') || ''); } catch { /* storage may be unavailable */ }
   let link = null, status = 'solo', presence = [], unread = 0, lastSent = 0, lastSignature = '';
@@ -168,7 +168,16 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   ui.online.addEventListener('click', () => { if (status === 'offline') reconnect(); else openChat(false); });
 
   // ---------- Nickname and joining ----------
-  function openJoin() { ui.nickname.value = nickname; ui.joinNote.textContent = ''; if (!ui.join.open) ui.join.showModal(); ui.nickname.focus(); }
+  // A cosy suggestion is filled in for newcomers; it stays fully editable.
+  function openJoin() {
+    ui.nickname.value = nickname || suggestNickname(); ui.joinNote.textContent = '';
+    if (!ui.join.open) ui.join.showModal();
+    ui.nickname.focus(); ui.nickname.select();
+  }
+  ui.reroll.addEventListener('click', () => {
+    let next = suggestNickname(); for (let i = 0; i < 5 && next === ui.nickname.value; i++) next = suggestNickname();
+    ui.nickname.value = next; ui.joinNote.textContent = ''; ui.nickname.focus();
+  });
   ui.joinForm.addEventListener('submit', event => {
     event.preventDefault();
     const name = cleanNickname(ui.nickname.value);

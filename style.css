@@ -71,3 +71,31 @@ body.sleeping .room-badge,body.sleeping #destination-label,body.sleeping #joysti
 @media(min-width:761px) and (max-width:1050px) and (min-height:501px){#chat-open{bottom:190px}}
 body.sleeping #labels,body.sleeping .online-pill,body.sleeping #chat-open{opacity:0;pointer-events:none}
 body:not(.room-ready) .online-pill,body:not(.room-ready) #chat-open{display:none}
+/* ---------- Phase 2.1: frosted-glass chat (glassmorphism) ---------- */
+#chat{background:linear-gradient(160deg,#fff8ee66,#ffe9d433 55%,#f7d2b444);border:1px solid #ffffff8c;box-shadow:0 24px 60px #2a160a40,inset 0 1px 0 #ffffffb3,inset 0 -1px 0 #ffffff33;-webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);color:#4a2f1f}
+#chat:before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(120% 60% at 15% 0%,#ffffff55,transparent 60%)}
+#chat>*{position:relative}
+#chat header{border-bottom:1px solid #ffffff59}
+#chat h2{color:#4a2f1f;text-shadow:0 1px 0 #fff8}#chat-count{color:#7a5236;background:#ffffff59;border-radius:10px;padding:2px 8px}
+#chat-rename{background:#ffffff4d;border:1px solid #ffffff99;color:#5d3b25;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#chat-close{background:#ffffff4d;color:#6b4429;border:1px solid #ffffff80}
+#chat-log li b{color:#6e4a31;text-shadow:0 1px 0 #fff9}
+#chat-log li span{background:#ffffffa6;border:1px solid #ffffffcc;box-shadow:0 4px 14px #5a301414;color:#3f2717;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+#chat-log li.me span{background:linear-gradient(135deg,#ffc79bde,#f2a074d9);border-color:#ffe2cbb3;color:#3c200f}
+#chat-log li time{color:#7f604a}
+#chat-log li.system{background:#ffffff47;border:1px solid #ffffff73;color:#6b4a33}
+#chat-note{background:#fff3dfcc;border:1px solid #ffffffb3}
+#chat-form{background:#ffffff26;border-top:1px solid #ffffff59}
+#chat-input{background:#ffffffb3;border:1px solid #ffffffd9;box-shadow:inset 0 1px 3px #5a30141a}
+#chat-form button{background:linear-gradient(135deg,#e99a63,#c97445);box-shadow:0 6px 16px #c9744566,inset 0 1px 0 #ffffff59}
+#chat-log::-webkit-scrollbar{width:6px}#chat-log::-webkit-scrollbar-thumb{background:#ffffff80;border-radius:3px}
+#chat-open{background:linear-gradient(160deg,#fff8ee55,#f7d2b433);border:1px solid #ffffff99;box-shadow:0 10px 26px #2a160a40,inset 0 1px 0 #ffffffb3;-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%)}
+.online-pill{background:#fff8ee33;border:1px solid #ffffff73;-webkit-backdrop-filter:blur(14px) saturate(160%);backdrop-filter:blur(14px) saturate(160%)}
+/* Nickname dialog in the same glass, with a dice for new suggestions. */
+#join-dialog{background:linear-gradient(160deg,#fff8eed9,#ffeadbc4);border:1px solid #ffffffb3;box-shadow:0 30px 80px #25150866,inset 0 1px 0 #fff;-webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%)}
+#join-dialog::backdrop{background:#21180e59;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.nickname-row{display:flex;gap:8px}.nickname-row #nickname{flex:1;min-width:0;background:#ffffffcc}
+#nickname-reroll{flex-shrink:0;width:48px;min-height:48px;border-radius:16px;border:1px solid #ffffffd9;background:#ffffff8c;font-size:22px;box-shadow:0 4px 12px #5a301414}
+#nickname-reroll:active{transform:rotate(-20deg) scale(.94)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){#chat{background:#f8eddcf2}#chat-open{background:#4d3425d0}}
+#chat-open b{color:#5a3520;text-shadow:0 1px 0 #fff9}#chat-open{color:#5a3520}

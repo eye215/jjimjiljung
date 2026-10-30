@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 (async () => {
-  const { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, MAX_MESSAGE } = await import('../chat-rules.js');
+  const { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } = await import('../chat-rules.js');
   assert.equal(cleanText('  안녕​   하세요 \n'), '안녕 하세요');
   assert.equal([...cleanText('가'.repeat(500))].length, MAX_MESSAGE, 'Messages are capped at 120 characters');
   assert.equal(cleanText(42), '');
@@ -19,5 +19,6 @@ const assert = require('node:assert/strict');
   assert.equal(readChat(null), null); assert.equal(readChat({ id: 'a', text: '   ', mid: '1' }), null);
   const message = readChat({ id: 'a', name: '<b>x</b>', text: '씨발 '.repeat(50), mid: 'm' });
   assert(message.text.length <= MAX_MESSAGE && !message.text.includes('씨발'), 'Receivers re-check length and words');
-  console.log('PASS: chat text cleaning, 120-character cap, profanity masking (with spacing tricks) without false positives, nickname rules, rate limiting, incoming message validation.');
+  for (let i = 0; i < 300; i++) { const name = suggestNickname(); assert.equal(cleanNickname(name), name, 'Suggestions are valid nicknames: ' + name); }
+  console.log('PASS: nickname suggestions, chat text cleaning, 120-character cap, profanity masking (with spacing tricks) without false positives, nickname rules, rate limiting, incoming message validation.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
