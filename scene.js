@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
+import { planPath, stepMovement } from './navigation.js?v=play-4';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -76,7 +77,7 @@ const towelSeam = mat('#dacbb0');
 // with the 3D actors. Background and projection crop together on narrow screens.
 const backdrop = document.querySelector('#backdrop');
 await new Promise((resolve, reject) => {
- const timeout = setTimeout(() => reject(new Error('Background load timeout')), 18000);
+ const timeout = setTimeout(() => reject(new Error('Background load timeout')), 35000);
  backdrop.onload = async () => { clearTimeout(timeout); try { await backdrop.decode(); resolve(); } catch(error) { reject(error); } };
  backdrop.onerror = () => { clearTimeout(timeout); reject(new Error('Background image unavailable')); };
  backdrop.src = new URL('./assets/sauna-room-v1.png', import.meta.url).href;
@@ -248,8 +249,22 @@ const motesGeometry=new THREE.BufferGeometry();motesGeometry.setAttribute('posit
 const motes=new THREE.Points(motesGeometry,new THREE.PointsMaterial({color:'#fff3ce',size:.028,transparent:true,opacity:.6,depthWrite:false}));scene.add(motes);
 
 let action='stand',target=new THREE.Vector3(.2,.13,2.4),facing=.18,elapsed=0,contextLost=false,raf=0,lastTime=0;
-const messages={stand:'어서 와요, 푹 쉬다 가요.',sit:'따끈따끈, 마음까지 풀리는 중.',lie:'오늘도 애썼어요. 잠깐 눈 감아요.',egg:'톡, 한 입. 이 맛에 찜질방 오죠.',drink:'달고 시원해. 식혜 한 모금의 행복.'};
+const route=[];
+let activeDestination=null, followPlayer=false;
+const joystickInput={x:0,z:0};
+const messages={stand:'어서 와요, 푹 쉬다 가요.',sit:'따끈따끈, 마음까지 풀리는 중.',lie:'오늘도 애썼어요. 잠깐 눈 감아요.',egg:'톡, 한 입. 이 맛에 찜질방 오죠.',drink:'달고 시원해. 식혜 한 모금의 행복.',wave:'안녕! 같이 쉬어 가요.'};
+const destinations={
+ salt:{id:'salt',name:'소금방 앞',x:-3.7,z:-1.7,arrival:'소금방 앞이에요. 잠깐 쉬어 가요.'},
+ ice:{id:'ice',name:'얼음방 앞',x:-2.3,z:-2,arrival:'얼음방 앞에 도착했어요. 시원한 분위기죠?'},
+ hot:{id:'hot',name:'불가마 앞',x:.35,z:-1.7,arrival:'불가마 앞이에요. 따뜻한 빛이 가득해요.'},
+ shop:{id:'shop',name:'매점 앞',x:3.2,z:-2,arrival:'매점 앞이에요. 계란이나 식혜를 골라요.'},
+ rest:{id:'rest',name:'휴식 자리',x:.2,z:2.4,action:'sit',arrival:'편한 자리에 도착했어요. 푹 쉬어요.'}
+};
+const destinationMarker=mesh(new THREE.TorusGeometry(.16,.018,8,40),new THREE.MeshBasicMaterial({color:'#ffe1a0',transparent:true,opacity:.9,depthWrite:false}),scene);
+destinationMarker.rotation.x=-Math.PI/2;destinationMarker.castShadow=false;destinationMarker.visible=false;
 function setAction(next){
+ if(!messages[next])return;
+ route.length=0;activeDestination=null;destinationMarker.visible=false;stopJoystick();
  action=next;target.copy(hero.position);status.textContent=messages[next];
  for(const button of actionButtons){const selected=button.dataset.action===next;button.classList.toggle('selected',selected);button.setAttribute('aria-pressed',String(selected));}
  snack.visible=next==='egg';drink.visible=next==='drink';pillow.visible=next==='lie';
@@ -265,7 +280,16 @@ function setOutfit(color){
 outfitButtons.forEach(b=>b.addEventListener('click',()=>setOutfit(b.dataset.color)));
 try{setOutfit(localStorage.getItem('jjimjiljung-outfit')||'peach');}catch{/* Default palette is already applied. */}
 const raycaster=new THREE.Raycaster();const floorPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-.13);const hit=new THREE.Vector3();
-function moveTo(x,z){setAction('stand');target.set(THREE.MathUtils.clamp(x,-2.8,1.35),.13,THREE.MathUtils.clamp(z,-1.5,2.6));}
+function moveTo(x,z){
+ setAction('stand');
+ route.push(...planPath({x:hero.position.x,z:hero.position.z},{x,z}));
+ if(route.length){const end=route[route.length-1];target.set(end.x,.13,end.z);destinationMarker.position.set(end.x,.155,end.z);destinationMarker.visible=true;followPlayer=true;}
+}
+function arrive(){
+ const place=activeDestination;
+ destinationMarker.visible=false;
+ if(place){setAction(place.action||'stand');activeDestination=place;status.textContent=place.arrival;document.querySelector('.room-badge').textContent=place.name;}
+}
 let pan = .5, fullWidth = 1, fullHeight = 1, cropX = 0, cropY = 0, renderWidth = 0, renderHeight = 0;
 function resize(){
  const w=viewport.clientWidth,h=viewport.clientHeight;if(!w||!h)return;
@@ -287,12 +311,50 @@ function centerOnPlayer(){
  resize();
 }
 document.querySelector('#recenter').addEventListener('click',centerOnPlayer);
+const placesDialog=document.querySelector('#places-dialog');
+const placesOpen=document.querySelector('#places-open');
+placesOpen.addEventListener('click',()=>{
+ if(contextLost||!document.body.classList.contains('room-ready'))return;
+ setAction('stand');placesDialog.showModal();
+});
+document.querySelector('#places-close').addEventListener('click',()=>placesDialog.close());
+placesDialog.addEventListener('close',()=>placesOpen.focus({preventScroll:true}));
+document.querySelectorAll('[data-place]').forEach(button=>button.addEventListener('click',()=>{
+ const place=destinations[button.dataset.place];if(!place)return;
+ placesDialog.close();moveTo(place.x,place.z);activeDestination=place;
+ status.textContent=place.name+'으로 걸어가는 중이에요.';
+ centerOnPlayer();
+ if(!route.length)arrive();
+}));
+const joystick=document.querySelector('#joystick');
+const joystickKnob=document.querySelector('#joystick-knob');
+let joystickPointer=null;
+function stopJoystick(){
+ joystickInput.x=joystickInput.z=0;
+ if(joystickPointer!==null&&joystick.hasPointerCapture(joystickPointer))joystick.releasePointerCapture(joystickPointer);
+ joystickPointer=null;joystickKnob.style.transform='translate(0px,0px)';joystick.classList.remove('engaged');
+}
+function updateJoystick(event){
+ const r=joystick.getBoundingClientRect(),radius=r.width*.30;
+ let x=(event.clientX-r.left-r.width/2)/radius,z=(event.clientY-r.top-r.height/2)/radius;
+ const length=Math.hypot(x,z);if(length>1){x/=length;z/=length;}
+ joystickInput.x=length<.16?0:x;joystickInput.z=length<.16?0:z;
+ joystickKnob.style.transform=`translate(${x*radius}px,${z*radius}px)`;
+}
+joystick.addEventListener('pointerdown',event=>{
+ if(contextLost||joystickPointer!==null||placesDialog.open)return;
+ event.preventDefault();setAction('stand');joystickPointer=event.pointerId;
+ joystick.setPointerCapture(event.pointerId);joystick.classList.add('engaged');followPlayer=true;updateJoystick(event);
+});
+joystick.addEventListener('pointermove',event=>{if(event.pointerId===joystickPointer)updateJoystick(event);});
+for(const name of ['pointerup','pointercancel','lostpointercapture'])joystick.addEventListener(name,event=>{if(event.pointerId===joystickPointer)stopJoystick();});
+window.addEventListener('blur',stopJoystick);
 let pointer=null;
-viewport.addEventListener('pointerdown',e=>{if(contextLost)return;pointer={id:e.pointerId,x:e.clientX,y:e.clientY,pan,moved:false};viewport.setPointerCapture(e.pointerId);});
+viewport.addEventListener('pointerdown',e=>{if(contextLost||pointer||joystickPointer!==null)return;pointer={id:e.pointerId,x:e.clientX,y:e.clientY,pan,moved:false};viewport.setPointerCapture(e.pointerId);});
 viewport.addEventListener('pointermove',e=>{
  if(!pointer||pointer.id!==e.pointerId)return;
  const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;
- if(Math.hypot(dx,dy)>8)pointer.moved=true;
+ if(Math.hypot(dx,dy)>8){pointer.moved=true;followPlayer=false;}
  if(pointer.moved&&fullWidth>viewport.clientWidth){pan=THREE.MathUtils.clamp(pointer.pan-dx/(fullWidth-viewport.clientWidth),0,1);resize();}
 });
 viewport.addEventListener('pointerup',e=>{
@@ -304,6 +366,8 @@ viewport.addEventListener('pointerup',e=>{
  if(raycaster.ray.intersectPlane(floorPlane,hit))moveTo(hit.x,hit.z);
 });
 viewport.addEventListener('pointercancel',()=>{pointer=null;});
+viewport.addEventListener('lostpointercapture',()=>{pointer=null;});
+window.addEventListener('blur',()=>{pointer=null;});
 viewport.addEventListener('keydown',e=>{
  const keys={ArrowLeft:[-.4,0],ArrowRight:[.4,0],ArrowUp:[0,-.4],ArrowDown:[0,.4]};
  if(keys[e.key]){e.preventDefault();const [x,z]=keys[e.key];moveTo(target.x+x,target.z+z);}
@@ -327,8 +391,24 @@ function frame(now){
  // A queued RAF timestamp can precede initialization after shader compilation.
  // Negative dt makes exponential damping diverge and spins the limbs wildly.
  const dt=THREE.MathUtils.clamp((now-lastTime)/1000,0,.05);lastTime=now;elapsed+=dt;
- const dx=target.x-hero.position.x,dz=target.z-hero.position.z,distance=Math.hypot(dx,dz);const walking=action==='stand'&&distance>.025;
- if(walking){const step=Math.min(distance,dt*1.25);hero.position.x+=dx/distance*step;hero.position.z+=dz/distance*step;facing=Math.atan2(dx,dz);}else facing=.18;
+ let walking=false;
+ const usingJoystick=Math.hypot(joystickInput.x,joystickInput.z)>.01;
+ if(action==='stand'&&usingJoystick){
+  const next=stepMovement({x:hero.position.x,z:hero.position.z},joystickInput.x*dt*1.45,joystickInput.z*dt*1.45);
+  const dx=next.x-hero.position.x,dz=next.z-hero.position.z;walking=Math.hypot(dx,dz)>.0001;
+  hero.position.set(next.x,.13,next.z);target.copy(hero.position);if(walking)facing=Math.atan2(dx,dz);
+ }else if(action==='stand'&&route.length){
+  const next=route[0],dx=next.x-hero.position.x,dz=next.z-hero.position.z,distance=Math.hypot(dx,dz);
+  if(distance>.001){const step=Math.min(distance,dt*1.45);hero.position.x+=dx/distance*step;hero.position.z+=dz/distance*step;facing=Math.atan2(dx,dz);walking=true;}
+  if(distance<=dt*1.45+.001){hero.position.set(next.x,.13,next.z);route.shift();if(!route.length)arrive();}
+ }
+ if(!walking)facing=.18;
+ // Match the perspective baked into the fixed environment plate: distant
+ // visitors should become smaller even though the compositing camera is orthographic.
+ const depthScale=THREE.MathUtils.lerp(.58,1,THREE.MathUtils.clamp((hero.position.z+2.4)/5,0,1));
+ hero.scale.setScalar(depthScale);
+ if(walking&&followPlayer)centerOnPlayer();
+ destinationMarker.scale.setScalar(reducedMotion?1:1+Math.sin(elapsed*4)*.10);
  let angle=facing-hero.rotation.y;angle=Math.atan2(Math.sin(angle),Math.cos(angle));hero.rotation.y+=angle*Math.min(1,dt*8);
  const sleep=action==='lie',sitting=action==='sit';const cycle=elapsed*9;
  damp(rig.rotation,'x',sleep?-Math.PI/2:0,dt,6);
@@ -339,18 +419,24 @@ function frame(now){
   damp(legs[i].rotation,'x',sitting?-1.32:sleep?.45:walking?Math.sin(cycle+i*Math.PI)*.48:0,dt);
   damp(legs[i].rotation,'z',sitting?(i===0?-.25:.25):0,dt);
   const eating=(action==='egg'||action==='drink')&&i===1;
-  damp(arms[i].rotation,'x',eating?-2.0:sitting?-.5:sleep?-.18:walking?-Math.sin(cycle+i*Math.PI)*.35:0,dt);
-  damp(arms[i].rotation,'z',eating?-.25:i===0?-.14:.14,dt);
+  const waving=action==='wave'&&i===1;
+  damp(arms[i].rotation,'x',waving?-2.35:eating?-2.0:sitting?-.5:sleep?-.18:walking?-Math.sin(cycle+i*Math.PI)*.35:0,dt);
+  damp(arms[i].rotation,'z',waving?-.4+(reducedMotion?0:Math.sin(elapsed*7)*.24):eating?-.25:i===0?-.14:.14,dt);
  }
+ const greeter=companions[1];
+ damp(greeter.arms[1].rotation,'x',action==='wave'?-2.35:0,dt);
+ damp(greeter.arms[1].rotation,'z',action==='wave'?-.4+(reducedMotion?0:Math.sin(elapsed*7-.6)*.24):.14,dt);
  if(!reducedMotion){head.rotation.z=Math.sin(elapsed*1.3)*.025;head.position.y=1.55+Math.sin(elapsed*2)*.008;guest.scale.y=.68+Math.sin(elapsed*1.8)*.005;motes.rotation.y=elapsed*.008;}else{head.rotation.z=0;head.position.y=1.55;guest.scale.y=.68;}
- const blink=!reducedMotion&&elapsed%4.7>4.52;const expression=sleep||blink?'sleep':action==='egg'||action==='drink'?'happy':'normal';if(faceMaterial.map!==faces[expression]){faceMaterial.map=faces[expression];faceMaterial.needsUpdate=true;}
- shadow.position.set(hero.position.x,.15,hero.position.z);shadow.scale.set(sleep?1.1:1,sleep?1.7:1,1);
+ const blink=!reducedMotion&&elapsed%4.7>4.52;const expression=sleep||blink?'sleep':action==='egg'||action==='drink'||action==='wave'?'happy':'normal';if(faceMaterial.map!==faces[expression]){faceMaterial.map=faces[expression];faceMaterial.needsUpdate=true;}
+ shadow.position.set(hero.position.x,.15,hero.position.z);shadow.scale.set(depthScale*(sleep?1.1:1),depthScale*(sleep?1.7:1),1);
  motes.visible=!reducedMotion;
  renderer.render(scene,camera);raf=requestAnimationFrame(frame);
 }
-renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();contextLost=true;cancelAnimationFrame(raf);window.showRoomError('3D 화면이 잠시 멈췄어요. 다시 들어가면 편안한 방으로 돌아갈 수 있어요.');});
+renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();contextLost=true;stopJoystick();if(placesDialog.open)placesDialog.close();cancelAnimationFrame(raf);window.showRoomError('3D 화면이 잠시 멈췄어요. 다시 들어가면 편안한 방으로 돌아갈 수 있어요.');});
 renderer.domElement.addEventListener('webglcontextrestored',()=>location.reload());
-document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelAnimationFrame(raf);if(audioContext)audioContext.suspend().catch(()=>{});}else{lastTime=performance.now();if(!contextLost)raf=requestAnimationFrame(frame);if(audioEnabled&&audioContext)audioContext.resume().catch(()=>{});}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){stopJoystick();pointer=null;cancelAnimationFrame(raf);if(audioContext)audioContext.suspend().catch(()=>{});}else{lastTime=performance.now();if(!contextLost)raf=requestAnimationFrame(frame);if(audioEnabled&&audioContext)audioContext.resume().catch(()=>{});}});
 renderer.render(scene,camera);
 clearTimeout(window.roomLoadTimer);document.querySelector('#loading').hidden=true;document.querySelector('#error').hidden=true;
 viewport.dataset.ready='true';lastTime=performance.now();raf=requestAnimationFrame(frame);
+document.body.classList.add('room-ready');
+window.lockRoomControls(false);

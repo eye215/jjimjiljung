@@ -2,6 +2,6 @@
   "name": "jjimjiljung",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node tests/smoke.cjs", "check": "node --check scene.js" },
+  "scripts": { "test": "node tests/navigation.cjs && node tests/smoke.cjs", "check": "node --check scene.js && node --check navigation.js" },
   "devDependencies": { "playwright": "1.62.1" }
 }
