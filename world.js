@@ -59,7 +59,9 @@ export const FURNITURE = Object.freeze([
   { type: 'counter', x: 13.9, z: 0, w: 1.2, d: 5.4, face: 'w', solid: true },
   { type: 'fridge', x: 9.1, z: -3.35, w: 1.3, d: .7, face: 's', solid: true },
   { type: 'shoptable', x: 10.6, z: 2.2, w: 1.3, d: 1.3, solid: true },
-  { type: 'stool', x: 9.5, z: 2.2, w: .5, d: .5, solid: true }, { type: 'stool', x: 11.7, z: 2.2, w: .5, d: .5, solid: true }
+  { type: 'stool', x: 9.5, z: 2.2, w: .5, d: .5, solid: true }, { type: 'stool', x: 11.7, z: 2.2, w: .5, d: .5, solid: true },
+  // Free towels for the 양머리 mini-game.
+  { type: 'towelshelf', x: 11.4, z: -3.45, w: 1.5, d: .55, face: 's', solid: true }
 ].map(Object.freeze));
 
 export const SPAWN = Object.freeze({ x: 0, z: 3 });
@@ -76,6 +78,9 @@ export const DESTINATIONS = Object.freeze({
 
 // The mat in front of the lobby TV, facing the screen (west).
 export const TV_SEAT = Object.freeze({ id: 'tv', name: 'TV 앞 방석', x: -4.6, z: 2.4, facing: -Math.PI / 2, action: 'sit', arrival: 'TV 앞에 앉았어요. 광고를 보면 온기를 받을 수 있어요 📺' });
+
+// Stand here, facing the towel shelf, to make a sheep cap.
+export const TOWEL_SPOT = Object.freeze({ id: 'towel', name: '수건 선반', x: 11.4, z: -2.4, facing: Math.PI, action: 'stand', arrival: '수건 선반이에요. 수건을 받아 양머리를 만들어 봐요 🐑' });
 
 export function roomAt(x, z) {
   for (const room of ROOMS) if (x >= room.minX && x <= room.maxX && z >= room.minZ && z <= room.maxZ) return room;

@@ -1,20 +1,21 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-7';
-import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-7';
-import { buildWorld } from './environment.js?v=rpg-7';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, roomAt } from './world.js?v=rpg-7';
-import { createTvAds } from './ads.js?v=rpg-7';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-7';
-import { createSocial } from './social.js?v=rpg-7';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-7';
-import { createShop } from './shop.js?v=rpg-7';
-import { createInvite } from './invite.js?v=rpg-7';
+import { planPath, stepMovement } from './navigation.js?v=rpg-8';
+import { createCharacterKit, mesh } from './character.js?v=rpg-8';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-8';
+import { createTowelGame } from './towel.js?v=rpg-8';
+import { buildWorld } from './environment.js?v=rpg-8';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, roomAt } from './world.js?v=rpg-8';
+import { createTvAds } from './ads.js?v=rpg-8';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-8';
+import { createSocial } from './social.js?v=rpg-8';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-8';
+import { createShop } from './shop.js?v=rpg-8';
+import { createInvite } from './invite.js?v=rpg-8';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
 const viewport = document.querySelector('#viewport');
 const actionButtons = [...document.querySelectorAll('[data-action]')];
-const outfitButtons = [...document.querySelectorAll('[data-color]')];
 const status = document.querySelector('#status');
 const badge = document.querySelector('.room-badge');
 const roomToast = document.querySelector('#destination-label');
@@ -61,22 +62,22 @@ const shadowMaterial = new THREE.MeshBasicMaterial({ map: shadowTexture, transpa
 function contactShadow() { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1), shadowMaterial); s.rotation.x = -Math.PI / 2; s.renderOrder = 1; scene.add(s); return s; }
 
 const ACTOR_SCALE = .62, WALK_SPEED = 2.5;
-let savedOutfit = 'peach';
-try { savedOutfit = PALETTES[localStorage.getItem('jjimjiljung-outfit')] ? localStorage.getItem('jjimjiljung-outfit') : 'peach'; } catch { /* Private browsing may disable storage. */ }
-const player = kit.createCharacter(PALETTES[savedOutfit]);
+let outfit = loadOutfit();
+const player = kit.createCharacter(outfitColors(outfit)); player.setTowel(capOn(outfit));
 const { root: hero, arms, legs, faceMaterial } = player;
 scene.add(hero); hero.scale.setScalar(ACTOR_SCALE); hero.position.set(SPAWN.x, 0, SPAWN.z);
 const shadow = contactShadow();
 
 // Resident guests keep every room feeling lived in. They share the player model.
+// Each wears its own seeded random outfit and a sheep cap.
 const residents = [
-  { x: -4.6, z: 4.6, y: .09, face: -Math.PI / 2, action: 'sit', colors: ['#dca26e', '#bf8e65', '#f2d7b1', '#96724f', '#96724f'] },
-  { x: 3.2, z: -8.5, y: .05, face: -.5, action: 'sit', colors: ['#ead7ad', '#c5b784', '#fff1cc', '#bac39a', '#a7b58b'] },
-  { x: 9.5, z: -11.05, y: .1, face: 0, action: 'lie', colors: PALETTES.lilac },
-  { x: 14.5, z: -1.7, y: 0, face: -Math.PI / 2, action: 'stand', greeter: true, colors: ['#c9a7d4', '#a88dbc', '#f2d7b1', '#b195c8', '#b195c8'] },
-  { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie', colors: PALETTES.mint }
-].map(config => {
-  const actor = kit.createCharacter(config.colors);
+  { x: -4.6, z: 4.6, y: .09, face: -Math.PI / 2, action: 'sit' },
+  { x: 3.2, z: -8.5, y: .05, face: -.5, action: 'sit' },
+  { x: 9.5, z: -11.05, y: .1, face: 0, action: 'lie' },
+  { x: 14.5, z: -1.7, y: 0, face: -Math.PI / 2, action: 'stand', greeter: true },
+  { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' }
+].map((config, index) => {
+  const actor = kit.createCharacter(outfitColors(randomOutfit(seeded(index * 977 + 31))));
   actor.root.position.set(config.x, config.y, config.z); actor.root.rotation.y = config.face; actor.root.scale.setScalar(ACTOR_SCALE);
   scene.add(actor.root); actor.config = config; if (config.action !== 'lie') contactShadow().position.set(config.x, .012, config.z);
   return actor;
@@ -230,14 +231,50 @@ function eat(kind, style = 'normal') {
   updateActionButtons();
   return player.snack;
 }
-function setOutfit(color) {
-  if (!PALETTES[color]) return; player.setColors(PALETTES[color]);
-  for (const b of outfitButtons) { const active = b.dataset.color === color; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); }
-  try { localStorage.setItem('jjimjiljung-outfit', color); } catch { /* Private browsing may disable storage. */ }
-  savedOutfit = color; social?.outfitChanged();
+// ---------- Outfit: one tap re-dyes every part; the sheep cap has its own toggle ----------
+const outfitButton = document.querySelector('#outfit-random'), capButton = document.querySelector('#cap-toggle');
+function applyOutfit(next) {
+  outfit = next; saveOutfit(outfit);
+  player.setColors(outfitColors(outfit)); player.setTowel(capOn(outfit));
+  capButton.hidden = !outfit.hasTowel; capButton.setAttribute('aria-pressed', String(capOn(outfit)));
+  capButton.setAttribute('aria-label', capOn(outfit) ? '양머리 벗기' : '양머리 쓰기');
+  viewport.dataset.outfit = encodeOutfit(outfit); social?.outfitChanged();
 }
-outfitButtons.forEach(b => b.addEventListener('click', () => setOutfit(b.dataset.color)));
-setOutfit(savedOutfit);
+outfitButton.addEventListener('click', () => {
+  const before = { ...outfit };
+  applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom'), towel: pickTowel(outfit) });
+  if (action !== 'lie') player.celebrate();
+  toast('✨ 새 옷으로 갈아입었어요', '되돌리기', () => applyOutfit(before));
+});
+capButton.addEventListener('click', () => {
+  applyOutfit({ ...outfit, wear: !outfit.wear });
+  toast(outfit.wear ? '🐑 양머리를 썼어요' : '🐑 양머리를 벗었어요');
+});
+applyOutfit(outfit);
+
+// ---------- 양머리 만들기 at the 매점 towel shelf ----------
+const towelOpen = document.querySelector('#towel-open');
+let openTowelOnArrival = false;
+const towelGame = createTowelGame({
+  onOpen: () => { setAction('stand'); if (nearTowels()) facing = TOWEL_SPOT.facing; keys.clear(); },
+  onDone: (color, wear) => {
+    applyOutfit({ ...addTowel(outfit, color), wear });
+    player.celebrate(); toast(wear ? '🐑 양머리 완성! 잘 어울려요' : '🐑 양머리 완성! 옷 버튼 위 🐑로 언제든 써요');
+    status.textContent = '폭신한 양머리가 생겼어요.';
+  }
+});
+function goToTowel() {
+  if (Math.hypot(hero.position.x - TOWEL_SPOT.x, hero.position.z - TOWEL_SPOT.z) < .4) { towelGame.open(); return; }
+  moveTo(TOWEL_SPOT.x, TOWEL_SPOT.z); activeDestination = TOWEL_SPOT; openTowelOnArrival = true;
+  status.textContent = '매점 수건 선반으로 걸어가는 중이에요.';
+}
+towelOpen.addEventListener('click', () => towelGame.open());
+const nearTowels = () => currentRoom?.id === 'shop' && Math.hypot(hero.position.x - TOWEL_SPOT.x, hero.position.z - TOWEL_SPOT.z) < 1.6;
+function updateTowelShelf() {
+  const show = nearTowels() && !towelGame.isOpen && !shop.playing;
+  if (show || outfit.hasTowel || currentRoom.id === 'shop') towelNudge.hidden = true;
+  if (towelOpen.hidden === show) { towelOpen.hidden = !show; towelOpen.textContent = outfit.hasTowel ? '🐑 양머리 새로 만들기' : '🐑 양머리 만들기'; }
+}
 
 const raycaster = new THREE.Raycaster(); const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); const hit = new THREE.Vector3();
 function moveTo(x, z) {
@@ -251,6 +288,7 @@ function arrive() {
   destinationMarker.visible = false;
   if (place) { setAction(place.action || 'stand'); activeDestination = place; status.textContent = place.arrival; }
   if (place?.id === 'shop' && openShopOnArrival) { openShopOnArrival = false; shop.openShop(); }
+  if (place?.id === 'towel') { facing = TOWEL_SPOT.facing; if (openTowelOnArrival) { openTowelOnArrival = false; towelGame.open(); } }
 }
 let openShopOnArrival = false;
 
@@ -340,8 +378,11 @@ function endPointer(e, cancelled) {
   if (viewport.hasPointerCapture(e.pointerId)) viewport.releasePointerCapture(e.pointerId);
   const tap = gesture && !gesture.pinch && !gesture.moved && gesture.id === e.pointerId && !cancelled;
   if (!pointers.size) gesture = null; else if (gesture?.pinch) gesture = { moved: true, id: -1 };
-  if (!tap || placesDialog.open) return;
+  if (!tap || placesDialog.open || towelGame.isOpen) return;
   const r = viewport.getBoundingClientRect(); raycaster.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
+  const someone = social?.pick(raycaster);
+  if (someone) { openPerson(someone); return; }
+  closePerson();
   if (raycaster.ray.intersectPlane(floorPlane, hit)) moveTo(hit.x, hit.z);
 }
 viewport.addEventListener('pointerup', e => endPointer(e, false));
@@ -353,8 +394,8 @@ viewport.addEventListener('wheel', e => { e.preventDefault(); view.zoom = THREE.
 const MOVE_KEYS = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
 const typing = target => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && social && !typing(e.target) && !document.querySelector('dialog[open]') && !(e.target instanceof HTMLButtonElement) && !social.isChatOpen()) { e.preventDefault(); document.querySelector('#chat-open').click(); return; }
-  if (typing(e.target) || document.querySelector('dialog[open]') || !document.body.classList.contains('room-ready') || contextLost || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'Enter' && social && !towelGame.isOpen && !typing(e.target) && !document.querySelector('dialog[open]') && !(e.target instanceof HTMLButtonElement) && !social.isChatOpen()) { e.preventDefault(); document.querySelector('#chat-open').click(); return; }
+  if (typing(e.target) || towelGame.isOpen || document.querySelector('dialog[open]') || !document.body.classList.contains('room-ready') || contextLost || e.metaKey || e.ctrlKey || e.altKey) return;
   const direction = MOVE_KEYS[e.code] || MOVE_KEYS[e.key];
   if (direction) {
     // Leave Space/Enter on focused buttons alone; arrows still scroll nothing here.
@@ -500,7 +541,8 @@ function frame(now) {
     restTimer += dt;
     if (restTimer >= REST_SECONDS) { restTimer = 0; const got = wallet.earn(currentRoom.id === 'hot' || currentRoom.id === 'salt' ? 2 : 1); if (got) toast(`쉬는 동안 온기가 모였어요 +${got}♨`); }
   } else restTimer = Math.min(restTimer, REST_SECONDS * .5);
-  shop.setNearShop(currentRoom.id === 'shop');
+  shop.setNearShop(currentRoom.id === 'shop' && !nearTowels());
+  updateTowelShelf();
   motes.visible = !reducedMotion; if (!reducedMotion) { motes.position.set(view.focus.x, 0, view.focus.z); motes.rotation.y = elapsed * .02; }
   renderer.render(scene, camera); raf = requestAnimationFrame(frame);
 }
@@ -519,8 +561,80 @@ window.lockRoomControls(false);
 document.querySelector('#chat-input').addEventListener('focus', () => { keys.clear(); stopJoystick(); });
 social = createSocial({
   scene, camera, kit, viewport, actorScale: ACTOR_SCALE, makeShadow: contactShadow,
-  getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, snack: snackSig, walking: localWalking, outfit: savedOutfit, room: currentRoom.id, visible: hero.visible })
+  getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
+  onTrade: payload => onTrade(payload)
 });
+// ---------- Tapping a visitor: wave, or offer to swap sheep-cap towels ----------
+const personCard = document.querySelector('#person-card'), tradeCard = document.querySelector('#trade-card');
+let personId = null, outgoing = null, incoming = null;
+const swatch = (el, color) => { el.style.setProperty('--towel', color || 'transparent'); el.classList.toggle('none', !color); };
+const towelOf = remote => { const parts = (remote.outfit || '').split('.'); return parts.length === 4 && +parts[3] & 1 ? '#' + parts[2] : null; };
+function openPerson(remote) {
+  personId = remote.id; personCard.hidden = false;
+  personCard.querySelector('[data-name]').textContent = remote.name;
+  const theirs = towelOf(remote); swatch(personCard.querySelector('.towel-swatch'), theirs);
+  personCard.querySelector('[data-towel]').textContent = theirs ? '양머리 수건이 있어요' : '아직 양머리가 없어요';
+  const trade = personCard.querySelector('[data-trade]');
+  trade.disabled = !!outgoing; trade.dataset.blocked = !outfit.hasTowel ? 'mine' : !theirs ? 'theirs' : '';
+}
+function closePerson() { personCard.hidden = true; personId = null; }
+personCard.querySelector('[data-close]').addEventListener('click', closePerson);
+personCard.querySelector('[data-wave]').addEventListener('click', () => {
+  const remote = social.remotes.get(personId); closePerson(); if (!remote) return;
+  setAction('wave'); const p = remote.character.root.position; facing = Math.atan2(p.x - hero.position.x, p.z - hero.position.z);
+});
+personCard.querySelector('[data-trade]').addEventListener('click', event => {
+  const remote = social.remotes.get(personId), blocked = event.currentTarget.dataset.blocked; if (!remote) return;
+  if (blocked === 'mine') { closePerson(); toast('먼저 매점 수건 선반에서 양머리를 만들어요 🐑', '가기', goToTowel); return; }
+  if (blocked === 'theirs') { toast(`${remote.name}님은 아직 양머리 수건이 없어요`); return; }
+  const tid = Math.random().toString(36).slice(2, 10);
+  outgoing = { to: remote.id, name: remote.name, tid, towel: outfit.towel, timer: setTimeout(() => { social.sendTrade(remote.id, 'cancel', null, tid); outgoing = null; toast(`${remote.name}님이 응답이 없어요`); }, 30000) };
+  social.sendTrade(remote.id, 'offer', outfit.towel, tid); closePerson();
+  toast(`${remote.name}님에게 수건을 바꾸자고 했어요`);
+});
+function closeTrade() { if (incoming) clearInterval(incoming.timer); incoming = null; tradeCard.hidden = true; }
+function onTrade({ type, from, name, towel, tid }) {
+  if (type === 'offer') {
+    if (!outfit.hasTowel || incoming) { social.sendTrade(from, 'decline', null, tid); return; }
+    incoming = { from, name, towel, tid, left: 30 };
+    tradeCard.querySelector('[data-name]').textContent = `${name}님이 수건을 바꾸자고 해요`;
+    swatch(tradeCard.querySelector('[data-mine]'), outfit.towel); swatch(tradeCard.querySelector('[data-theirs]'), towel);
+    tradeCard.querySelector('[data-theirs-label]').textContent = `${name} 수건`;
+    const clock = tradeCard.querySelector('[data-left]'); clock.textContent = '0:30';
+    incoming.timer = setInterval(() => { if (!incoming) return; incoming.left--; clock.textContent = `0:${String(Math.max(0, incoming.left)).padStart(2, '0')}`; if (incoming.left <= 0) { social.sendTrade(from, 'decline', null, tid); closeTrade(); } }, 1000);
+    tradeCard.hidden = false;
+  } else if (type === 'cancel') { if (incoming?.tid === tid && incoming.from === from) { closeTrade(); toast(`${name}님이 수건 교환을 거뒀어요`); } }
+  else if (outgoing?.tid === tid && outgoing.to === from) {
+    clearTimeout(outgoing.timer);
+    // They are making a copy for me: wait longer for the finished towel.
+    if (type === 'making') { outgoing.timer = setTimeout(() => { outgoing = null; toast(`${name}님이 응답이 없어요`); }, 120000); toast(`${name}님이 똑같은 양머리를 만들어 주는 중이에요 🧶`); return; }
+    const given = outgoing.towel; outgoing = null;
+    if (type === 'gift') { applyOutfit({ ...addTowel(outfit, towel), wear: true }); if (action !== 'lie') player.celebrate(); toast(`${name}님이 똑같은 양머리를 만들어 줬어요! 🎁`); }
+    else if (type === 'accept') { applyOutfit(addTowel(removeTowel(outfit, given), towel)); if (action !== 'lie') player.celebrate(); toast(`${name}님과 수건을 바꿨어요! 🐑`); }
+    else toast(`${name}님이 지금은 괜찮대요`);
+  }
+}
+tradeCard.querySelector('[data-accept]').addEventListener('click', () => {
+  if (!incoming) return; const { from, name, towel, tid } = incoming;
+  const given = outfit.towel; social.sendTrade(from, 'accept', given, tid); closeTrade();
+  applyOutfit(addTowel(removeTowel(outfit, given), towel)); if (action !== 'lie') player.celebrate(); toast(`${name}님과 수건을 바꿨어요! 🐑`);
+});
+tradeCard.querySelector('[data-copy]').addEventListener('click', () => {
+  if (!incoming) return; const { from, name, tid } = incoming;
+  social.sendTrade(from, 'making', null, tid); closeTrade();
+  towelGame.open({ color: outfit.towel, name, onDone: color => { social.sendTrade(from, 'gift', color, tid); toast(`${name}님에게 양머리를 선물했어요 🎁`); }, onCancel: () => social.sendTrade(from, 'decline', null, tid) });
+});
+tradeCard.querySelector('[data-decline]').addEventListener('click', () => { if (incoming) social.sendTrade(incoming.from, 'decline', null, incoming.tid); closeTrade(); });
+// Newcomers without a sheep cap get one gentle pointer to the towel shelf.
+const towelNudge = document.querySelector('#towel-nudge');
+towelNudge.querySelector('button').addEventListener('click', () => { towelNudge.hidden = true; goToTowel(); });
+if (!outfit.hasTowel) {
+  const nudge = setInterval(() => {
+    if (document.querySelector('dialog[open]')) return;
+    clearInterval(nudge); if (outfit.hasTowel) return;
+    towelNudge.hidden = false; setTimeout(() => { towelNudge.hidden = true; }, 15000);
+  }, 2500);
+}
 // 카카오톡 친구 초대, and a warm hello for visitors who came from an invite.
 const invite = createInvite({ button: document.querySelector('#invite'), getNickname: () => social.nickname, toast });
 if (invite.invitedBy) {

@@ -161,3 +161,77 @@ body.sleeping #social-row{opacity:0;pointer-events:none}body:not(.room-ready) #i
 .places-footnote a,.join-privacy a{color:#8a6448;text-decoration:underline;text-underline-offset:2px}
 .join-privacy{margin:0 0 10px!important;text-align:right;font-size:12px!important}
 body.sleeping #tv-ad{display:none}
+/* ---------- Light liquid glass: outfit buttons, 양머리 만들기, towel trades ---------- */
+:root{--ink:#6B4636;--ink-soft:rgba(107,70,54,.62);--tint:#F2683C;--lg-fill:linear-gradient(180deg,rgba(255,252,248,.5),rgba(255,250,245,.36));--lg-thick:linear-gradient(180deg,rgba(255,252,248,.7),rgba(255,250,245,.56));--lg-blur:blur(28px) saturate(150%) brightness(1.12);--lg-shadow:inset 0 .5px 0 rgba(255,255,255,.8),0 8px 24px rgba(120,60,30,.12);--hot:linear-gradient(180deg,#FF956B,#F2683C)}
+.glass-round,.glass-card,.glass-sheet,#towel-open{position:relative;color:var(--ink);background:var(--lg-fill);-webkit-backdrop-filter:var(--lg-blur);backdrop-filter:var(--lg-blur);box-shadow:var(--lg-shadow);border:0}
+.glass-round:before,.glass-card:before,.glass-sheet:before,#towel-open:before{content:"";position:absolute;inset:0;border-radius:inherit;padding:.75px;pointer-events:none;background:linear-gradient(140deg,rgba(255,255,255,.85),rgba(255,255,255,.18) 30%,rgba(255,255,255,.05) 55%,rgba(255,255,255,.35) 85%,rgba(255,255,255,.7));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.glass-card,.glass-sheet{background:var(--lg-thick)}
+#dress{position:absolute;z-index:3;right:36px;bottom:134px;display:flex;flex-direction:column;gap:10px}
+.glass-round{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;transition:transform .18s cubic-bezier(.3,1.6,.5,1)}
+.glass-round:active{transform:scale(.9)}
+#outfit-random svg{width:24px;height:24px;fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#outfit-random i{position:absolute;right:4px;bottom:3px;font-style:normal;font-size:14px}
+#cap-toggle span{font-size:26px;line-height:1;transition:filter .2s,opacity .2s}
+#cap-toggle[aria-pressed=false] span{filter:grayscale(.85);opacity:.6}
+#cap-toggle[aria-pressed=true]{background:linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,248,242,.6));box-shadow:var(--lg-shadow),inset 0 0 0 1.5px rgba(242,104,60,.35)}
+#towel-open{position:absolute;z-index:4;left:50%;transform:translateX(-50%);bottom:205px;min-height:48px;padding:10px 20px;border-radius:999px;font-weight:750;font-size:15px;white-space:nowrap;animation:toast .4s ease-out}
+#towel-open:active{transform:translateX(-50%) scale(.95)}
+.glass-card{position:absolute;z-index:8;top:150px;left:14px;width:min(320px,calc(100% - 28px));border-radius:28px;padding:16px;animation:toast .3s ease-out}
+#trade-card{right:14px;width:auto;max-width:420px;display:flex;flex-direction:column;gap:2px}
+.glass-card b{font-size:17px;font-weight:800;letter-spacing:-.03em}.glass-card small{font-size:13px;color:var(--ink-soft)}
+.person-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}.person-head div{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.person-head [data-close]{width:34px;height:34px;border-radius:50%;border:0;background:rgba(107,70,54,.08);color:var(--ink);font-size:20px;line-height:1}
+.towel-swatch{display:block;width:44px;height:44px;flex-shrink:0;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.7),transparent 55%),var(--towel);box-shadow:0 0 0 2.5px #fff,0 3px 10px rgba(80,40,20,.15)}
+.towel-swatch.none{background:repeating-linear-gradient(135deg,rgba(107,70,54,.08) 0 6px,rgba(107,70,54,.03) 6px 12px)}
+.person-actions{display:flex;gap:8px}.person-actions button{flex:1;min-height:46px;border-radius:999px;border:0;font-weight:750;font-size:15px;color:var(--ink);background:rgba(107,70,54,.08)}
+.person-actions .hot,#towel-game .hot,.towel-primary{background:var(--hot);color:#fff;box-shadow:0 8px 20px rgba(242,104,60,.32),inset 0 1px 1px rgba(255,255,255,.45)}
+.person-actions [data-trade]{flex:1.6}.person-actions button:disabled{opacity:.45}
+.trade-swap{display:flex;align-items:center;justify-content:center;gap:16px;margin:14px 0}
+.trade-swap figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:13px;font-weight:650}.trade-swap .towel-swatch{width:64px;height:64px;border-radius:18px}
+.trade-swap>span{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--tint);font-size:20px;font-weight:800;background:rgba(255,255,255,.7)}
+.glass-sheet{position:absolute;z-index:16;left:10px;right:10px;bottom:10px;margin:0 auto;max-width:440px;border-radius:36px;padding:18px 20px calc(18px + env(safe-area-inset-bottom));animation:toast .35s ease-out}
+.glass-sheet header{display:flex;align-items:center;justify-content:space-between}
+#towel-step{font-size:13px;font-weight:750;color:var(--tint)}
+#towel-close{width:34px;height:34px;border-radius:50%;border:0;background:rgba(107,70,54,.08);color:var(--ink);font-size:20px;line-height:1}
+#towel-title{margin:4px 0 2px;font-size:22px;font-weight:800;letter-spacing:-.045em}
+#towel-note{margin:0 0 10px;font-size:14px;color:var(--ink-soft)}
+.towel-stage{height:220px;display:grid;place-items:center;position:relative}
+.towel-tip{text-align:center;font-size:13px;font-weight:650;color:var(--ink-soft);margin:0}
+.towel-cloth{position:relative;width:220px;height:190px;border-radius:18px;transform-origin:50% 0;touch-action:none;cursor:grab;transition:transform .45s cubic-bezier(.4,1.4,.6,1),height .45s;background:radial-gradient(rgba(255,255,255,.35) 1px,transparent 1.6px) 0 0/6px 6px,radial-gradient(rgba(0,0,0,.06) 1px,transparent 1.6px) 3px 3px/6px 6px,var(--towel);box-shadow:inset 0 0 0 7px rgba(255,255,255,.18),0 14px 30px rgba(60,30,10,.2)}
+.towel-cloth.folded{height:95px}
+.towel-fold-line{position:absolute;left:0;right:0;top:50%;border-top:2.5px dashed rgba(255,255,255,.95)}
+.towel-swipe{position:absolute;left:50%;top:18px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;font-size:28px;animation:swipe 1.4s ease-in-out infinite}
+.towel-swipe b{font-size:22px;color:#fff;line-height:.6;text-shadow:0 1px 3px rgba(0,0,0,.25)}
+.towel-cloth.folded .towel-swipe,.towel-cloth.folded .towel-fold-line{display:none}
+@keyframes swipe{50%{transform:translate(-50%,26px)}}
+.towel-roll{--roll:0;position:relative;width:300px;height:110px}
+.towel-roll .strip{position:absolute;left:calc(70px + var(--roll) * 40px);right:calc(70px + var(--roll) * 40px);top:16px;bottom:16px;border-radius:14px;background:var(--towel);box-shadow:0 10px 20px rgba(60,30,10,.18)}
+.towel-roll .bun{position:absolute;top:50%;width:calc(56px + var(--roll) * 30px);height:calc(70px + var(--roll) * 30px);transform:translateY(-50%);border-radius:50%;background:repeating-radial-gradient(circle,var(--towel) 0 7px,rgba(0,0,0,.09) 7px 9px),var(--towel);box-shadow:0 10px 20px rgba(60,30,10,.2),inset 0 0 0 3px rgba(255,255,255,.3);transition:all .2s}
+.towel-roll .bun.left{left:calc(40px + var(--roll) * 20px)}.towel-roll .bun.right{right:calc(40px + var(--roll) * 20px)}
+.towel-progress{height:12px;border-radius:6px;background:rgba(107,70,54,.08);margin:0 4px 14px;overflow:hidden}.towel-progress i{display:block;width:0;height:100%;border-radius:6px;background:linear-gradient(90deg,#FFB08F,var(--tint));transition:width .2s}
+.towel-buttons{display:flex;gap:10px}.towel-buttons button{flex:1;min-height:64px;border-radius:999px;border:0;font-size:17px;font-weight:750;color:var(--ink);background:rgba(255,255,255,.75);box-shadow:inset 0 1px 1px #fff,0 4px 12px rgba(0,0,0,.08);touch-action:manipulation}
+.towel-buttons button:active{transform:scale(.95)}
+.towel-cap{position:relative;width:200px;height:150px}
+.towel-cap .dome{position:absolute;left:40px;right:40px;top:10px;bottom:20px;border-radius:50% 50% 40% 40%;background:radial-gradient(circle at 40% 25%,rgba(255,255,255,.5),transparent 45%),var(--towel);box-shadow:0 14px 30px rgba(60,30,10,.2)}
+.towel-cap .bun{position:absolute;top:58px;width:70px;height:76px;border-radius:50%;background:repeating-radial-gradient(circle,var(--towel) 0 7px,rgba(0,0,0,.08) 7px 9px),var(--towel);box-shadow:0 8px 18px rgba(60,30,10,.18)}
+.towel-cap .bun.left{left:0}.towel-cap .bun.right{right:0}
+.towel-wear{display:flex;align-items:center;justify-content:space-between;min-height:52px;padding:0 4px;font-size:16px;font-weight:700}
+.towel-wear input{appearance:none;-webkit-appearance:none;width:52px;height:32px;border-radius:16px;background:rgba(107,70,54,.15);position:relative;cursor:pointer;transition:background .2s;margin:0}
+.towel-wear input:before{content:"";position:absolute;top:2px;left:2px;width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2);transition:transform .2s}
+.towel-wear input:checked{background:#34C759}.towel-wear input:checked:before{transform:translateX(20px)}
+.towel-primary{width:100%;min-height:52px;border:0;border-radius:999px;font-size:16px;font-weight:800;margin-top:6px}
+.towel-dots{display:flex;gap:6px;justify-content:center;margin-top:14px}.towel-dots i{width:7px;height:7px;border-radius:4px;background:rgba(107,70,54,.18);transition:width .2s}.towel-dots i.on{width:22px;background:var(--tint)}
+body.towel-playing .controls,body.towel-playing #joystick,body.towel-playing #chat-open,body.towel-playing #dress,body.towel-playing #shop-open,body.towel-playing #towel-open,body.towel-playing .scene-hint{visibility:hidden}
+body.sleeping #dress,body.sleeping #towel-open,body.sleeping #person-card,body.chat-open #dress{opacity:0;pointer-events:none}
+body:not(.room-ready) #dress{display:none}
+@media(max-width:760px){#dress{right:20px;bottom:267px;gap:8px}.glass-round{width:54px;height:54px}#towel-open{bottom:206px}.glass-card{top:146px}}
+@media(max-height:500px) and (orientation:landscape){#dress{flex-direction:row;right:90px;bottom:31px}.glass-card{top:60px}#towel-open{bottom:120px}.towel-stage{height:150px}.glass-sheet{bottom:6px;padding:12px 18px}}
+@media(min-width:761px) and (max-width:1050px) and (min-height:501px){#dress{bottom:282px}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.glass-round,.glass-card,.glass-sheet,#towel-open{background:rgba(255,250,245,.94)}}
+@media(prefers-reduced-motion:reduce){.towel-swipe{animation:none}.glass-round,.towel-cloth{transition:none}}
+#toast{width:max-content}#toast span{white-space:nowrap}
+#towel-nudge{position:absolute;z-index:4;left:50%;transform:translateX(-50%);bottom:205px;display:flex;align-items:center;gap:10px;height:48px;padding:0 6px 0 16px;border-radius:999px;color:var(--ink);font-size:14px;font-weight:700;white-space:nowrap;background:var(--lg-fill);-webkit-backdrop-filter:var(--lg-blur);backdrop-filter:var(--lg-blur);box-shadow:var(--lg-shadow),inset 0 0 0 .75px rgba(255,255,255,.7);animation:toast .4s ease-out}
+#towel-nudge button{height:36px;padding:0 15px;border:0;border-radius:999px;background:var(--hot);color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 14px rgba(242,104,60,.3)}
+@media(max-width:760px){#towel-nudge{bottom:206px}}@media(max-height:500px) and (orientation:landscape){#towel-nudge{bottom:120px}}
+body.sleeping #towel-nudge,body.towel-playing #towel-nudge,body:not(.room-ready) #towel-nudge,body.chat-open #towel-nudge{display:none}
+#trade-card .person-actions button{font-size:14px}.trade-decline{align-self:center;margin-top:8px;min-height:36px;padding:0 14px;border:0;background:none;color:var(--ink-soft);font-weight:650;font-size:13px}

@@ -83,6 +83,8 @@ npm test                         # 테스트 10종 (아래 표)
 | `character.js` | 캐릭터 생성(`createCharacterKit` → `createCharacter(colors)`), 자세 애니메이션(`animate`), 간식 소품·애니메이션(`startSnack`/`stopSnack`), 표정(normal/sleep/happy/chew/dizzy), `celebrate()`, 파티클. 부위별로 메시를 합쳐 캐릭터당 그리기 호출이 약 16회 |
 | `scene.js` | 렌더러, 따라오는 카메라(`view` yaw/pitch/zoom), 입력(조이스틱, WASD, 탭, 드래그, 핀치, 휠), 행동, NPC 손님, 방 감지, 벽 컷어웨이·투명화, 간식 연결, 매점·TV·초대·소셜 연결 |
 | `sleep.js` | 수면실 꿈나라 모드: 1인칭 전환, 별 천장, 은하계(셰이더 돔 + 나선 입자), Web Audio로 만든 자장가 |
+| `outfit.js` | 옷 데이터: 부위별 랜덤 색(`randomPart`, 초록 편중 없게 색상 앵커 사용), 내 수건 목록(`addTowel`/`removeTowel`/`pickTowel`, 최대 24장), 네트워크 코드 `top.bottom.towel.flags`(flags 1=수건 있음, 2=쓰고 있음), 저장·마이그레이션 |
+| `towel.js` | 양머리 만들기 미니게임(접기 → 좌우 번갈아 말기 → 완성). `open({ color, name, onDone })`이면 상대에게 줄 "똑같이 만들어 주기" 선물 모드 |
 | `social.js` | 다른 접속자 표시(보간), 이름표, 말풍선, 채팅 패널, 닉네임 다이얼로그(자동 추천), 접속 상태, 접속자 수 |
 | `net.js` | 실시간 전송 계층: Supabase Realtime(Presence + Broadcast), 테스트용 BroadcastChannel(`?net=local`) |
 | `chat-rules.js` | 텍스트 정리, 120자 제한, 비속어 마스킹(띄어쓰기·기호 우회 대응), 닉네임 규칙, 빈도 제한, 수신 검증, `suggestNickname()` |
@@ -95,7 +97,7 @@ npm test                         # 테스트 10종 (아래 표)
 | `docs/mockups/` | 확정 대기 중인 UI 시안 이미지와 시안 생성 스크립트(§6) |
 
 ### localStorage 키 (모두 `jjimjiljung` 접두사)
-`jjimjiljung-nickname`, `jjimjiljung-outfit`(peach/mint/lilac), `jjimjiljung-sleep-music`, `jjimjiljung-wallet-v1`(points, bag, free, earnedDay, earned, ads). `privacy.html`의 지우기 버튼이 이 접두사로 일괄 삭제합니다.
+`jjimjiljung-nickname`, `jjimjiljung-outfit-v2`(top, bottom, towel, hasTowel, wear, towels[]; 예전 `jjimjiljung-outfit` 팔레트 이름은 첫 실행 때 옮김), `jjimjiljung-sleep-music`, `jjimjiljung-wallet-v1`(points, bag, free, earnedDay, earned, ads). `privacy.html`의 지우기 버튼이 이 접두사로 일괄 삭제합니다.
 
 ### 맵
 - 6개 방: lobby(중앙 휴게실, 가운데), hot(불가마, 북쪽), ice(얼음방, 북서), sleep(수면실, 북동), salt(소금방, 서쪽), shop(매점, 동쪽)
@@ -142,6 +144,12 @@ npm test                         # 테스트 10종 (아래 표)
 - 링크는 `https://jjimjiljung.yullul.com/?from=<닉네임>`입니다. 받은 사람에게 "○○님의 초대로 왔어요"를 보여 주고, 주소창에서 `from`을 지웁니다.
 - SDK를 불러오지 못하면 휴대폰 공유 창(`navigator.share`), 그것도 안 되면 클립보드 복사로 대체합니다.
 - JS 키는 `invite.js`에 있습니다. **사이트 도메인을 Kakao Developers → 앱 → 플랫폼 → Web에 등록해야 동작합니다.** 등록 여부는 확인되지 않았습니다.
+
+### 옷·양머리·수건 교환
+- **옷 버튼(👕🎲)** 한 번에 상의·하의는 완전 랜덤, 수건은 **내 수건 목록 중에서** 랜덤(지금 것과 다른 것 우선). 알림의 [되돌리기]로 복구. 🐑 버튼은 양머리를 만든 뒤에만 보이며 쓰고 벗기.
+- **새 손님은 양머리 없이 시작**합니다. "수건 받아서 양머리 만들기 [가기]" 안내 → 매점 **수건 선반(`TOWEL_SPOT`)**으로 걸어가 미니게임. 기존 이용자는 쓰던 색의 양머리를 그대로 받습니다.
+- **다른 손님을 탭**하면 카드(👋 인사, 🔁 수건 바꾸자고 하기). 받는 쪽은 30초 안에 **그대로 바꾸기**(서로 맞바꿈, 준 수건은 목록에서 빠짐) / **똑같이 만들어 주기**(미니게임을 해서 같은 색을 선물, 원래 수건은 남음) / 괜찮아요. 브로드캐스트 `trade` 이벤트(offer, accept, making, gift, decline, cancel)로 두 사람 사이에서만 처리하며 서버 기록은 없습니다(나중에 Phase 5에서 서버 검증 필요).
+- 캐릭터: 2등신 봉제인형 느낌(뽀얀 피부, 펠트 재질, 단발+앞머리, 큰 양머리). 사용자가 Meshy로 만든 3D 모델로 교체 예정(파일 대기, meshy.ai는 작업 환경 네트워크에서 차단됨).
 
 ### 중앙 휴게실 TV (보상형 광고)
 - **TV 앞 방석(`TV_SEAT`)에 앉으면** 카메라가 TV 쪽으로 돌고, 화면 아래에 "📺 광고 보고 온기 받기 (+3♨)" 버튼이 뜹니다.
@@ -332,6 +340,7 @@ npm test                         # 테스트 10종 (아래 표)
 | `tests/invite.cjs` | 카카오 피드 내용, 등록 도메인 링크, 링크 복사 대체, 초대 인사 |
 | `tests/tv.cjs` | 가짜 광고 스크립트로: 앉을 때만 로드, TV 자동 이동, 끝까지 보면 지급, 닫으면 미지급, 2분 간격, 하루 3회, 자정 초기화, 광고 없음·ID 없음 |
 | `tests/multiplayer.cjs` | 탭 2개를 로컬 전송(`?net=local`)으로 연결: 닉네임, 서로 보이기, 위치·자세·옷·간식 동기화, 채팅과 말풍선, 제한, 퇴장 |
+| `tests/towel.cjs` | 옷 코드·마이그레이션·수건 목록 규칙·색 분포, 양머리 안내 → 선반 이동 → 미니게임, 🐑 토글, 손님 탭, 수건 맞바꾸기·똑같이 만들어 주기·거절 |
 | `tests/sleep.cjs` | 꿈나라 모드, 1인칭 전환, 음악, 30초 은하계, 깨어나기 |
 | `tests/smoke.cjs` | 데스크톱·390·320·태블릿·가로 화면 레이아웃, 카메라, 조작 전반, 벽 충돌, 문 통과, 컷어웨이, 오류 처리(컨텍스트 손실, 모듈 실패, WebGL 미지원) |
 
@@ -358,4 +367,6 @@ npm test                         # 테스트 10종 (아래 표)
 | (사용자) | `CNAME` → jjimjiljung.yullul.com |
 | #7 | 카카오톡 친구 초대 |
 | #8 | 중앙 휴게실 TV 보상형 광고, 매점→TV 안내, 개인정보처리방침 |
+| #9 | 인수인계 README |
+| #10 | 봉제인형 캐릭터, 옷 랜덤 버튼, 양머리 미니게임, 수건 목록·교환 |
 | #9 | 이 인수인계 문서와 `docs/mockups/` |

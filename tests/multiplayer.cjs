@@ -70,8 +70,9 @@ const server = http.createServer((req, res) => {
     // Eating while sitting is visible to others.
     await a.locator('[data-action="egg"]').click();
     await b.waitForFunction(() => { const r = window.__mp.state().remotes[0]; return r.snack === 'egg' && r.action === 'sit'; }, null, { timeout: 60000 });
-    await a.locator('[data-color="lilac"]').click();
-    await b.waitForFunction(() => window.__mp.state().remotes[0].outfit === 'lilac', null, { timeout: 30000 });
+    await a.locator('#outfit-random').click();
+    const dyed = await a.locator('#viewport').getAttribute('data-outfit');
+    await b.waitForFunction(code => window.__mp.state().remotes[0].outfit === code, dyed, { timeout: 30000 });
     // 3. Chat travels both ways, with a speech bubble over the sender.
     await a.locator('#chat-open').click();
     assert.equal(await a.locator('#chat').isVisible(), true);
