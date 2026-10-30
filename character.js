@@ -665,7 +665,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     shoulderMesh?.scale.set(1, 1, SHOULDER_FIT.depth);
     const shoulder = shoulderMesh ? attach(spine2, shoulderMesh, new THREE.Vector3(0, SHOULDER_FIT.y, SHOULDER_FIT.z)) : null;
     if (shoulder) shoulder.visible = false;
-    // A rolled towel pillow under the head while sleeping (sleepers lie head to -z).
+    // A rolled towel pillow under the sleeping head, only when a pillow prop is passed in (the room does not, by choice).
     const pillow = towels.pillow ? towelMesh(towels.pillow, { length: PILLOW_FIT.length, color: colors[3] }) : new THREE.Group();
     pillow.position.set(0, -CLIP_LIFT.Sleep_Normally, PILLOW_FIT.z); pillow.visible = false; frame.add(pillow);
     // Expression patches over the baked eyes.
