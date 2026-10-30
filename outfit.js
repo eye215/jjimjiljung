@@ -70,11 +70,13 @@ export function outfitColors(outfit) {
 }
 export const capOn = outfit => !!(outfit.hasTowel && outfit.wear);
 
+export const SHOULDER_ENABLED = false;
 // Network form: "top.bottom.towel.flags[.shoulder]" with 6-digit hex; flags 1 = has a towel,
 // 2 = wearing the sheep cap, 4 = wearing a shoulder towel (its colour is the 5th part).
 const CODE = /^([0-9a-f]{6})\.([0-9a-f]{6})\.([0-9a-f]{6})\.([0-7])(?:\.([0-9a-f]{6}))?$/;
 export function encodeOutfit(o) {
-  const flags = (o.hasTowel ? 1 : 0) | (o.wear ? 2 : 0) | (o.hasTowel && o.shoulder ? 4 : 0);
+  // The shoulder towel is switched off for now (flag 4 is never sent; old codes still decode).
+  const flags = (o.hasTowel ? 1 : 0) | (o.wear ? 2 : 0) | (SHOULDER_ENABLED && o.hasTowel && o.shoulder ? 4 : 0);
   return `${o.top.slice(1)}.${o.bottom.slice(1)}.${o.towel.slice(1)}.${flags}` + (flags & 4 ? `.${o.shoulderColor.slice(1)}` : '');
 }
 export function decodeOutfit(code) {

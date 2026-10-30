@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-9';
-import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-9';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-9';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-9';
+import { connect } from './net.js?v=rpg-10';
+import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-10';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-10';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-10';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -12,7 +12,7 @@ const $ = selector => document.querySelector(selector);
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
 
-const dress = (character, code) => { const outfit = decodeOutfit(code) || decodeOutfit('peach'); character.setColors(outfitColors(outfit)); character.setTowel(capOn(outfit)); character.setShoulder?.(outfit.shoulder, outfit.shoulderColor); };
+const dress = (character, code) => { const outfit = decodeOutfit(code) || decodeOutfit('peach'); character.setColors(outfitColors(outfit)); character.setTowel(capOn(outfit)); };
 
 export function createSocial({ scene, camera, kit, viewport, getLocal, makeShadow, actorScale, onLocalBubble, onTrade }) {
   const id = newId();

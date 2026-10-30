@@ -28,8 +28,9 @@ const memory = (seed = {}) => { const data = { ...seed }; return { getItem: k =>
   assert.equal(O.decodeOutfit('ff0000.00ff00.0000ff.2').wear, false, 'Wearing needs a towel');
   for (const bad of ['', 'red', 'zzzzzz.000000.000000.1', '000000.000000.000000.9', '<b>.x', null, 42]) assert.equal(O.decodeOutfit(bad), null, `Rejects ${bad}`);
   assert.equal(O.decodeOutfit('lilac').hasTowel, true, 'Old palette names still decode');
-  const scarf = O.decodeOutfit(O.encodeOutfit({ ...sample, shoulder: true, shoulderColor: '#a8e1cf' }));
-  assert.equal(scarf.shoulder && scarf.shoulderColor, '#a8e1cf', 'Shoulder towel round-trips');
+  // The shoulder towel is switched off: codes that still carry it decode, and it is never sent.
+  assert.equal(O.decodeOutfit('aaaaaa.bbbbbb.cccccc.7.a8e1cf').shoulderColor, '#a8e1cf', 'Old shoulder-towel codes still decode');
+  assert.match(O.encodeOutfit({ ...sample, shoulder: true, shoulderColor: '#a8e1cf' }), /\.3$/, 'Shoulder towel is not sent');
   assert.equal(O.decodeOutfit('ff0000.00ff00.0000ff.5').shoulder, false, 'A shoulder flag needs its colour');
   const fresh = memory(); const newcomer = O.loadOutfit(fresh);
   assert.equal(newcomer.hasTowel, false, 'Newcomers start without a towel cap');
@@ -129,13 +130,7 @@ window.__tw = {
     assert.match(await a.locator('#viewport').getAttribute('data-outfit'), /\.1$/);
     await a.locator('#cap-toggle').click();
     assert.equal(await a.locator('#towel-nudge').isHidden(), true, 'No towel pointer once you have one');
-    // 어깨 수건: shown once you own a towel; toggles and travels in the outfit code.
-    assert.equal(await a.locator('#shoulder-toggle').isVisible(), true);
-    await a.locator('#shoulder-toggle').click();
-    assert.equal(await a.locator('#shoulder-toggle').getAttribute('aria-pressed'), 'true');
-    assert.match(await a.locator('#viewport').getAttribute('data-outfit'), /\.7\.[0-9a-f]{6}$/, 'Shoulder towel colour is shared');
-    await a.locator('#shoulder-toggle').click();
-    assert.match(await a.locator('#viewport').getAttribute('data-outfit'), /\.3$/);
+    assert.equal(await a.locator('#shoulder-toggle').count(), 0, 'No shoulder-towel button');
     await a.waitForFunction(() => window.__tw.decor() === 'folded,mat,pillow', null, { timeout: 120000 });
 
     // A second visitor (same browser storage, so it starts with the same towel; re-dye it).
