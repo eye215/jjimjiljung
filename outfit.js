@@ -23,7 +23,8 @@ export function randomPart(part, rnd = Math.random) {
   return hex(HUES[Math.floor(rnd() * HUES.length)] + (rnd() - .5) * 12, s0 + rnd() * (s1 - s0), l0 + rnd() * (l1 - l0));
 }
 export function randomOutfit(rnd = Math.random, extra = {}) {
-  return { top: randomPart('top', rnd), bottom: randomPart('bottom', rnd), towel: randomPart('towel', rnd), hasTowel: false, wear: false, towels: [], ...extra };
+  const towel = randomPart('towel', rnd);
+  return { top: randomPart('top', rnd), bottom: randomPart('bottom', rnd), towel, hasTowel: false, wear: false, towels: [], shoulder: false, shoulderColor: towel, ...extra };
 }
 // ---------- My towel collection ----------
 // Towels I made or received; the one I wear is always in it. A towel given
@@ -32,14 +33,21 @@ export const MAX_TOWELS = 24;
 const HEX = /^#[0-9a-f]{6}$/;
 export function addTowel(outfit, color) {
   const towels = [...outfit.towels, color].slice(-MAX_TOWELS);
-  return { ...outfit, towels, towel: color, hasTowel: true };
+  return { ...outfit, towels, towel: color, hasTowel: true, shoulderColor: towels.includes(outfit.shoulderColor) ? outfit.shoulderColor : color };
 }
 export function removeTowel(outfit, color) {
   const towels = [...outfit.towels], at = towels.lastIndexOf(color);
   if (at >= 0) towels.splice(at, 1);
-  return { ...outfit, towels };
+  // A shoulder towel in the colour that left switches to one I still own.
+  const shoulderColor = towels.includes(outfit.shoulderColor) ? outfit.shoulderColor : towels[towels.length - 1] || outfit.towel;
+  return { ...outfit, towels, shoulderColor };
 }
 // The re-dye button picks one of my own towels, preferring a different one.
+// The shoulder towel is also one of mine, chosen independently of the cap.
+export function pickShoulder(outfit, rnd = Math.random) {
+  if (!outfit.towels.length) return outfit.shoulderColor || outfit.towel;
+  return outfit.towels[Math.floor(rnd() * outfit.towels.length)];
+}
 export function pickTowel(outfit, rnd = Math.random) {
   if (!outfit.hasTowel || !outfit.towels.length) return outfit.towel;
   const others = outfit.towels.filter(color => color !== outfit.towel);
@@ -62,15 +70,19 @@ export function outfitColors(outfit) {
 }
 export const capOn = outfit => !!(outfit.hasTowel && outfit.wear);
 
-// Network form: "top.bottom.towel.flags" with 6-digit hex, flags 1 = has towel, 2 = wearing it.
-const CODE = /^([0-9a-f]{6})\.([0-9a-f]{6})\.([0-9a-f]{6})\.([0-3])$/;
-export function encodeOutfit(o) { return `${o.top.slice(1)}.${o.bottom.slice(1)}.${o.towel.slice(1)}.${(o.hasTowel ? 1 : 0) | (o.wear ? 2 : 0)}`; }
+// Network form: "top.bottom.towel.flags[.shoulder]" with 6-digit hex; flags 1 = has a towel,
+// 2 = wearing the sheep cap, 4 = wearing a shoulder towel (its colour is the 5th part).
+const CODE = /^([0-9a-f]{6})\.([0-9a-f]{6})\.([0-9a-f]{6})\.([0-7])(?:\.([0-9a-f]{6}))?$/;
+export function encodeOutfit(o) {
+  const flags = (o.hasTowel ? 1 : 0) | (o.wear ? 2 : 0) | (o.hasTowel && o.shoulder ? 4 : 0);
+  return `${o.top.slice(1)}.${o.bottom.slice(1)}.${o.towel.slice(1)}.${flags}` + (flags & 4 ? `.${o.shoulderColor.slice(1)}` : '');
+}
 export function decodeOutfit(code) {
   if (typeof code !== 'string') return null;
-  if (LEGACY[code]) { const [top, bottom, towel] = LEGACY[code]; return { top, bottom, towel, hasTowel: true, wear: true }; }
-  const m = CODE.exec(code.slice(0, 24)); if (!m) return null;
-  const flags = +m[4];
-  return { top: '#' + m[1], bottom: '#' + m[2], towel: '#' + m[3], hasTowel: !!(flags & 1), wear: !!(flags & 1) && !!(flags & 2) };
+  if (LEGACY[code]) { const [top, bottom, towel] = LEGACY[code]; return { top, bottom, towel, hasTowel: true, wear: true, shoulder: false, shoulderColor: towel }; }
+  const m = CODE.exec(code.slice(0, 31)); if (!m) return null;
+  const flags = +m[4], has = !!(flags & 1);
+  return { top: '#' + m[1], bottom: '#' + m[2], towel: '#' + m[3], hasTowel: has, wear: has && !!(flags & 2), shoulder: has && !!(flags & 4) && !!m[5], shoulderColor: m[5] ? '#' + m[5] : '#' + m[3] };
 }
 const valid = o => o && /^#[0-9a-f]{6}$/.test(o.top) && /^#[0-9a-f]{6}$/.test(o.bottom) && /^#[0-9a-f]{6}$/.test(o.towel);
 
@@ -82,10 +94,11 @@ export function loadOutfit(storage = globalThis.localStorage) {
     if (valid(saved)) {
       const towels = Array.isArray(saved.towels) ? saved.towels.filter(color => HEX.test(color)).slice(-MAX_TOWELS) : [];
       if (saved.hasTowel && !towels.includes(saved.towel)) towels.push(saved.towel);
-      return { top: saved.top, bottom: saved.bottom, towel: saved.towel, hasTowel: !!saved.hasTowel, wear: !!saved.hasTowel && saved.wear !== false, towels };
+      const shoulderColor = HEX.test(saved.shoulderColor) && towels.includes(saved.shoulderColor) ? saved.shoulderColor : saved.towel;
+      return { top: saved.top, bottom: saved.bottom, towel: saved.towel, hasTowel: !!saved.hasTowel, wear: !!saved.hasTowel && saved.wear !== false, towels, shoulder: !!saved.hasTowel && !!saved.shoulder, shoulderColor };
     }
     const legacy = storage.getItem(LEGACY_KEY);
-    if (LEGACY[legacy]) { const outfit = decodeOutfit(legacy); outfit.towels = [outfit.towel]; saveOutfit(outfit, storage); return outfit; }
+    if (LEGACY[legacy]) { const outfit = decodeOutfit(legacy); outfit.towels = [outfit.towel]; outfit.shoulderColor = outfit.towel; saveOutfit(outfit, storage); return outfit; }
   } catch { /* storage may be unavailable */ }
   const outfit = randomOutfit(); saveOutfit(outfit, storage); return outfit;
 }

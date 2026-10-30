@@ -24,10 +24,13 @@ const memory = (seed = {}) => { const data = { ...seed }; return { getItem: k =>
   // ---------- Outfit rules (no browser needed) ----------
   const O = await import(pathToFileURL(path.join(root, 'outfit.js')).href);
   const sample = O.randomOutfit(O.seeded(7), { hasTowel: true, wear: true });
-  assert.deepEqual(O.decodeOutfit(O.encodeOutfit(sample)), { top: sample.top, bottom: sample.bottom, towel: sample.towel, hasTowel: true, wear: true }, 'Outfit code round-trips');
+  assert.deepEqual(O.decodeOutfit(O.encodeOutfit(sample)), { top: sample.top, bottom: sample.bottom, towel: sample.towel, hasTowel: true, wear: true, shoulder: false, shoulderColor: sample.towel }, 'Outfit code round-trips');
   assert.equal(O.decodeOutfit('ff0000.00ff00.0000ff.2').wear, false, 'Wearing needs a towel');
   for (const bad of ['', 'red', 'zzzzzz.000000.000000.1', '000000.000000.000000.9', '<b>.x', null, 42]) assert.equal(O.decodeOutfit(bad), null, `Rejects ${bad}`);
   assert.equal(O.decodeOutfit('lilac').hasTowel, true, 'Old palette names still decode');
+  const scarf = O.decodeOutfit(O.encodeOutfit({ ...sample, shoulder: true, shoulderColor: '#a8e1cf' }));
+  assert.equal(scarf.shoulder && scarf.shoulderColor, '#a8e1cf', 'Shoulder towel round-trips');
+  assert.equal(O.decodeOutfit('ff0000.00ff00.0000ff.5').shoulder, false, 'A shoulder flag needs its colour');
   const fresh = memory(); const newcomer = O.loadOutfit(fresh);
   assert.equal(newcomer.hasTowel, false, 'Newcomers start without a towel cap');
   assert.deepEqual(O.loadOutfit(fresh), newcomer, 'The outfit is saved');
@@ -42,6 +45,8 @@ const memory = (seed = {}) => { const data = { ...seed }; return { getItem: k =>
   assert.equal(O.pickTowel(mineList, () => 0), '#111111', 'Re-dye prefers another towel I own');
   mineList = O.addTowel(O.removeTowel(mineList, '#222222'), '#333333');
   assert.deepEqual(mineList.towels, ['#111111', '#333333'], 'A swapped towel leaves my list');
+  const worn = O.removeTowel({ ...mineList, shoulderColor: '#333333' }, '#333333');
+  assert.equal(worn.shoulderColor, '#111111', 'A shoulder towel given away switches to one I still own');
   const plain = O.randomOutfit(); assert.equal(O.pickTowel(plain), plain.towel, 'No towels, nothing to pick');
   let many = O.randomOutfit(); for (let i = 0; i < 30; i++) many = O.addTowel(many, '#0000' + String(i).padStart(2, '0'));
   assert.equal(many.towels.length, O.MAX_TOWELS, 'The collection is capped');
@@ -67,7 +72,7 @@ const memory = (seed = {}) => { const data = { ...seed }; return { getItem: k =>
       const response = await route.fetch();
       await route.fulfill({ response, body: (await response.text()) + `
 window.__tw = {
-  outfit: () => ({ ...outfit }), status: () => social.status, remotes: () => [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, outfit: r.outfit, x: r.character.root.position.x, z: r.character.root.position.z })),
+  outfit: () => ({ ...outfit }), plush: kit.plush, wound: () => towelGame.wound, decor: () => viewport.dataset.decor || '', status: () => social.status, remotes: () => [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, outfit: r.outfit, x: r.character.root.position.x, z: r.character.root.position.z })),
   pickAt: (x, y) => { const b = viewport.getBoundingClientRect(); raycaster.setFromCamera(new THREE.Vector2((x - b.left) / b.width * 2 - 1, -(y - b.top) / b.height * 2 + 1), camera); return social.pick(raycaster)?.name || null; },
   give: color => applyOutfit(addTowel(outfit, color)),
   tp: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); },
@@ -99,11 +104,21 @@ window.__tw = {
     await a.mouse.move(cloth.x + cloth.width / 2, cloth.y + 120, { steps: 6 }); await a.mouse.up();
     await a.locator('#towel-step', { hasText: '2/3' }).waitFor();
     // Step 2: left and right in turn; pressing the same side twice does not count.
+    assert.equal(await a.evaluate(() => window.__tw.plush), true, 'The Meshy plush GLB (WebP textures) loads');
+    const strip = () => a.locator('.roll-strip').evaluate(el => el.getBoundingClientRect().width);
+    const before = await strip();
     await a.locator('[data-side=left]').click(); await a.locator('[data-side=left]').click();
     assert.match(await a.locator('#towel-note').textContent(), /반대쪽/);
     assert.equal(await a.locator('.towel-progress').getAttribute('aria-valuenow'), '1');
+    assert.deepEqual(await a.evaluate(() => window.__tw.wound()), { left: 1, right: 0 }, 'Only the tapped side rolls, and a repeat tap does not');
+    assert.equal(await a.locator('.roll-scene').getAttribute('data-left'), '1');
+    await a.waitForTimeout(500);
+    assert(await strip() < before - 20, 'The flat middle narrows as an end rolls in');
+    // Fast alternating taps: the shapes follow the count, never more than five turns a side.
     for (let i = 0; i < 5; i++) { await a.locator('[data-side=right]').click(); if (i < 4) await a.locator('[data-side=left]').click(); }
+    assert.deepEqual(await a.evaluate(() => window.__tw.wound()), { left: 5, right: 5 });
     await a.locator('#towel-step', { hasText: '3/3' }).waitFor();
+    assert.equal(await a.locator('.towel-cap .bun').count(), 2, 'The finished cap shows both rolls');
     await a.screenshot({ path: path.join(output, 'towel-done.png') });
     await a.locator('#towel-finish').click();
     let mine = await a.evaluate(() => window.__tw.outfit());
@@ -114,6 +129,14 @@ window.__tw = {
     assert.match(await a.locator('#viewport').getAttribute('data-outfit'), /\.1$/);
     await a.locator('#cap-toggle').click();
     assert.equal(await a.locator('#towel-nudge').isHidden(), true, 'No towel pointer once you have one');
+    // 어깨 수건: shown once you own a towel; toggles and travels in the outfit code.
+    assert.equal(await a.locator('#shoulder-toggle').isVisible(), true);
+    await a.locator('#shoulder-toggle').click();
+    assert.equal(await a.locator('#shoulder-toggle').getAttribute('aria-pressed'), 'true');
+    assert.match(await a.locator('#viewport').getAttribute('data-outfit'), /\.7\.[0-9a-f]{6}$/, 'Shoulder towel colour is shared');
+    await a.locator('#shoulder-toggle').click();
+    assert.match(await a.locator('#viewport').getAttribute('data-outfit'), /\.3$/);
+    await a.waitForFunction(() => window.__tw.decor() === 'folded,mat,pillow', null, { timeout: 120000 });
 
     // A second visitor (same browser storage, so it starts with the same towel; re-dye it).
     await a.evaluate(() => localStorage.setItem('jjimjiljung-nickname', '율무'));

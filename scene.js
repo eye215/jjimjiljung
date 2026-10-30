@@ -1,16 +1,17 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-8';
-import { createCharacterKit, mesh } from './character.js?v=rpg-8';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-8';
-import { createTowelGame } from './towel.js?v=rpg-8';
-import { buildWorld } from './environment.js?v=rpg-8';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, roomAt } from './world.js?v=rpg-8';
-import { createTvAds } from './ads.js?v=rpg-8';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-8';
-import { createSocial } from './social.js?v=rpg-8';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-8';
-import { createShop } from './shop.js?v=rpg-8';
-import { createInvite } from './invite.js?v=rpg-8';
+import { planPath, stepMovement } from './navigation.js?v=rpg-9';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-9';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel, pickShoulder } from './outfit.js?v=rpg-9';
+import { createTowelGame } from './towel.js?v=rpg-9';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-9';
+import { buildWorld } from './environment.js?v=rpg-9';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-9';
+import { createTvAds } from './ads.js?v=rpg-9';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-9';
+import { createSocial } from './social.js?v=rpg-9';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-9';
+import { createShop } from './shop.js?v=rpg-9';
+import { createInvite } from './invite.js?v=rpg-9';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -52,7 +53,10 @@ Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near:
 sun.shadow.normalBias = .03; sun.shadow.bias = -.0004; sun.shadow.radius = 3;
 scene.add(sun, sun.target);
 
-const kit = createCharacterKit(renderer);
+// The plush GLB (2.5 MB) loads behind the loading screen; without it the
+// built-in character is used so the room always opens.
+const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap', 'shoulder', 'pillow'])]);
+const kit = createCharacterKit(renderer, plushModel, towelProps);
 const world = buildWorld({ scene, kit });
 const sleep = createSleepMode({ scene, canvasTexture: kit.canvasTexture });
 
@@ -217,7 +221,8 @@ actionButtons.forEach(button => button.addEventListener('click', () => {
 // ---------- Snacks: eaten in the current pose (sitting or standing) ----------
 function interruptSnack() { if (player.snack) { player.stopSnack(); snackSig = ''; } }
 function eat(kind, style = 'normal') {
-  if (action === 'lie' || action === 'wave') setAction(action === 'lie' ? 'sit' : 'stand'); else interruptSnack();
+  // The plush eats sitting down (its drinking clip is a seated one).
+  if (kit.plush ? action !== 'sit' : action === 'lie' || action === 'wave') setAction(kit.plush ? 'sit' : action === 'lie' ? 'sit' : 'stand'); else interruptSnack();
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick(); keys.clear();
   facing = view.yaw; snackSig = `${kind}:${style}:${++snackSerial}`;
   const serial = snackSig;
@@ -232,19 +237,28 @@ function eat(kind, style = 'normal') {
   return player.snack;
 }
 // ---------- Outfit: one tap re-dyes every part; the sheep cap has its own toggle ----------
-const outfitButton = document.querySelector('#outfit-random'), capButton = document.querySelector('#cap-toggle');
+const outfitButton = document.querySelector('#outfit-random'), capButton = document.querySelector('#cap-toggle'), shoulderButton = document.querySelector('#shoulder-toggle');
 function applyOutfit(next) {
   outfit = next; saveOutfit(outfit);
   player.setColors(outfitColors(outfit)); player.setTowel(capOn(outfit));
   capButton.hidden = !outfit.hasTowel; capButton.setAttribute('aria-pressed', String(capOn(outfit)));
   capButton.setAttribute('aria-label', capOn(outfit) ? '양머리 벗기' : '양머리 쓰기');
+  // 어깨 수건: one of my towels, worn or not, independent of the cap.
+  const shoulderOn = outfit.hasTowel && outfit.shoulder;
+  player.setShoulder?.(shoulderOn, outfit.shoulderColor);
+  shoulderButton.hidden = !outfit.hasTowel || !kit.plush; shoulderButton.setAttribute('aria-pressed', String(shoulderOn));
+  shoulderButton.setAttribute('aria-label', shoulderOn ? '어깨 수건 벗기' : '어깨 수건 걸치기');
   viewport.dataset.outfit = encodeOutfit(outfit); social?.outfitChanged();
 }
 outfitButton.addEventListener('click', () => {
   const before = { ...outfit };
-  applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom'), towel: pickTowel(outfit) });
+  applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom'), towel: pickTowel(outfit), shoulderColor: pickShoulder(outfit) });
   if (action !== 'lie') player.celebrate();
   toast('✨ 새 옷으로 갈아입었어요', '되돌리기', () => applyOutfit(before));
+});
+shoulderButton.addEventListener('click', () => {
+  applyOutfit({ ...outfit, shoulder: !outfit.shoulder });
+  toast(outfit.shoulder ? '🧣 어깨 수건을 걸쳤어요' : '🧣 어깨 수건을 내려놨어요');
 });
 capButton.addEventListener('click', () => {
   applyOutfit({ ...outfit, wear: !outfit.wear });
@@ -557,6 +571,9 @@ hint.textContent = walkHint;
 viewport.dataset.ready = 'true'; lastTime = performance.now(); raf = requestAnimationFrame(frame);
 document.body.classList.add('room-ready');
 window.lockRoomControls(false);
+// Folded towels, mats and pillows arrive after the room opens (about 0.9 MB).
+let towelDecor = null;
+placeTowelDecor(scene, TOWEL_DECOR).then(placed => { towelDecor = placed; viewport.dataset.decor = Object.keys(placed).join(','); });
 // Multiplayer starts after the room is ready, so a slow network never blocks entering.
 document.querySelector('#chat-input').addEventListener('focus', () => { keys.clear(); stopJoystick(); });
 social = createSocial({

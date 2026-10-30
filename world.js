@@ -79,6 +79,31 @@ export const DESTINATIONS = Object.freeze({
 // The mat in front of the lobby TV, facing the screen (west).
 export const TV_SEAT = Object.freeze({ id: 'tv', name: 'TV 앞 방석', x: -4.6, z: 2.4, facing: -Math.PI / 2, action: 'sit', arrival: 'TV 앞에 앉았어요. 광고를 보면 온기를 받을 수 있어요 📺' });
 
+// Meshy towel props placed around the rooms (props.js). `y` is the surface they
+// rest on, `turn` a rotation about y, `size` the longest side in metres and
+// `color` an index into TOWEL_COLORS order (ivory, pink, sky, lilac, mint, yellow).
+const shelfSpots = [];
+for (const [row, y] of [.325, .805, 1.285].entries()) for (let i = 0; i < 4; i++) for (let k = 0; k < 2; k++) shelfSpots.push({ x: 11.4 - .5 + i * .367, y: y + k * .145, z: -3.43, turn: (i + k) % 2 * .08, size: .3, color: (i * 2 + row * 3 + k) % 6 });
+export const TOWEL_DECOR = Object.freeze({
+  folded: [
+    ...shelfSpots,
+    // 수면실 수건 보관함 (faces west) and the lobby bench.
+    ...[0, 1, 2].flatMap(row => [-1, 0, 1].map(i => ({ x: 12.98, y: .24 + row * .48, z: -8.6 + i * .54, turn: -Math.PI / 2, size: .32, color: (row + i + 3) % 6 }))),
+    { x: -1.25, y: .37, z: 6.35, turn: .1, size: .42, color: 1 }, { x: -1.25, y: .52, z: 6.35, turn: -.05, size: .4, color: 2 }
+  ],
+  mat: [
+    { x: 7.3, y: 0, z: -7.75, turn: Math.PI / 2, size: 1.7, color: 3 },
+    { x: 1.3, y: 0, z: 4.9, turn: .25, size: 1.5, color: 4 },
+    { x: -10.6, y: .06, z: 1.6, turn: Math.PI / 2, size: 1.5, color: 0 }
+  ],
+  pillow: [
+    // On the 수면실 beds the player does not use (they bring their own pillow) and the floor mat.
+    { x: 9.5, y: .1, z: -12, turn: 0, size: .62, color: 0 }, { x: 11.7, y: .1, z: -12, turn: 0, size: .62, color: 1 },
+    { x: 9.5, y: .1, z: -8.5, turn: 0, size: .62, color: 2 }, { x: 11.7, y: .1, z: -8.5, turn: 0, size: .62, color: 5 },
+    { x: 7.3, y: .04, z: -8.45, turn: 0, size: .6, color: 4 }
+  ]
+});
+
 // Stand here, facing the towel shelf, to make a sheep cap.
 export const TOWEL_SPOT = Object.freeze({ id: 'towel', name: '수건 선반', x: 11.4, z: -2.4, facing: Math.PI, action: 'stand', arrival: '수건 선반이에요. 수건을 받아 양머리를 만들어 봐요 🐑' });
 
