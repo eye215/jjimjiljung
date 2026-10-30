@@ -10,3 +10,7 @@ body:not(.room-ready) .quiet-button,body:not(.room-ready) .controls,body:not(.ro
 body:not(.room-ready) .room{z-index:20}
 
 @media(min-width:761px) and (max-width:1050px) and (min-height:501px){#joystick{bottom:190px;width:92px;height:92px}.joystick-arrows{font-size:76px}}
+/* Six rooms: an even grid of destinations, no full-width final card. */
+.places-list button:last-child{grid-column:auto;display:flex;min-height:100px;text-align:center}.places-list button:last-child span{grid-row:auto}.places-list button:last-child b,.places-list button:last-child small{align-self:center}
+@media(max-height:500px) and (orientation:landscape){.places-list button:last-child{min-height:78px}}
+.room-badge{transition:background .4s}#destination-label{animation:toast .35s ease-out}@keyframes toast{from{opacity:0;transform:translate(-50%,-6px)}}

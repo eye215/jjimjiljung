@@ -1,9 +1,5 @@
-# Environment plate
+# Environment reference
 
-`sauna-room-v1.png` is a 1536×1024 fixed-camera environment plate edited from the user's supplied jjimjilbang reference using the built-in ImageGen tool. It preserves the room layout and warm rendered materials while removing people and interface overlays. It is served locally by GitHub Pages.
+`sauna-room-v1.png` is a 1536×1024 environment plate edited from the user's supplied jjimjilbang reference using the built-in ImageGen tool. Earlier versions composited 3D characters over it as a fixed-camera 2.5D room.
 
-The room is a 2.5D composition: the environment is a fixed image, while characters, expressions, poses and shadows render in real-time 3D. A shared virtual camera crop keeps the two layers aligned while panning on mobile. There is no free-orbit environment geometry.
-
-## Generation prompt
-
-Use case: precise-object-edit. Asset type: clean fixed-camera game environment background plate, landscape 3:2. Input image is the EDIT TARGET. Preserve this exact Korean jjimjilbang architecture, perspective, camera framing, golden amber illumination, 3D rendered material quality and object placement. Remove ALL human/chibi characters everywhere, including distant doorways, and their cast shadows; remove ALL overlaid user interface, player nameplates, hearts, emoji, speech bubbles, minimap, joystick, buttons, borders and labels. Fill these removed areas seamlessly with the existing floor, walls and furnishings. Keep the physical room signs exactly: 소금방 on the left warm dome, 얼음방 on the blue doorway, 불가마 on the large orange brick dome in the middle, 매점 on the wooden snack shop at right, and small 식혜 계란 라면 menu signs. Keep the left television and wooden platform, floor cushions, wooden beams, lush trailing vines, potted plants, central stairs, right wooden tables, foreground railings, and worn terracotta stone floor. Change only removal of people and HUD. No new design, no rearrangement, no stylization change, no people, no UI. Match the original composition closely. This must be an empty, polished playable background with clear central floor space, not a screenshot containing any controls.
+Since the Phase 1 3D update the room is built procedurally in real 3D (`world.js`, `environment.js`), and this image is **not loaded** by the site. It is kept as the art-direction reference for the warm amber lighting, terracotta and wood materials, the brick 불가마 dome, the salt and ice rooms, the wooden 매점 with 식혜 · 계란 · 라면 boards, mats with the ♨ emblem, plants and vines.
