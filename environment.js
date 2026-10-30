@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
-import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-8';
-import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-8';
+import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-9';
+import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-9';
 
 // Procedural, cosy jjimjilbang built from the shared map data. Everything is
 // generated locally: textures are drawn on canvases and static props are merged
@@ -287,7 +287,7 @@ export function buildWorld({ scene, kit }) {
       const shade = box(g, glow('#ffd9a0', 1.3), [0, 1.45, 0], [.36, .46, .36], .06, 4); shade.castShadow = false;
       box(g, M.darkWood, [0, 1.72, 0], [.44, .06, .44], .02, 4);
     },
-    bench(g, w, d) { box(g, M.lightWood, [0, .32, 0], [w, .1, d], .04, 4); for (const s of [-1, 1]) box(g, M.darkWood, [s * (w / 2 - .25), .15, 0], [.12, .3, d * .8], .03, 4); box(g, M.towel, [w * .25, .4, 0], [.5, .08, .38], .04, 4); },
+    bench(g, w, d) { box(g, M.lightWood, [0, .32, 0], [w, .1, d], .04, 4); for (const s of [-1, 1]) box(g, M.darkWood, [s * (w / 2 - .25), .15, 0], [.12, .3, d * .8], .03, 4); },
     hearth(g, w, d) {
       box(g, M.stone, [0, .22, 0], [w, .44, d], .2, 6);
       const coals = new THREE.Group(); coals.position.y = .42; g.add(coals);
@@ -315,13 +315,13 @@ export function buildWorld({ scene, kit }) {
     icebench(g, w, d) { box(g, mat('#d6f0fb', { roughness: .3 }), [0, .2, 0], [w, .4, d], .1, 4); },
     bed(g, w, d) {
       box(g, mat('#efe6ff', { roughness: 1 }), [0, .05, 0], [w, .1, d], .05, 4).castShadow = false;
-      box(g, mat('#fff8ef', { map: textile, roughness: 1 }), [0, .15, -d / 2 + .25], [w * .62, .14, .36], .07, 4);
       box(g, mat(random() > .5 ? '#c9bbf0' : '#f2c9d6', { roughness: 1 }), [0, .12, d * .2], [w * .94, .07, d * .55], .035, 4);
     },
     nightlamp(g) { cylinder(g, M.lightWood, [0, .2, 0], .2, .22, .4, 14); const moon = ellipsoid(g, glow('#fff1b8', 1.5), [0, .62, 0], [.2, .2, .2]); moon.castShadow = false; },
     shelf(g, w, d) {
       box(g, M.lightWood, [0, .8, 0], [w, 1.6, d], .04, 4);
-      for (let row = 0; row < 3; row++) for (let i = 0; i < 3; i++) box(g, mat(['#fff4e2', '#f4cbd3', '#cfe0f4'][(row + i) % 3], { map: textile, roughness: 1 }), [(i - 1) * w * .3, .32 + row * .48, .1], [w * .27, .16, d * .65], .05, 4);
+      // Folded towels (TOWEL_DECOR.folded) rest on three ledges.
+      for (let row = 0; row < 3; row++) box(g, M.lightWood, [0, .22 + row * .48, .3], [w * .98, .04, d * .5], .02, 4);
     },
     saltbed(g, w, d) {
       for (const [x, z, sw, sd] of [[0, -d / 2, w, .12], [0, d / 2, w, .12], [-w / 2, 0, .12, d], [w / 2, 0, .12, d]]) box(g, M.lightWood, [x, .07, z], [sw + .06, .14, sd], .03, 4);
@@ -359,11 +359,8 @@ export function buildWorld({ scene, kit }) {
     towelshelf(g, w, d) {
       // Two wooden shelves of folded towels in many colours, and a little sign.
       for (const x of [-w / 2 + .05, w / 2 - .05]) box(g, M.darkWood, [x, .7, 0], [.08, 1.4, d], .02, 4);
-      const colors = ['#f6a9c4', '#9fd0f2', '#b6e3a1', '#f7d27c', '#c9b1ee', '#f8b996', '#a7e0d8', '#fbfaf7'].map(c => mat(c, { map: textile, roughness: 1 }));
-      [.3, .78, 1.26].forEach((y, row) => {
-        box(g, M.lightWood, [0, y, 0], [w, .05, d], .02, 4);
-        for (let i = 0; i < 4; i++) for (let k = 0; k < 2; k++) box(g, colors[(i * 2 + row * 3 + k) % colors.length], [-w / 2 + .25 + i * (w - .4) / 3, y + .07 + k * .09, .02], [.3, .085, d * .7], .035, 4);
-      });
+      // The folded towels on it are Meshy props (TOWEL_DECOR.folded).
+      for (const y of [.3, .78, 1.26]) box(g, M.lightWood, [0, y, 0], [w, .05, d], .02, 4);
       sign(g, '양머리 수건', [0, 1.62, 0], 0, 1.2, { bg: '#fff6ea', ink: '#9b5a30', border: '#c99a72' });
     },
     stool(g) { cylinder(g, mat('#e7a27a'), [0, .38, 0], .22, .22, .08, 16); cylinder(g, M.darkWood, [0, .18, 0], .05, .07, .36, 8); }

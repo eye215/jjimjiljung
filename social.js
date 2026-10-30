@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-8';
-import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-8';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-8';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-8';
+import { connect } from './net.js?v=rpg-9';
+import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-9';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-9';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-9';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -12,7 +12,7 @@ const $ = selector => document.querySelector(selector);
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
 
-const dress = (character, code) => { const outfit = decodeOutfit(code) || decodeOutfit('peach'); character.setColors(outfitColors(outfit)); character.setTowel(capOn(outfit)); };
+const dress = (character, code) => { const outfit = decodeOutfit(code) || decodeOutfit('peach'); character.setColors(outfitColors(outfit)); character.setTowel(capOn(outfit)); character.setShoulder?.(outfit.shoulder, outfit.shoulderColor); };
 
 export function createSocial({ scene, camera, kit, viewport, getLocal, makeShadow, actorScale, onLocalBubble, onTrade }) {
   const id = newId();
@@ -63,7 +63,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   function removeRemote(remoteId) {
     const remote = remotes.get(remoteId); if (!remote) return;
     scene.remove(remote.character.root); scene.remove(remote.shadow); remote.label.remove();
-    remote.character.root.traverse(object => { if (object.isMesh) object.geometry.dispose(); });
+    if (remote.character.dispose) remote.character.dispose(); else remote.character.root.traverse(object => { if (object.isMesh) object.geometry.dispose(); });
     remotes.delete(remoteId);
   }
   function readPresence(entry) {

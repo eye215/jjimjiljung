@@ -63,7 +63,7 @@ npm test                         # 테스트 10종 (아래 표)
 - Pages 빌드 상태는 GitHub Actions의 `pages build and deployment` 실행 결과로 확인합니다.
 
 ### 외부 리소스 규칙
-- 기본 원칙은 **CDN 금지, `vendor/`에 직접 포함**입니다. 포함된 것: Three.js 0.170.0(MIT), supabase-js 2.117.3 UMD(MIT). 라이선스 파일도 `vendor/`에 있습니다.
+- 기본 원칙은 **CDN 금지, `vendor/`에 직접 포함**입니다. 포함된 것: Three.js 0.170.0(MIT, 추가 모듈 `vendor/three-addons/`: GLTFLoader·SkeletonUtils·BufferGeometryUtils), supabase-js 2.117.3 UMD(MIT). 라이선스 파일도 `vendor/`에 있습니다.
 - **예외는 필요할 때만 불러오는 외부 스크립트 두 개뿐입니다.**
   1. Kakao JS SDK 2.7.2 (`t1.kakaocdn.net`): 💛 친구 초대를 누를 때만 불러옵니다.
   2. Google 광고 스크립트(`pagead2.googlesyndication.com`): TV 앞에 처음 앉을 때만, 그리고 `ADSENSE_CLIENT`가 설정되어 있을 때만 불러옵니다.
@@ -83,6 +83,7 @@ npm test                         # 테스트 10종 (아래 표)
 | `character.js` | 캐릭터 생성(`createCharacterKit` → `createCharacter(colors)`), 자세 애니메이션(`animate`), 간식 소품·애니메이션(`startSnack`/`stopSnack`), 표정(normal/sleep/happy/chew/dizzy), `celebrate()`, 파티클. 부위별로 메시를 합쳐 캐릭터당 그리기 호출이 약 16회 |
 | `scene.js` | 렌더러, 따라오는 카메라(`view` yaw/pitch/zoom), 입력(조이스틱, WASD, 탭, 드래그, 핀치, 휠), 행동, NPC 손님, 방 감지, 벽 컷어웨이·투명화, 간식 연결, 매점·TV·초대·소셜 연결 |
 | `sleep.js` | 수면실 꿈나라 모드: 1인칭 전환, 별 천장, 은하계(셰이더 돔 + 나선 입자), Web Audio로 만든 자장가 |
+| `props.js` | Meshy 수건 소품 GLB(양머리 `assets/meshy-model-mobile.glb`, 어깨 수건 `assets/towels/shoulder-towel-mobile4.glb`, 베개·깔개·접힌 수건 `assets/towels/*-mobile.glb`) 로드 1회, 인스턴스별 재질·색(`towelMaterial`, `setTowelColor`), 방 장식 인스턴싱(`placeTowelDecor`, 위치는 `world.js`의 `TOWEL_DECOR`). 기본 색 `TOWEL_COLORS`(아이보리·분홍·하늘·연보라·민트·노랑) |
 | `outfit.js` | 옷 데이터: 부위별 랜덤 색(`randomPart`, 초록 편중 없게 색상 앵커 사용), 내 수건 목록(`addTowel`/`removeTowel`/`pickTowel`, 최대 24장), 네트워크 코드 `top.bottom.towel.flags`(flags 1=수건 있음, 2=쓰고 있음), 저장·마이그레이션 |
 | `towel.js` | 양머리 만들기 미니게임(접기 → 좌우 번갈아 말기 → 완성). `open({ color, name, onDone })`이면 상대에게 줄 "똑같이 만들어 주기" 선물 모드 |
 | `social.js` | 다른 접속자 표시(보간), 이름표, 말풍선, 채팅 패널, 닉네임 다이얼로그(자동 추천), 접속 상태, 접속자 수 |
@@ -147,9 +148,15 @@ npm test                         # 테스트 10종 (아래 표)
 
 ### 옷·양머리·수건 교환
 - **옷 버튼(👕🎲)** 한 번에 상의·하의는 완전 랜덤, 수건은 **내 수건 목록 중에서** 랜덤(지금 것과 다른 것 우선). 알림의 [되돌리기]로 복구. 🐑 버튼은 양머리를 만든 뒤에만 보이며 쓰고 벗기.
+- 양머리 만들기 2단계는 2.5D(CSS 3D+SVG): 누를 때마다 그쪽 끝이 말려 들어가며 가운데가 좁아지고 말린 부분이 굵어짐(상태 기반이라 빠른 연타에도 형태가 진행도와 일치). 1단계 펼치기, 3단계 튀어 오름·반짝임. 동작 줄이기 설정이면 애니메이션 생략.
 - **새 손님은 양머리 없이 시작**합니다. "수건 받아서 양머리 만들기 [가기]" 안내 → 매점 **수건 선반(`TOWEL_SPOT`)**으로 걸어가 미니게임. 기존 이용자는 쓰던 색의 양머리를 그대로 받습니다.
 - **다른 손님을 탭**하면 카드(👋 인사, 🔁 수건 바꾸자고 하기). 받는 쪽은 30초 안에 **그대로 바꾸기**(서로 맞바꿈, 준 수건은 목록에서 빠짐) / **똑같이 만들어 주기**(미니게임을 해서 같은 색을 선물, 원래 수건은 남음) / 괜찮아요. 브로드캐스트 `trade` 이벤트(offer, accept, making, gift, decline, cancel)로 두 사람 사이에서만 처리하며 서버 기록은 없습니다(나중에 Phase 5에서 서버 검증 필요).
-- 캐릭터: 2등신 봉제인형 느낌(뽀얀 피부, 펠트 재질, 단발+앞머리, 큰 양머리). 사용자가 Meshy로 만든 3D 모델로 교체 예정(파일 대기, meshy.ai는 작업 환경 네트워크에서 차단됨).
+- **캐릭터는 Meshy GLB** `assets/chibi-mobile.glb`(Mixamo 뼈대, 애니메이션 6개)입니다. `character.js`의 `loadPlushModel` → `createPlush`. 로드 실패 시 기존 절차적 캐릭터로 대체.
+  - 동작 연결: 걷기 `Walking`(조이스틱 끝까지 밀거나 원격 따라잡기 때 `Running`), 앉기 `Sit_Cross_Legged_on_Floor`, 간식 `Sit_and_Drink`(3→5초 구간을 간식 타이밍에 맞춰 스크럽, 그래서 간식은 앉아서 먹음), 눕기 `Sleep_Normally`, 인사 `Wave_One_Hand`. 서 있기는 클립이 없어 기본 자세 + 팔 내리기 + 숨쉬기.
+  - 보정: 동작별 바닥 파묻힘 들어올림(`CLIP_LIFT`), 앉을 때 숙인 고개 펴기, 손이 얼굴·머리 구(반지름 40cm)를 뚫지 않게 팔 회전 보정, 표정(감은 눈·웃는 눈·어지러운 눈)은 눈 위 패치, 짧은 중성 머리는 로드 때 머리카락 정점을 다듬음(`trimHair`).
+  - 옷 색: 텍스처의 흰/회색 천 부분만 셰이더에서 염색(높이 0.32m 기준 상의/하의), 펠트 질감은 sheen과 bump.
+  - 수건 소품: 양머리 GLB는 머리 뼈, 어깨 수건(🧣 버튼, 내 수건 색 중 하나)은 Spine2 뼈, 수건 베개는 누울 때 머리 아래. 방에는 매점 선반·수면실 보관함·휴게실 의자의 접힌 수건, 수면실 침대 베개, 휴게실·수면실·소금방 깔개.
+  - 원본 `assets/towels/Meshy_AI_model1~3.glb`(18~25MB)는 게임에서 쓰지 않습니다(텍스처를 1024 WebP로 줄인 `*-mobile.glb`를 사용). `assets/hair-mobile.glb`는 아직 사용하지 않음.
 
 ### 중앙 휴게실 TV (보상형 광고)
 - **TV 앞 방석(`TV_SEAT`)에 앉으면** 카메라가 TV 쪽으로 돌고, 화면 아래에 "📺 광고 보고 온기 받기 (+3♨)" 버튼이 뜹니다.
@@ -369,4 +376,5 @@ npm test                         # 테스트 10종 (아래 표)
 | #8 | 중앙 휴게실 TV 보상형 광고, 매점→TV 안내, 개인정보처리방침 |
 | #9 | 인수인계 README |
 | #10 | 봉제인형 캐릭터, 옷 랜덤 버튼, 양머리 미니게임, 수건 목록·교환 |
+| #11 | Meshy GLB 캐릭터(애니메이션 6개), 짧은 머리, 수건 소품 4종(양머리·어깨 수건·베개·깔개·접힌 수건), 미니게임 2.5D 말기 |
 | #9 | 이 인수인계 문서와 `docs/mockups/` |

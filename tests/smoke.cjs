@@ -54,7 +54,8 @@ const server = http.createServer((req, res) => {
     await ready(page);
     await page.waitForTimeout(800);
     const initialRig = await state(page);
-    assert(initialRig.arms.flat().every(angle => Number.isFinite(angle) && Math.abs(angle) < .2), 'Stale initial RAF must not destabilize resting arms');
+    // Resting arms hang slightly lowered from the plush bind pose (about .55 rad).
+    assert(initialRig.arms.flat().every(angle => Number.isFinite(angle) && Math.abs(angle) < .8), 'Stale initial RAF must not destabilize resting arms');
     assert.equal(initialRig.room, 'lobby', 'Visitors start in the central lobby');
     assert.match(await page.locator('.room-badge').textContent(), /중앙 휴게실/);
     assert.equal(await page.locator('#loading').isVisible(), false);
@@ -203,7 +204,7 @@ const server = http.createServer((req, res) => {
       if (action === 'wave') {
         await page.waitForFunction(() => {
           const s = window.__characterTestState();
-          return s.expression === 'happy' && s.arms.flat().some(angle => Math.abs(angle) > .5);
+          return s.expression === 'happy' && s.arms.flat().some(angle => Math.abs(angle) > 1);
         }, null, { timeout: 8000 });
       }
       await page.screenshot({ path: path.join(output, `${action}.png`) });
