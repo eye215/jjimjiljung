@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><link rel="stylesheet" href="./style.css?v=rpg-4">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><link rel="stylesheet" href="./style.css?v=rpg-5">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -18,6 +18,10 @@
 <p id="chat-note" role="status" hidden></p>
 <form id="chat-form" autocomplete="off"><input id="chat-input" name="message" type="text" enterkeyhint="send" placeholder="따뜻한 한마디를 남겨요" aria-label="채팅 메시지"><button type="submit">보내기</button></form>
 </section>
+<button id="wallet" aria-label="온기와 간식 가방, 매점 열기"><span>♨ <b id="wallet-points">0</b></span><span>🥚 <b id="wallet-egg">0</b></span><span>🥤 <b id="wallet-drink">0</b></span></button>
+<button id="shop-open" hidden>🛒 매점 이용하기</button>
+<section id="game" aria-live="polite" hidden><h2 id="game-title"></h2><div id="game-body"></div><p id="game-result" hidden></p></section>
+<div id="toast" role="status" hidden><span></span><button type="button" hidden></button></div>
 <div id="destination-label" role="status" hidden></div>
 <div id="sleep-bar" role="group" aria-label="꿈나라 모드" hidden><span>☾ 꿈나라 모드</span><button id="sleep-music" aria-pressed="true">♪ 음악 끄기</button><button id="wake">일어나기</button></div>
 <div class="room-badge" aria-live="polite"><i></i> 중앙 휴게실 <span>모두 모이는 곳</span></div><div class="scene-hint" id="hint">바닥을 눌러 이동 · 끌어서 시점 회전</div>
@@ -29,7 +33,7 @@
 <section class="controls" aria-label="캐릭터 꾸미기와 행동">
 <div class="welcome"><span class="tiny-label">나의 작은 쉼표</span><h2 id="status" aria-live="polite">어서 와요, 푹 쉬다 가요.</h2><div class="outfits" role="group" aria-label="찜질복 색상"><span>오늘의 찜질복</span><button class="swatch peach active" data-color="peach" aria-label="살구색 찜질복" aria-pressed="true"></button><button class="swatch mint" data-color="mint" aria-label="민트색 찜질복" aria-pressed="false"></button><button class="swatch lilac" data-color="lilac" aria-label="라일락색 찜질복" aria-pressed="false"></button></div></div>
 <div class="actions" role="group" aria-label="쉬는 방법">
-<button data-action="stand" class="selected" aria-pressed="true"><span class="action-icon">♧</span><b>산책</b><small>사뿐사뿐</small></button><button data-action="sit" aria-pressed="false"><span class="action-icon">♨</span><b>앉기</b><small>따끈하게</small></button><button data-action="lie" aria-pressed="false"><span class="action-icon">☾</span><b>눕기</b><small>잠깐 눈 감기</small></button><button data-action="egg" aria-pressed="false"><span class="action-icon">🥚</span><b>계란</b><small>소소한 행복</small></button><button data-action="drink" aria-pressed="false"><span class="action-icon">🥤</span><b>식혜</b><small>시원한 한 모금</small></button>
+<button data-action="stand" class="selected" aria-pressed="true"><span class="action-icon">♧</span><b>산책</b><small>사뿐사뿐</small></button><button data-action="sit" aria-pressed="false"><span class="action-icon">♨</span><b>앉기</b><small>따끈하게</small></button><button data-action="lie" aria-pressed="false"><span class="action-icon">☾</span><b>눕기</b><small>잠깐 눈 감기</small></button><button data-action="egg" aria-pressed="false"><span class="action-icon">🥚<em class="count">0</em></span><b>계란</b><small>소소한 행복</small></button><button data-action="drink" aria-pressed="false"><span class="action-icon">🥤<em class="count">0</em></span><b>식혜</b><small>시원한 한 모금</small></button>
 <button data-action="wave" aria-pressed="false"><span class="action-icon">👋</span><b>인사</b><small>반가워요</small></button>
 </div></section>
 </main><footer><span>몸도 마음도 말랑해지는 곳</span><span>잠시 쉬어가는 중 <i>✦</i></span></footer>
@@ -41,6 +45,16 @@
 <p id="join-note" role="alert"></p>
 <div class="join-actions"><button type="button" id="join-solo">혼자 둘러보기</button><button type="submit" id="join-enter">입장하기</button></div>
 </form>
+</dialog>
+<dialog id="shop-dialog" aria-labelledby="shop-title">
+<div class="places-heading"><div><span class="places-eyebrow">따끈한 간식 코너</span><h2 id="shop-title">매점</h2></div><span id="shop-balance">♨ 0</span><button id="shop-close" aria-label="매점 닫기">×</button></div>
+<div class="shop-items">
+<article data-snack="egg"><div class="snack-art egg" aria-hidden="true"></div><div><h3>맥반석 구운 계란</h3><p>껍질 톡톡 까서 세 입에 냠냠</p><span class="bag"></span></div><div class="shop-actions"><button data-free>🎁 오늘 무료 받기</button><button data-buy>♨ 5 사기</button></div></article>
+<article data-snack="drink"><div class="snack-art drink" aria-hidden="true"></div><div><h3>살얼음 식혜</h3><p>밥알 동동, 시원하게 쭈욱</p><span class="bag"></span></div><div class="shop-actions"><button data-free>🎁 오늘 무료 받기</button><button data-buy>♨ 5 사기</button></div></article>
+</div>
+<h3 class="shop-sub">미니게임 <small>성공하면 온기를 받아요</small></h3>
+<div class="shop-games"><button data-game="egg">🥚 이마로 계란 깨기<small>계란 1개 사용</small></button><button data-game="drink">🥤 식혜 원샷<small>식혜 1개 사용</small></button></div>
+<p class="places-footnote">계란·식혜는 하루에 하나씩 무료예요. 앉거나 누워서 쉬면 30초마다 온기 ♨가 모여요 (불가마·소금방은 두 배).</p>
 </dialog>
 <dialog id="places-dialog" aria-labelledby="places-title" aria-describedby="places-description">
 <div class="places-heading"><div><span class="places-eyebrow">작은 찜질방 산책</span><h2 id="places-title">어디로 가볼까요?</h2></div><button id="places-close" aria-label="둘러보기 닫기">×</button></div>
@@ -61,5 +75,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-4').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-5').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>

@@ -1,10 +1,12 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-4';
-import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-4';
-import { buildWorld } from './environment.js?v=rpg-4';
-import { ROOMS, DESTINATIONS, SPAWN, roomAt } from './world.js?v=rpg-4';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-4';
-import { createSocial } from './social.js?v=rpg-4';
+import { planPath, stepMovement } from './navigation.js?v=rpg-5';
+import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-5';
+import { buildWorld } from './environment.js?v=rpg-5';
+import { ROOMS, DESTINATIONS, SPAWN, roomAt } from './world.js?v=rpg-5';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-5';
+import { createSocial } from './social.js?v=rpg-5';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-5';
+import { createShop } from './shop.js?v=rpg-5';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -83,14 +85,34 @@ const motePositions = new Float32Array(40 * 3); for (let i = 0; i < 40; i++) { m
 const motesGeometry = new THREE.BufferGeometry(); motesGeometry.setAttribute('position', new THREE.BufferAttribute(motePositions, 3));
 const motes = new THREE.Points(motesGeometry, new THREE.PointsMaterial({ color: '#fff3ce', size: .05, transparent: true, opacity: .55, depthWrite: false })); scene.add(motes);
 
-let social = null, localWalking = false;
+let social = null, localWalking = false, snackSig = '', snackSerial = 0, restTimer = 0;
 let action = 'stand', facing = 0, elapsed = 0, contextLost = false, raf = 0, lastTime = 0;
 const target = new THREE.Vector3(SPAWN.x, 0, SPAWN.z);
 const route = [];
 let activeDestination = null, currentRoom = null;
 const joystickInput = { x: 0, z: 0 };
 const keys = new Set();
-const messages = { stand: '어서 와요, 푹 쉬다 가요.', sit: '따끈따끈, 마음까지 풀리는 중.', lie: '오늘도 애썼어요. 잠깐 눈 감아요.', egg: '톡, 한 입. 이 맛에 찜질방 오죠.', drink: '달고 시원해. 식혜 한 모금의 행복.', wave: '안녕! 같이 쉬어 가요.' };
+const messages = { stand: '어서 와요, 푹 쉬다 가요.', sit: '따끈따끈, 마음까지 풀리는 중.', lie: '오늘도 애썼어요. 잠깐 눈 감아요.', wave: '안녕! 같이 쉬어 가요.' };
+// ---------- 매점 wallet, toasts and shop ----------
+const wallet = createWallet();
+const toastBox = document.querySelector('#toast'), toastText = toastBox.querySelector('span'), toastButton = toastBox.querySelector('button');
+let toastTimer2 = 0, toastAction = null;
+function toast(text, label = '', onClick = null) {
+  toastText.textContent = text; toastButton.hidden = !label; toastButton.textContent = label; toastAction = onClick;
+  toastBox.hidden = false; clearTimeout(toastTimer2); toastTimer2 = setTimeout(() => { toastBox.hidden = true; }, label ? 5000 : 2600);
+}
+toastButton.addEventListener('click', () => { toastBox.hidden = true; toastAction?.(); });
+const shop = createShop({
+  wallet, toast,
+  eat: (kind, style) => eat(kind, style),
+  play: (kind, style) => eat(kind, style),
+  goToShop: () => {
+    const place = DESTINATIONS.shop; openShopOnArrival = true;
+    if (currentRoom.id === 'shop') { openShopOnArrival = false; shop.openShop(); return; }
+    moveTo(place.x, place.z); activeDestination = place; status.textContent = '매점으로 걸어가는 중이에요.';
+  }
+});
+shop.bind({ current: () => player.snack, stop: () => interruptSnack() });
 const walkHint = coarsePointer ? '바닥을 눌러 이동 · 끌어서 시점 회전' : 'WASD·방향키 이동 · 끌어서 회전 · 휠 확대';
 const destinationMarker = mesh(new THREE.TorusGeometry(.2, .025, 8, 40), new THREE.MeshBasicMaterial({ color: '#ffe1a0', transparent: true, opacity: .9, depthWrite: false }), scene);
 destinationMarker.rotation.x = -Math.PI / 2; destinationMarker.castShadow = false; destinationMarker.visible = false;
@@ -128,10 +150,11 @@ function resize() {
 }
 
 function updateActionButtons() {
-  for (const button of actionButtons) { const selected = button.dataset.action === action; button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected)); }
+  for (const button of actionButtons) { const selected = button.dataset.action === action || button.dataset.action === player.snack?.kind; button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected)); }
 }
 function setAction(next) {
   if (!messages[next]) return;
+  interruptSnack();
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick();
   action = next; target.copy(hero.position); status.textContent = messages[next];
   updateActionButtons();
@@ -141,7 +164,27 @@ function setAction(next) {
   if (next === 'lie') facing = currentRoom?.id === 'sleep' ? 0 : view.yaw + Math.PI / 2;
   hint.textContent = next === 'stand' ? walkHint : '다시 걷고 싶으면 바닥을 톡 눌러요 ↗';
 }
-actionButtons.forEach(button => button.addEventListener('click', () => setAction(button.dataset.action)));
+actionButtons.forEach(button => button.addEventListener('click', () => {
+  const kind = button.dataset.action;
+  if (kind === 'egg' || kind === 'drink') { if (player.snack?.kind !== kind && !shop.playing) shop.request(kind); } else setAction(kind);
+}));
+// ---------- Snacks: eaten in the current pose (sitting or standing) ----------
+function interruptSnack() { if (player.snack) { player.stopSnack(); snackSig = ''; } }
+function eat(kind, style = 'normal') {
+  if (action === 'lie' || action === 'wave') setAction(action === 'lie' ? 'sit' : 'stand'); else interruptSnack();
+  route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick(); keys.clear();
+  facing = view.yaw; snackSig = `${kind}:${style}:${++snackSerial}`;
+  const serial = snackSig;
+  player.startSnack(kind, { style, onDone: finished => {
+    if (snackSig === serial) snackSig = '';
+    updateActionButtons();
+    if (finished) status.textContent = kind === 'egg' ? '냠, 다 먹었다! 고소하고 든든해요.' : '캬~ 속까지 시원해요.';
+  } });
+  status.textContent = kind === 'egg' ? (style === 'forehead' ? '이마로 톡! 계란 깨기 도전…' : '톡톡, 맥반석 계란 까는 중…') : style === 'oneshot' ? '살얼음 식혜 원샷 도전!' : '살얼음 식혜 한 모금…';
+  hint.textContent = '걸으면 간식을 내려놓아요';
+  updateActionButtons();
+  return player.snack;
+}
 function setOutfit(color) {
   if (!PALETTES[color]) return; player.setColors(PALETTES[color]);
   for (const b of outfitButtons) { const active = b.dataset.color === color; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); }
@@ -153,7 +196,7 @@ setOutfit(savedOutfit);
 
 const raycaster = new THREE.Raycaster(); const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); const hit = new THREE.Vector3();
 function moveTo(x, z) {
-  if (action !== 'stand') setAction('stand');
+  if (action !== 'stand') setAction('stand'); else interruptSnack();
   route.length = 0; activeDestination = null;
   route.push(...planPath({ x: hero.position.x, z: hero.position.z }, { x, z }));
   if (route.length) { const end = route[route.length - 1]; target.set(end.x, 0, end.z); destinationMarker.position.set(end.x, .03, end.z); destinationMarker.visible = true; }
@@ -162,7 +205,9 @@ function arrive() {
   const place = activeDestination;
   destinationMarker.visible = false;
   if (place) { setAction(place.action || 'stand'); activeDestination = place; status.textContent = place.arrival; }
+  if (place?.id === 'shop' && openShopOnArrival) { openShopOnArrival = false; shop.openShop(); }
 }
+let openShopOnArrival = false;
 
 let toastTimer = 0;
 function enterRoom(room) {
@@ -210,7 +255,7 @@ function updateJoystick(event) {
 }
 joystick.addEventListener('pointerdown', event => {
   if (contextLost || joystickPointer !== null || placesDialog.open) return;
-  event.preventDefault(); if (action !== 'stand') setAction('stand'); route.length = 0; activeDestination = null; destinationMarker.visible = false;
+  event.preventDefault(); if (action !== 'stand') setAction('stand'); else interruptSnack(); route.length = 0; activeDestination = null; destinationMarker.visible = false;
   joystickPointer = event.pointerId;
   joystick.setPointerCapture(event.pointerId); joystick.classList.add('engaged'); updateJoystick(event);
 });
@@ -268,7 +313,7 @@ document.addEventListener('keydown', e => {
   if (direction) {
     // Leave Space/Enter on focused buttons alone; arrows still scroll nothing here.
     e.preventDefault(); keys.add(direction);
-    if (action !== 'stand') setAction('stand');
+    if (action !== 'stand') setAction('stand'); else interruptSnack();
     route.length = 0; activeDestination = null; destinationMarker.visible = false;
     return;
   }
@@ -403,6 +448,12 @@ function frame(now) {
   world.update(elapsed, reducedMotion);
   updateOcclusion(dt);
   localWalking = walking; social?.update(dt, reducedMotion);
+  // Resting earns 온기: every 30 s sitting or lying (double in 불가마 and 소금방).
+  if ((action === 'sit' || action === 'lie') && !shop.playing) {
+    restTimer += dt;
+    if (restTimer >= REST_SECONDS) { restTimer = 0; const got = wallet.earn(currentRoom.id === 'hot' || currentRoom.id === 'salt' ? 2 : 1); if (got) toast(`쉬는 동안 온기가 모였어요 +${got}♨`); }
+  } else restTimer = Math.min(restTimer, REST_SECONDS * .5);
+  shop.setNearShop(currentRoom.id === 'shop');
   motes.visible = !reducedMotion; if (!reducedMotion) { motes.position.set(view.focus.x, 0, view.focus.z); motes.rotation.y = elapsed * .02; }
   renderer.render(scene, camera); raf = requestAnimationFrame(frame);
 }
@@ -421,5 +472,5 @@ window.lockRoomControls(false);
 document.querySelector('#chat-input').addEventListener('focus', () => { keys.clear(); stopJoystick(); });
 social = createSocial({
   scene, camera, kit, viewport, actorScale: ACTOR_SCALE, makeShadow: contactShadow,
-  getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, walking: localWalking, outfit: savedOutfit, room: currentRoom.id, visible: hero.visible })
+  getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, snack: snackSig, walking: localWalking, outfit: savedOutfit, room: currentRoom.id, visible: hero.visible })
 });

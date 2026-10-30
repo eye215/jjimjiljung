@@ -37,6 +37,8 @@ const server = http.createServer((req, res) => {
       const response = await route.fetch();
       await route.fulfill({ response, body: (await response.text()) + '\nwindow.__characterTestState = () => ({ action, arms: arms.map(a => [a.rotation.x,a.rotation.z]), legs: legs.map(a => [a.rotation.x,a.rotation.z]), position: [hero.position.x,hero.position.z], target: [target.x,target.z], joystick: [joystickInput.x,joystickInput.z], destination: activeDestination?.id || null, routeRemaining: route.length, expression: player.expression(), room: currentRoom.id, yaw: view.yaw, zoom: view.zoom, faded: world.fadeUnits.filter(unit => unit.opacity < .9 || unit.cut < .5).length, camera: [camera.position.x, camera.position.y, camera.position.z] });\nwindow.__teleport = (x, z) => { route.length = 0; activeDestination = null; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); };' });
     });
+    // A well-stocked snack bag, so pose checks can eat freely (the shop has its own test).
+    await page.addInitScript(() => localStorage.setItem('jjimjiljung-wallet-v1', JSON.stringify({ points: 500, bag: { egg: 99, drink: 99 }, free: { egg: '', drink: '' } })));
     // Reproduce a stale first RAF timestamp after slow shader compilation.
     await page.addInitScript(() => {
       const original = window.requestAnimationFrame; let first = true;
@@ -67,7 +69,9 @@ const server = http.createServer((req, res) => {
       for (const action of ['sit', 'lie', 'egg', 'drink', 'wave', 'stand']) {
         await page.locator(`[data-action="${action}"]`).click();
         assert.equal(await page.locator(`[data-action="${action}"]`).getAttribute('aria-pressed'), 'true');
-        assert.equal(await page.locator('.actions [aria-pressed="true"]').count(), 1);
+        // A snack layers on a pose (e.g. 앉기 + 계란), so at most two can be pressed.
+        const pressed = await page.locator('.actions [aria-pressed="true"]').count();
+        assert(pressed >= 1 && pressed <= 2);
         const joints = await state(page);
         assert([...joints.arms.flat(), ...joints.legs.flat()].every(angle => Number.isFinite(angle) && Math.abs(angle) < 3.2), 'Joint rotations stay within natural pose limits');
       }

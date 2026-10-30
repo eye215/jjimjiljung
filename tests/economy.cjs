@@ -1,0 +1,32 @@
+const assert = require('node:assert/strict');
+(async () => {
+  const { createWallet, koreaDay, scoreEggCrack, scoreOneShot, WELCOME_POINTS, DAILY_EARN_CAP } = await import('../economy.js');
+  const memory = () => { const data = new Map(); return { getItem: k => data.get(k) ?? null, setItem: (k, v) => data.set(k, String(v)) }; };
+  // 2026-10-30 23:30 KST is 14:30 UTC; midnight KST is 15:00 UTC.
+  let clock = new Date('2026-10-30T14:30:00Z');
+  const storage = memory(), wallet = createWallet({ storage, now: () => clock });
+  assert.equal(koreaDay(clock), '2026-10-30');
+  assert.equal(wallet.snapshot().points, WELCOME_POINTS, 'Welcome points');
+  assert.equal(wallet.consume('egg'), false, 'Empty bag cannot be eaten from');
+  assert(wallet.claimFree('egg')); assert.equal(wallet.claimFree('egg'), false, 'One free egg per day');
+  assert(wallet.claimFree('drink'));
+  assert.deepEqual(wallet.snapshot().bag, { egg: 1, drink: 1 });
+  assert(wallet.buy('egg')); assert(wallet.buy('drink')); assert.equal(wallet.buy('egg'), false, 'Cannot buy without enough 온기');
+  assert.equal(wallet.snapshot().points, 0);
+  assert(wallet.consume('egg')); assert.equal(wallet.count('egg'), 1);
+  assert.equal(wallet.buy('ramen'), false); assert.equal(wallet.claimFree('__proto__'), false);
+  clock = new Date('2026-10-30T15:00:01Z');
+  assert.equal(koreaDay(clock), '2026-10-31', 'Day changes at midnight Korea time');
+  assert(wallet.freeAvailable('egg') && wallet.claimFree('egg'), 'A new free egg the next day');
+  let total = 0; for (let i = 0; i < 100; i++) total += wallet.earn(2);
+  assert.equal(total, DAILY_EARN_CAP, 'Daily earning cap');
+  const reloaded = createWallet({ storage, now: () => clock });
+  assert.deepEqual(reloaded.snapshot(), wallet.snapshot(), 'Wallet persists');
+  const tampered = memory(); tampered.setItem('jjimjiljung-wallet-v1', '{"points":-5,"bag":{"egg":"lots"}}');
+  assert.deepEqual(createWallet({ storage: tampered, now: () => clock }).snapshot().bag, { egg: 0, drink: 0 }, 'Malformed saves are sanitised');
+  assert.equal(scoreEggCrack(.5).grade, 'perfect'); assert.equal(scoreEggCrack(.62).grade, 'good'); assert.equal(scoreEggCrack(.95).grade, 'miss');
+  assert.equal(scoreOneShot({ finished: true, frozen: false, peak: .5 }).points, 3);
+  assert.equal(scoreOneShot({ finished: true, frozen: false, peak: .9 }).points, 2);
+  assert.equal(scoreOneShot({ finished: false, frozen: true, peak: 1 }).points, 0);
+  console.log('PASS: wallet welcome points, empty bag, one free egg/sikhye per Korea day, buying, persistence, sanitising, daily earning cap, mini-game scoring.');
+})().catch(error => { console.error(error); process.exitCode = 1; });

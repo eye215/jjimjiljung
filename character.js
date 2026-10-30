@@ -98,10 +98,29 @@ export function createCharacterKit(renderer) {
       }
       c.strokeStyle = '#ba7956'; c.lineWidth = 6; c.beginPath();
       if (expression === 'sleep') { c.ellipse(256, 390, 6, 8, 0, 0, Math.PI * 2); c.stroke(); }
-      else { c.moveTo(244, 382); c.quadraticCurveTo(256, expression === 'happy' ? 404 : 396, 268, 382); c.stroke(); }
+      else if (expression === 'chew') {
+        // Puffed, rosy cheeks and a little munching mouth.
+        for (const x of [118, 394]) { const g = c.createRadialGradient(x, 352, 0, x, 352, 58); g.addColorStop(0, 'rgba(240,140,110,.5)'); g.addColorStop(1, 'rgba(240,140,110,0)'); c.fillStyle = g; c.fillRect(x - 60, 292, 120, 120); }
+        c.moveTo(240, 388); c.quadraticCurveTo(248, 398, 256, 388); c.quadraticCurveTo(264, 398, 272, 388); c.stroke();
+      } else if (expression === 'dizzy') {
+        c.lineWidth = 5; c.strokeStyle = '#4e3428';
+        for (const x of [151, 361]) { c.beginPath(); for (let a = 0; a < 12; a += .3) c.lineTo(x + Math.cos(a) * a * 1.6, 318 + Math.sin(a) * a * 1.6); c.stroke(); }
+        c.strokeStyle = '#ba7956'; c.beginPath(); c.moveTo(238, 392); for (let i = 1; i <= 6; i++) c.lineTo(238 + i * 6, 392 + (i % 2 ? -6 : 0)); c.stroke();
+      } else { c.moveTo(244, 382); c.quadraticCurveTo(256, expression === 'happy' ? 404 : 396, 268, 382); c.stroke(); }
     }, 512, 512);
   }
-  const faces = { normal: faceTexture('normal'), sleep: faceTexture('sleep'), happy: faceTexture('happy') };
+  const faces = { normal: faceTexture('normal'), sleep: faceTexture('sleep'), happy: faceTexture('happy'), chew: faceTexture('chew'), dizzy: faceTexture('dizzy') };
+  // Snack textures: a speckled 맥반석 shell and a paper 식혜 cup.
+  const shellTexture = canvasTexture((c, w, h) => {
+    const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#c98a55'); g.addColorStop(1, '#9c6236'); c.fillStyle = g; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 900; i++) { c.fillStyle = random() > .5 ? 'rgba(80,40,20,.35)' : 'rgba(255,220,180,.25)'; c.beginPath(); c.arc(random() * w, random() * h, random() * 2.2 + .4, 0, 7); c.fill(); }
+  }, 256, 128);
+  const cupTexture = canvasTexture((c, w, h) => {
+    c.fillStyle = '#fff6e6'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#e9b98c'; c.fillRect(0, 0, w, 16); c.fillRect(0, h - 22, w, 22);
+    c.fillStyle = '#b5652e'; c.font = `800 46px ${'"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR","WenQuanYi Zen Hei",sans-serif'}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    for (const x of [w * .25, w * .75]) { c.fillText('식혜', x, h * .5); for (let i = 0; i < 5; i++) { c.fillStyle = '#f3dcb8'; c.beginPath(); c.ellipse(x - 30 + i * 15, h * .5 + 34, 5, 3, .4, 0, 7); c.fill(); } c.fillStyle = '#b5652e'; }
+  }, 512, 160);
   const headGeometry = new THREE.SphereGeometry(1, 64, 40);
   const hp = headGeometry.attributes.position;
   for (let i = 0; i < hp.count; i++) {
@@ -197,52 +216,127 @@ export function createCharacterKit(renderer) {
       const crease = []; for (let i = 0; i <= 35; i++) { const a = i / 35 * Math.PI * 2.2, r = .035 + .13 * i / 35; crease.push([Math.cos(a) * r, Math.sin(a) * r * 1.13, .264 - .035 * i / 35]); }
       tube(roll, seam, crease, .006);
     }
-    // Props for resting and snacks.
+    // Props for resting and snacks. Snacks are held in both hands in front of
+    // the chest (a rig child), then raised to the mouth for each bite or sip.
     const pillow = box(root, mat('#ebd7b8', { map: textile }), [0, .13, -.83], [1.12, .22, .72], .10); pillow.visible = false;
-    const snack = new THREE.Group(); arms[1].add(snack); snack.position.set(.09, -.365, .12);
-    ellipsoid(snack, mat('#d8a36d'), [0, 0, 0], [.105, .14, .10]);
-    ellipsoid(snack, mat('#fff3d4'), [0, .065, .022], [.093, .085, .09]);
-    const drink = new THREE.Group(); arms[1].add(drink); drink.position.set(.09, -.35, .13);
-    drink.rotation.x = 2.0;
-    cylinder(drink, mat('#dfc09b'), [0, 0, 0], .12, .09, .24);
-    cylinder(drink, mat('#f9ebce'), [0, .125, 0], .13, .13, .025);
-    box(drink, mat('#b98961'), [0, 0, .112], [.075, .08, .008], .003);
-    tube(drink, mat('#f7eee0'), [[.035, .14, 0], [.035, .30, 0], [-.025, .34, 0]], .013);
-    snack.visible = drink.visible = false;
+    const snackRoot = new THREE.Group(); snackRoot.position.set(0, .84, .6); snackRoot.scale.setScalar(1.35); snackRoot.visible = false; rig.add(snackRoot);
+    const egg = new THREE.Group(); snackRoot.add(egg);
+    const shell = ellipsoid(egg, mat('#ffffff', { map: shellTexture, roughness: .55 }), [0, 0, 0], [.15, .19, .15]);
+    const peeled = new THREE.Group(); egg.add(peeled);
+    ellipsoid(peeled, mat('#fffaf0', { roughness: .25 }), [0, 0, 0], [.14, .18, .14]);
+    const yolk = ellipsoid(peeled, mat('#f6b73c', { roughness: .5 }), [0, .02, 0], [.085, .06, .085]);
+    const cup = new THREE.Group(); snackRoot.add(cup);
+    const paper = mat('#ffffff', { map: cupTexture, roughness: .9 });
+    const cupBody = mesh(new THREE.CylinderGeometry(.15, .115, .36, 28, 1, true), paper, cup); cupBody.material.side = THREE.DoubleSide;
+    cylinder(cup, mat('#f3e6cf'), [0, -.178, 0], .115, .115, .012, 28);
+    mesh(new THREE.TorusGeometry(.15, .012, 8, 28), mat('#f1dcbc'), cup, [0, .18, 0]).rotation.x = Math.PI / 2;
+    const liquid = new THREE.Group(); cup.add(liquid);
+    cylinder(liquid, mat('#f2e2bf', { roughness: .2, transparent: true, opacity: .92 }), [0, 0, 0], .142, .142, .01, 28);
+    for (let i = 0; i < 9; i++) { const a = i * 2.4, r = .03 + (i % 3) * .035; ellipsoid(liquid, mat('#fffdf6'), [Math.cos(a) * r, .008, Math.sin(a) * r], [.018, .007, .011]).rotation.y = a; }
+    tube(cup, mat('#ef8f7a'), [[.04, .08, -.02], [.05, .3, -.03], [.03, .38, .05], [0, .4, .1]], .016);
+    // Shell shards and sparkles for the crack and the happy finish.
+    const bursts = [];
+    for (let i = 0; i < 12; i++) {
+      const sparkle = i >= 7, piece = mesh(sparkle ? new THREE.OctahedronGeometry(.035) : new THREE.TetrahedronGeometry(.04), sparkle ? new THREE.MeshBasicMaterial({ color: '#ffe48a' }) : mat('#a96a3c'), rig);
+      piece.visible = false; piece.castShadow = false; bursts.push({ piece, sparkle, velocity: new THREE.Vector3(), life: 0 });
+    }
     compact(head);
-    compact(rig, [...legs, ...arms, head]);
+    compact(rig, [...legs, ...arms, head, snackRoot, ...bursts.map(b => b.piece)]);
     legs.forEach(leg => compact(leg));
-    arms.forEach(arm => compact(arm, [snack, drink]));
+    arms.forEach(arm => compact(arm));
 
-    const character = { root, rig, head, arms, legs, faceMaterial, materials, pillow, snack, drink, elapsed: random() * 10, blinkOffset: random() * 4 };
+    const character = { root, rig, head, arms, legs, faceMaterial, materials, pillow, snackRoot, snack: null, elapsed: random() * 10, blinkOffset: random() * 4 };
     character.setColors = next => {
       materials.cloth.color.set(next[0]); materials.trouser.color.set(next[1]); materials.trim.color.set(next[2]);
       materials.towel.color.set(next[3]); materials.seam.color.set(next[4]);
     };
     character.setExpression = expression => { if (faceMaterial.map !== faces[expression]) { faceMaterial.map = faces[expression]; faceMaterial.needsUpdate = true; } };
     character.expression = () => Object.entries(faces).find(([, texture]) => texture === faceMaterial.map)?.[0];
-    // Shared pose animation for the player, NPCs and future remote visitors.
+    // ---------- Snacks: egg (crack, peel, three bites) and sikhye (four sips) ----------
+    const burst = (sparkle, origin) => {
+      for (const b of bursts) if (b.sparkle === sparkle) {
+        b.piece.visible = true; b.piece.position.copy(origin); b.life = sparkle ? 1 : .9;
+        b.velocity.set((random() - .5) * 1.4, .6 + random() * .9, .2 + random() * .6);
+      }
+    };
+    const egg3 = new THREE.Vector3(), CHEST = new THREE.Vector3(0, .84, .6), MOUTH = new THREE.Vector3(0, 1.22, .62), BROW = new THREE.Vector3(0, 1.93, .66);
+    // 0→1→0 envelope: rise `up` s from `at`, hold, then lower over `down` s.
+    const bump = (t, at, up, hold, down) => t < at ? 0 : t < at + up ? (t - at) / up : t < at + up + hold ? 1 : t < at + up + hold + down ? 1 - (t - at - up - hold) / down : 0;
+    character.startSnack = (kind, { style = 'normal', onDone = null } = {}) => {
+      character.snack = { kind, style, t: 0, level: 1, hold: false, frozen: false, cracked: false, finished: false, onDone };
+      snackRoot.visible = true; egg.visible = kind === 'egg'; cup.visible = kind === 'drink';
+      shell.visible = true; peeled.visible = false; peeled.scale.setScalar(1); yolk.visible = false; liquid.visible = true; liquid.position.y = .15;
+    };
+    character.stopSnack = () => { const done = character.snack?.onDone; character.snack = null; snackRoot.visible = false; done?.(false); };
+    function snackPose(dt) {
+      const s = character.snack; if (!s) return null;
+      s.t += dt; const t = s.t;
+      let mouth = 0, brow = 0, face = 'happy', end = 0;
+      if (s.kind === 'egg') {
+        const crackAt = s.style === 'forehead' ? 1.3 : 1.4;
+        if (s.style === 'forehead') brow = bump(t, .5, .5, .3, .4); else mouth = 0;
+        if (!s.cracked && t >= crackAt) {
+          s.cracked = true; shell.visible = false; peeled.visible = true;
+          snackRoot.getWorldPosition(egg3); rig.worldToLocal(egg3); burst(false, egg3);
+        }
+        const bites = [2.0, 3.4, 4.8];
+        bites.forEach((at, i) => { const m = bump(t, at, .35, .45, .35); mouth = Math.max(mouth, m); if (t > at + .5) { peeled.scale.setScalar(1 - (i + 1) * .26); yolk.visible = true; } });
+        if (t > bites[2] + .5) peeled.visible = false;
+        face = mouth > .6 ? 'chew' : t < crackAt ? 'normal' : 'happy';
+        end = 6.6;
+      } else {
+        if (s.style === 'oneshot') {
+          mouth = s.hold ? 1 : 0; face = s.frozen ? 'dizzy' : s.hold ? 'chew' : 'happy';
+          if (s.finished) { mouth = 0; face = s.frozen ? 'dizzy' : 'happy'; }
+        } else {
+          const sips = [1.0, 2.2, 3.4, 4.6];
+          sips.forEach(at => { const m = bump(t, at, .3, .45, .25); mouth = Math.max(mouth, m); if (m > .9) s.level = Math.max(0, s.level - dt / (.45 * sips.length)); });
+          face = mouth > .6 ? 'chew' : 'happy'; end = 6.4;
+        }
+        liquid.position.y = -.16 + .31 * s.level; liquid.visible = s.level > .02;
+      }
+      if (end && t >= end - .6 && !s.finished) { s.finished = true; snackRoot.getWorldPosition(egg3); rig.worldToLocal(egg3); burst(true, egg3.add(new THREE.Vector3(0, .25, 0))); }
+      if (end && t >= end) { const done = s.onDone; character.snack = null; snackRoot.visible = false; done?.(true); return null; }
+      snackRoot.position.copy(CHEST).lerp(MOUTH, mouth).lerp(BROW, brow);
+      snackRoot.rotation.x = s.kind === 'drink' ? -mouth * .5 : 0;
+      return { mouth: Math.max(mouth, brow * 1.25), face, nod: brow };
+    }
+    function updateBursts(dt) {
+      for (const b of bursts) {
+        if (!b.piece.visible) continue;
+        b.life -= dt; if (b.life <= 0) { b.piece.visible = false; continue; }
+        b.velocity.y -= (b.sparkle ? 1.2 : 5) * dt; b.piece.position.addScaledVector(b.velocity, dt);
+        b.piece.rotation.x += dt * 6; b.piece.rotation.y += dt * 5; b.piece.scale.setScalar(b.sparkle ? b.life : 1);
+      }
+    }
+
+    // Shared pose animation for the player, NPCs and remote visitors. `action` is
+    // the posture (stand, sit, lie, wave); a snack in progress layers on top of it.
     character.animate = (action, walking, dt, reducedMotion, speed = 1) => {
       const damp = (object, key, to, rate = 9) => { object[key] = THREE.MathUtils.damp(object[key], to, rate, dt); };
       character.elapsed += dt;
+      if (action === 'egg' || action === 'drink') action = 'stand';
       const elapsed = character.elapsed, sleep = action === 'lie', sitting = action === 'sit', cycle = elapsed * 9 * speed;
-      snack.visible = action === 'egg'; drink.visible = action === 'drink'; pillow.visible = sleep;
-      damp(rig.rotation, 'x', sleep ? -Math.PI / 2 : 0, 6);
+      const eating = sleep ? null : snackPose(dt);
+      if (sleep && character.snack) character.stopSnack();
+      updateBursts(dt);
+      pillow.visible = sleep;
+      damp(rig.rotation, 'x', sleep ? -Math.PI / 2 : eating ? eating.nod * .35 : 0, 6);
       damp(rig.position, 'y', sleep ? .46 : sitting ? -.29 : walking && !reducedMotion ? Math.abs(Math.sin(cycle)) * .035 : 0);
       // A reclining rig rests along the mat, with a pillow under its head.
       damp(rig.position, 'z', sleep ? .72 : 0, 6);
       for (let i = 0; i < 2; i++) {
         damp(legs[i].rotation, 'x', sitting ? -1.32 : sleep ? .45 : walking ? Math.sin(cycle + i * Math.PI) * .48 : 0);
         damp(legs[i].rotation, 'z', sitting ? (i === 0 ? -.25 : .25) : 0);
-        const eating = (action === 'egg' || action === 'drink') && i === 1;
         const waving = action === 'wave' && i === 1;
-        damp(arms[i].rotation, 'x', waving ? -2.35 : eating ? -2.0 : sitting ? -.5 : sleep ? -.18 : walking ? -Math.sin(cycle + i * Math.PI) * .35 : 0);
-        damp(arms[i].rotation, 'z', waving ? -.4 + (reducedMotion ? 0 : Math.sin(elapsed * 7) * .24) : eating ? -.25 : i === 0 ? -.14 : .14);
+        // Both hands cradle the snack and lift it to the mouth together.
+        damp(arms[i].rotation, 'x', eating ? -1.3 - eating.mouth * .5 : waving ? -2.35 : sitting ? -.5 : sleep ? -.18 : walking ? -Math.sin(cycle + i * Math.PI) * .35 : 0, eating ? 14 : 9);
+        damp(arms[i].rotation, 'z', eating ? (i === 0 ? .5 : -.5) : waving ? -.4 + (reducedMotion ? 0 : Math.sin(elapsed * 7) * .24) : i === 0 ? -.14 : .14, eating ? 14 : 9);
       }
-      if (!reducedMotion) { head.rotation.z = Math.sin(elapsed * 1.3) * .025; head.position.y = 1.55 + Math.sin(elapsed * 2) * .008; }
+      if (!reducedMotion) { head.rotation.z = Math.sin(elapsed * 1.3) * .025; head.position.y = 1.55 + Math.sin(elapsed * 2) * .008 + (eating?.face === 'chew' ? Math.abs(Math.sin(elapsed * 14)) * .012 : 0); }
       else { head.rotation.z = 0; head.position.y = 1.55; }
       const blink = !reducedMotion && (elapsed + character.blinkOffset) % 4.7 > 4.52;
-      character.setExpression(sleep || blink ? 'sleep' : action === 'egg' || action === 'drink' || action === 'wave' ? 'happy' : 'normal');
+      character.setExpression(sleep || (blink && !eating) ? 'sleep' : eating ? eating.face : action === 'wave' ? 'happy' : 'normal');
     };
     return character;
   }
