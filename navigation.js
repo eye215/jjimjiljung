@@ -2,7 +2,7 @@
 // Walkable space is the union of room floors and doorway passages, minus
 // furniture footprints. Every rectangle is already inflated by the actor radius,
 // so a point that is walkable keeps the whole plush body clear of walls and props.
-import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS, ACTOR_RADIUS } from './world.js?v=rpg-9';
+import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS, ACTOR_RADIUS } from './world.js?v=rpg-10';
 
 const INSET = WALL_THICKNESS / 2 + ACTOR_RADIUS;
 export const WALKABLE = Object.freeze([

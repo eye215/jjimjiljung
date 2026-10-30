@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
-import { ROOMS } from './world.js?v=rpg-9';
+import { ROOMS } from './world.js?v=rpg-10';
 
 // 수면실 immersion: lying down there slides the camera into a first-person view
 // under a starry ceiling, starts a soft generated lullaby, and after a quiet
@@ -68,6 +68,8 @@ export function createSleepMode({ scene, canvasTexture }) {
 
   return {
     state, music, ceiling, galaxy,
+    // Jump straight to the sleeping or awake view (used behind a screen fade).
+    snap(on) { state.blend = on ? 1 : 0; },
     // `sleeping` = the player lies inside 수면실. Returns the camera blend.
     update(dt, { sleeping, camera, head, feet, reducedMotion, elapsed }) {
       if (sleeping !== state.active) {

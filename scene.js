@@ -1,17 +1,17 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-9';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-9';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel, pickShoulder } from './outfit.js?v=rpg-9';
-import { createTowelGame } from './towel.js?v=rpg-9';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-9';
-import { buildWorld } from './environment.js?v=rpg-9';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-9';
-import { createTvAds } from './ads.js?v=rpg-9';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-9';
-import { createSocial } from './social.js?v=rpg-9';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-9';
-import { createShop } from './shop.js?v=rpg-9';
-import { createInvite } from './invite.js?v=rpg-9';
+import { planPath, stepMovement } from './navigation.js?v=rpg-10';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-10';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-10';
+import { createTowelGame } from './towel.js?v=rpg-10';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-10';
+import { buildWorld } from './environment.js?v=rpg-10';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-10';
+import { createTvAds } from './ads.js?v=rpg-10';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-10';
+import { createSocial } from './social.js?v=rpg-10';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-10';
+import { createShop } from './shop.js?v=rpg-10';
+import { createInvite } from './invite.js?v=rpg-10';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -55,7 +55,7 @@ scene.add(sun, sun.target);
 
 // The plush GLB (2.5 MB) loads behind the loading screen; without it the
 // built-in character is used so the room always opens.
-const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap', 'shoulder', 'pillow', 'hair'])]);
+const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap', 'pillow', 'hair'])]);
 const kit = createCharacterKit(renderer, plushModel, towelProps);
 const world = buildWorld({ scene, kit });
 const sleep = createSleepMode({ scene, canvasTexture: kit.canvasTexture });
@@ -239,28 +239,19 @@ function eat(kind, style = 'normal') {
   return player.snack;
 }
 // ---------- Outfit: one tap re-dyes every part; the sheep cap has its own toggle ----------
-const outfitButton = document.querySelector('#outfit-random'), capButton = document.querySelector('#cap-toggle'), shoulderButton = document.querySelector('#shoulder-toggle');
+const outfitButton = document.querySelector('#outfit-random'), capButton = document.querySelector('#cap-toggle');
 function applyOutfit(next) {
   outfit = next; saveOutfit(outfit);
   player.setColors(outfitColors(outfit)); player.setTowel(capOn(outfit));
   capButton.hidden = !outfit.hasTowel; capButton.setAttribute('aria-pressed', String(capOn(outfit)));
   capButton.setAttribute('aria-label', capOn(outfit) ? '양머리 벗기' : '양머리 쓰기');
-  // 어깨 수건: one of my towels, worn or not, independent of the cap.
-  const shoulderOn = outfit.hasTowel && outfit.shoulder;
-  player.setShoulder?.(shoulderOn, outfit.shoulderColor);
-  shoulderButton.hidden = !outfit.hasTowel || !kit.plush; shoulderButton.setAttribute('aria-pressed', String(shoulderOn));
-  shoulderButton.setAttribute('aria-label', shoulderOn ? '어깨 수건 벗기' : '어깨 수건 걸치기');
   viewport.dataset.outfit = encodeOutfit(outfit); social?.outfitChanged();
 }
 outfitButton.addEventListener('click', () => {
   const before = { ...outfit };
-  applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom'), towel: pickTowel(outfit), shoulderColor: pickShoulder(outfit) });
+  applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom'), towel: pickTowel(outfit) });
   if (action !== 'lie') player.celebrate();
   toast('✨ 새 옷으로 갈아입었어요', '되돌리기', () => applyOutfit(before));
-});
-shoulderButton.addEventListener('click', () => {
-  applyOutfit({ ...outfit, shoulder: !outfit.shoulder });
-  toast(outfit.shoulder ? '🧣 어깨 수건을 걸쳤어요' : '🧣 어깨 수건을 내려놨어요');
 });
 capButton.addEventListener('click', () => {
   applyOutfit({ ...outfit, wear: !outfit.wear });
@@ -459,8 +450,26 @@ document.querySelector('#wake').addEventListener('click', () => setAction('stand
 renderMusicButton();
 // Any tap or key unlocks Web Audio, so the lullaby may start when you lie down.
 for (const type of ['pointerdown', 'keydown']) document.addEventListener(type, () => sleep.music.unlock(), { capture: true, passive: true });
+// Lying down in (or getting up from) 수면실 dims the screen, switches the view
+// while it is dark, then brightens again, instead of swooping through the head.
+const sleepFade = document.querySelector('#sleep-fade');
+const FADE_IN = .55;
+let sleepCommitted = false, fadeTimer = -1;
 function updateSleep(dt) {
-  const sleeping = action === 'lie' && currentRoom.id === 'sleep';
+  const wanted = action === 'lie' && currentRoom.id === 'sleep';
+  if (wanted !== sleepCommitted && fadeTimer < 0) {
+    if (reducedMotion) { sleepCommitted = wanted; sleep.snap(wanted); }
+    else { fadeTimer = 0; sleepFade.classList.add('on'); }
+  }
+  if (fadeTimer >= 0) {
+    fadeTimer += dt;
+    if (fadeTimer >= FADE_IN) {
+      // Fully dark: switch the view at once, then fade back in.
+      sleepCommitted = action === 'lie' && currentRoom.id === 'sleep'; sleep.snap(sleepCommitted);
+      fadeTimer = -1; sleepFade.classList.remove('on');
+    }
+  }
+  const sleeping = sleepCommitted;
   if (sleeping !== wasSleeping) {
     wasSleeping = sleeping; sleepBar.hidden = !sleeping; document.body.classList.toggle('sleeping', sleeping);
     if (sleeping) { status.textContent = '쉿… 눈을 감고 천천히 숨 쉬어요.'; hint.textContent = `${GALAXY_DELAY}초 동안 가만히 쉬면 꿈나라로 가요`; }
@@ -468,6 +477,7 @@ function updateSleep(dt) {
   player.head.getWorldPosition(headPoint); hero.localToWorld(feetPoint.set(0, 0, .6));
   const blend = sleep.update(dt, { sleeping, camera, head: headPoint, feet: feetPoint, reducedMotion, elapsed });
   hero.visible = blend < .5; shadow.visible = hero.visible;
+  viewport.dataset.fading = fadeTimer >= 0 ? 'true' : 'false';
   document.body.classList.toggle('dreaming', sleep.state.galaxy > .5);
   viewport.dataset.sleep = sleeping ? (sleep.state.galaxy > .5 ? 'galaxy' : 'resting') : 'awake';
 }

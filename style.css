@@ -235,9 +235,6 @@ body:not(.room-ready) #dress{display:none}
 @media(max-width:760px){#towel-nudge{bottom:206px}}@media(max-height:500px) and (orientation:landscape){#towel-nudge{bottom:120px}}
 body.sleeping #towel-nudge,body.towel-playing #towel-nudge,body:not(.room-ready) #towel-nudge,body.chat-open #towel-nudge{display:none}
 #trade-card .person-actions button{font-size:14px}.trade-decline{align-self:center;margin-top:8px;min-height:36px;padding:0 14px;border:0;background:none;color:var(--ink-soft);font-weight:650;font-size:13px}
-#shoulder-toggle span{font-size:24px;line-height:1;transition:filter .2s,opacity .2s}
-#shoulder-toggle[aria-pressed=false] span{filter:grayscale(.85);opacity:.6}
-#shoulder-toggle[aria-pressed=true]{background:linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,248,242,.6));box-shadow:var(--lg-shadow),inset 0 0 0 1.5px rgba(242,104,60,.35)}
 /* 양머리 만들기 step 2: a 2.5D towel whose ends roll inwards with each tap. */
 .roll-stage{height:200px}
 .roll-scene{--left:0;--right:0;position:relative;width:300px;height:180px;perspective:640px;perspective-origin:50% -10%}
@@ -262,3 +259,7 @@ body.sleeping #towel-nudge,body.towel-playing #towel-nudge,body:not(.room-ready)
 @media(prefers-reduced-motion:reduce){.roll-strip,.roll,.roll-spiral{transition:none}.towel-cap .spark{animation:none;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y)))}}
 @media(max-width:340px){.roll-scene{transform:scale(.9)}}
 .towel-cap .bun .roll-end{position:static;transform:none;width:100%;height:100%}
+/* 수면실: a soft dim-and-brighten between the room view and the sleeper's view. */
+#sleep-fade{position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(120% 90% at 50% 40%,#2b2450,#120e22);opacity:0;transition:opacity .9s ease-in-out}
+#sleep-fade.on{opacity:1;transition:opacity .5s ease-in}
+@media(prefers-reduced-motion:reduce){#sleep-fade{display:none}}
