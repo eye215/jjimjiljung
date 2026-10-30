@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { GLTFLoader } from './vendor/three-addons/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/three-addons/SkeletonUtils.js';
-import { towelMesh, setTowelColor } from './props.js?v=rpg-14';
+import { towelMesh, setTowelColor } from './props.js?v=rpg-15';
 
 // Reference-inspired plush silhouette: deep towel cap, tiny dot eyes,
 // barely visible neck, soft mittens and short legs. No bag or shoulder strap.
@@ -87,7 +87,7 @@ const CLIP_LIFT = { Walking: .013, Running: .005, Sit_Cross_Legged_on_Floor: .10
 const PLUSH_SCALE = 1 / .62;
 // Towel prop fits on the plush (model metres): sheep cap on the head, shoulder
 // towel around the neck, pillow under the sleeping head. Tuned in design QA.
-const HAIR_FIT = { length: .82, y: .99, z: .0, underCap: .86 };
+const HAIR_FIT = { length: .82, y: .99, z: .0, capWide: 1, capDeep: .86, capTall: .76 };
 // Height option C (-20%), bottom edge kept: tall 1.24 → .992 and lowered by half the difference.
 const CAP_FIT = { length: 1.22, y: 1.022, z: .01, tall: .992 };
 const SHOULDER_FIT = { length: .44, y: .45, z: .02, depth: 1.45 };
@@ -146,7 +146,9 @@ function trimHair(skinned) {
 
 // With the separate short-hair GLB, the baked bob is instead folded flat onto a
 // skull-shaped ellipsoid so the new hair can sit over it without anything poking out.
-const SKULL = { center: [0, .93, -.02], radii: [.31, .35, .3] };
+// Sized just inside the short-hair GLB so the folded bob barely stretches (less tearing by the ears).
+const HAIR_EDGE = .74;
+const SKULL = { center: [0, .93, -.02], radii: [.37, .38, .34] };
 function hairTexels(skinned) {
   const image = skinned.material.map?.image; if (!image) return null;
   const c = document.createElement('canvas'); c.width = image.width; c.height = image.height;
@@ -157,6 +159,16 @@ function hairTexels(skinned) {
 // ---------- One-time clean-up of the shared plush model ----------
 // Edge-preserving smoothing: a pixel takes its blurred value only where it differs
 // little from it, so baked fuzz and speckles soften while eyes, mouth and seams stay crisp.
+// Average normals of vertices that share a position (split only by UV seams), so
+// the low-poly Meshy surfaces shade as one soft plush skin instead of facets.
+export function weldNormals(geometry) {
+  const pos = geometry.attributes.position, normal = geometry.attributes.normal; if (!normal) return;
+  const groups = new Map(), key = i => `${Math.round(pos.getX(i) * 4000)},${Math.round(pos.getY(i) * 4000)},${Math.round(pos.getZ(i) * 4000)}`;
+  geometry.computeVertexNormals();
+  for (let i = 0; i < pos.count; i++) { const k = key(i); let g = groups.get(k); if (!g) groups.set(k, g = [0, 0, 0, []]); g[0] += normal.getX(i); g[1] += normal.getY(i); g[2] += normal.getZ(i); g[3].push(i); }
+  for (const [x, y, z, ids] of groups.values()) { const l = Math.hypot(x, y, z) || 1; for (const i of ids) normal.setXYZ(i, x / l, y / l, z / l); }
+  normal.needsUpdate = true;
+}
 function smoothPixels(px, w, h, threshold = 26, passes = 2) {
   const tmp = new Uint8ClampedArray(px.length);
   for (let pass = 0; pass < passes; pass++) {
@@ -164,21 +176,44 @@ function smoothPixels(px, w, h, threshold = 26, passes = 2) {
     for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
       const k = (y * w + x) * 4;
       for (let c = 0; c < 3; c++) {
-        let sum = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) sum += tmp[k + (dy * w + dx) * 4 + c];
-        const avg = sum / 9, v = tmp[k + c];
-        if (Math.abs(v - avg) < threshold) px[k + c] = avg;
+        // Bilateral: only neighbours close to this pixel count, so nothing bleeds across edges.
+        const v = tmp[k + c]; let sum = 0, n = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const u = tmp[k + (dy * w + dx) * 4 + c]; if (Math.abs(u - v) < threshold) { sum += u; n++; } }
+        px[k + c] = sum / n;
       }
     }
   }
 }
 // Returns a smoothed copy of a GLB texture (glTF textures are not flipped).
-export function smoothTexture(texture, edit = null, threshold = 26) {
+// Fill the empty atlas gaps around each UV island with its edge colour, so filtering
+// and mipmaps never pull the dark background in as thin lines along the seams.
+function dilateIslands(ctx, px, w, h, geometry, grow = 8) {
+  if (!geometry?.attributes.uv) return;
+  const uv = geometry.attributes.uv, index = geometry.index, m = document.createElement('canvas'); m.width = w; m.height = h;
+  const mc = m.getContext('2d', { willReadFrequently: true }); mc.fillStyle = '#fff'; mc.beginPath();
+  const count = index ? index.count : uv.count, at = i => index ? index.getX(i) : i;
+  for (let t = 0; t < count; t += 3) { const a = at(t), b = at(t + 1), c = at(t + 2); mc.moveTo(uv.getX(a) * w, uv.getY(a) * h); mc.lineTo(uv.getX(b) * w, uv.getY(b) * h); mc.lineTo(uv.getX(c) * w, uv.getY(c) * h); mc.closePath(); }
+  mc.fill();
+  const md = mc.getImageData(0, 0, w, h).data, inside = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) inside[i] = md[i * 4 + 3] > 200 ? 1 : 0;
+  for (let round = 0; round < grow; round++) {
+    const add = [];
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x; if (inside[i]) continue;
+      let r = 0, g = 0, b = 0, n = 0; for (const j of [i - 1, i + 1, i - w, i + w]) if (inside[j]) { r += px[j * 4]; g += px[j * 4 + 1]; b += px[j * 4 + 2]; n++; }
+      if (n) { px[i * 4] = r / n; px[i * 4 + 1] = g / n; px[i * 4 + 2] = b / n; add.push(i); }
+    }
+    for (const i of add) inside[i] = 1;
+  }
+}
+export function smoothTexture(texture, edit = null, threshold = 26, passes = 2, geometry = null) {
   const image = texture?.image; if (!image) return texture;
   const c = document.createElement('canvas'); c.width = image.width; c.height = image.height;
   const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(image, 0, 0);
   const data = ctx.getImageData(0, 0, c.width, c.height);
   edit?.(data.data, c.width, c.height);
-  smoothPixels(data.data, c.width, c.height, threshold);
+  dilateIslands(ctx, data.data, c.width, c.height, geometry);
+  smoothPixels(data.data, c.width, c.height, threshold, passes);
   ctx.putImageData(data, 0, 0);
   const out = new THREE.CanvasTexture(c); out.flipY = texture.flipY; out.colorSpace = texture.colorSpace; out.wrapS = texture.wrapS; out.wrapT = texture.wrapT; out.anisotropy = texture.anisotropy;
   return out;
@@ -260,8 +295,10 @@ function tuckHair(skinned) {
     const [r, g, b] = texel(i), hi = Math.max(r, g, b), lo = Math.min(r, g, b);
     // Skin (peach), cloth (light gray) and the eyes on the face front stay as they are.
     if ((r > 150 && r - b > 30 && r >= g) || (hi > 165 && hi - lo < 40) || (z > .22 && Math.abs(x) < .22 && y < .86)) continue;
-    const dx = x - cx, dy = y - cy, dz = z - cz, k = Math.hypot(dx / rx, dy / ry, dz / rz);
-    if (k > 1) pos.setXYZ(i, cx + dx / k, cy + dy / k, cz + dz / k);
+    // The bob's ends below the new hair's edge are drawn up under it first.
+    const ly = y < HAIR_EDGE ? HAIR_EDGE + (y - .5) * .12 : y;
+    const dx = x - cx, dy = ly - cy, dz = z - cz, k = Math.max(1, Math.hypot(dx / rx, dy / ry, dz / rz));
+    if (k > 1 || ly !== y) pos.setXYZ(i, cx + dx / k, cy + dy / k, cz + dz / k);
   }
   pos.needsUpdate = true;
 }
@@ -270,14 +307,18 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
   // Shared plush geometry is edited once: short-hair GLB → tuck the bob; otherwise trim it.
   if (plushModel && !plushModel.userData.hairDone) {
     let skinned = null; plushModel.scene.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
-    if (towels.hair) tuckHair(skinned); else trimHair(skinned);
+    // With the short-hair GLB the bob is hidden in the shader (see `uHideHair`); otherwise it is trimmed.
+    if (!towels.hair) trimHair(skinned);
     const texel = hairTexels(skinned); if (texel) smoothClothWeights(skinned, texel);
     // Softer, cleaner plush surface and no ♨ on the top.
-    skinned.material.map = smoothTexture(skinned.material.map, hideLogo(skinned));
+    // Strong edge-aware smoothing clears Meshy's baked blotches; eyes, mouth and cheeks keep their edges.
+    skinned.material.map = smoothTexture(skinned.material.map, hideLogo(skinned), 34, 6, skinned.geometry);
+    weldNormals(skinned.geometry);
     skinned.geometry.computeBoundingBox(); skinned.geometry.computeBoundingSphere(); plushModel.userData.hairDone = true;
   }
   // Calmer terry and hair: soften the baked fuzz on the worn props too (once each).
-  for (const proto of [towels.cap, towels.hair, towels.pillow]) if (proto && !proto.smoothed) { proto.map = smoothTexture(proto.map, null, 30); proto.smoothed = true; }
+  for (const proto of [towels.cap, towels.hair, towels.pillow]) if (proto && !proto.smoothed) { proto.map = smoothTexture(proto.map, null, 30, 2, proto.geometry); proto.smoothed = true; }
+  if (towels.hair && !towels.hair.welded) { weldNormals(towels.hair.geometry); towels.hair.welded = true; }
   const hairMaterial = towels.hair ? new THREE.MeshPhysicalMaterial({ map: towels.hair.map, roughness: .85, metalness: 0, side: THREE.DoubleSide, sheen: .5, sheenRoughness: .6, sheenColor: new THREE.Color('#a07a62') }) : null;
   function canvasTexture(draw, width = 512, height = 512) {
     const c = document.createElement('canvas'); c.width = width; c.height = height; draw(c.getContext('2d'), width, height);
@@ -613,21 +654,26 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     // Fabric dye: low-saturation light texels (the white 찜질복 and its gray logo)
     // take the outfit colour; the top/bottom split is the bind-pose hem height.
     const base = skinned.material;
-    const uniforms = { uTop: { value: new THREE.Color(colors[0]) }, uBottom: { value: new THREE.Color(colors[1]) } };
-    const material = new THREE.MeshPhysicalMaterial({ map: base.map, roughness: 1, metalness: 0, side: THREE.FrontSide, sheen: .3, sheenRoughness: .9, sheenColor: new THREE.Color('#fff3ea') });
+    const uniforms = { uTop: { value: new THREE.Color(colors[0]) }, uBottom: { value: new THREE.Color(colors[1]) }, uHideHair: { value: towels.hair ? 1 : 0 } };
+    const material = new THREE.MeshPhysicalMaterial({ map: base.map, roughness: 1, metalness: 0, side: towels.hair ? THREE.DoubleSide : THREE.FrontSide, sheen: .3, sheenRoughness: .9, sheenColor: new THREE.Color('#fff3ea') });
     material.onBeforeCompile = shader => {
       Object.assign(shader.uniforms, uniforms);
-      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying float vRestY;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRestY = position.y;');
-      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vRestY;\nuniform vec3 uTop;\nuniform vec3 uBottom;').replace('#include <map_fragment>', `#include <map_fragment>
+      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying float vRestY;\nvarying vec3 vRest;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRestY = position.y; vRest = position;');
+      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vRestY;\nvarying vec3 vRest;\nuniform vec3 uTop;\nuniform vec3 uBottom;\nuniform float uHideHair;').replace('#include <map_fragment>', `#include <map_fragment>
         {
           vec3 c = diffuseColor.rgb; float hi = max(c.r, max(c.g, c.b)), lo = min(c.r, min(c.g, c.b));
+          // The baked bob gives way to the short-hair GLB: dark hair texels on the head are not drawn
+          // (the eyes on the face front stay). The material is double-sided then, so the skin's
+          // inner side closes the nape where the bob used to be the only surface.
+          bool face = vRest.z > .2 && abs(vRest.x) < .24 && vRest.y < .88;
+          if (uHideHair > .5 && vRest.y > .5 && hi < .2 && !face) discard;
           float lum = dot(c, vec3(.2126, .7152, .0722));
           float cloth = (1. - smoothstep(.07, .16, (hi - lo) / max(hi, .001))) * smoothstep(.12, .3, lum) * (1. - smoothstep(.64, .68, vRestY));
           vec3 tint = mix(uBottom, uTop, smoothstep(.31, .335, vRestY));
           diffuseColor.rgb = mix(c, tint * clamp(lum / .7, .35, 1.12), cloth);
         }`);
     };
-    material.customProgramCacheKey = () => 'plush-dye-v1';
+    material.customProgramCacheKey = () => 'plush-dye-v2';
     skinned.material = material;
     // Sheep cap on the head bone (head-bone units are centimetres).
     const towel = baseTowel.clone(), seam = mat(colors[4], { roughness: 1 });
@@ -696,7 +742,13 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     };
     character.setShoulder = (on, color) => { if (!shoulder) return; shoulder.visible = !!on; if (color) recolor(shoulder, color); };
     // Under the sheep cap the hair is drawn in a little so none of it pokes through.
-    character.setTowel = on => { cap.visible = !!on; hairMesh?.scale.setScalar(hairMesh.userData.scale * (on ? HAIR_FIT.underCap : 1)); };
+    // Under the sheep cap the hair is pressed down (bottom edge kept) so the crown stays inside the cap.
+    character.setTowel = on => {
+      cap.visible = !!on; if (!hairMesh) return;
+      const m = hairMesh.children[0], base = HAIR_FIT.length / Math.max(towels.hair.size.x, towels.hair.size.z), height = towels.hair.size.y * base;
+      m.scale.set(base * (on ? HAIR_FIT.capWide : 1), base * (on ? HAIR_FIT.capTall : 1), base * (on ? HAIR_FIT.capDeep : 1));
+      m.position.y = on ? -height * (1 - HAIR_FIT.capTall) / 2 : 0;
+    };
     character.setExpression = next => {
       if (next === expression) return; expression = next;
       const texture = eyeTextures[next === 'chew' ? 'happy' : next];
