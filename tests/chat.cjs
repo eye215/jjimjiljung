@@ -1,0 +1,23 @@
+const assert = require('node:assert/strict');
+(async () => {
+  const { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, MAX_MESSAGE } = await import('../chat-rules.js');
+  assert.equal(cleanText('  안녕​   하세요 \n'), '안녕 하세요');
+  assert.equal([...cleanText('가'.repeat(500))].length, MAX_MESSAGE, 'Messages are capped at 120 characters');
+  assert.equal(cleanText(42), '');
+  for (const rude of ['씨발', '씨 발', '씨.발', 'ㅅㅂ', '병신', 'f u c k', 'SHIT']) assert(maskProfanity(`아 ${rude} 진짜`).flagged, rude);
+  for (const kind of ['식혜 마시고 싶다', '시바견 귀여워', '계란 두 개 주세요', '오늘 발이 시려요']) assert(!maskProfanity(kind).flagged, kind);
+  assert.equal(maskProfanity('야 씨발').text, '야 ♨♨');
+  assert.equal(cleanNickname('  말랑찜질러  '), '말랑찜질러');
+  assert.equal(cleanNickname('병신'), '', 'Rude nicknames are refused');
+  assert.equal([...cleanNickname('가나다라마바사아자차카')].length, 10);
+  const limit = createRateLimit({ count: 3, windowMs: 1000, gapMs: 100 });
+  assert.equal(limit.check(0), 0); limit.hit(0);
+  assert(limit.check(50) > 0, 'Minimum gap between messages');
+  limit.hit(150); limit.hit(300);
+  assert(limit.check(400) > 0, 'At most three per window');
+  assert.equal(limit.check(1200), 0, 'Window slides');
+  assert.equal(readChat(null), null); assert.equal(readChat({ id: 'a', text: '   ', mid: '1' }), null);
+  const message = readChat({ id: 'a', name: '<b>x</b>', text: '씨발 '.repeat(50), mid: 'm' });
+  assert(message.text.length <= MAX_MESSAGE && !message.text.includes('씨발'), 'Receivers re-check length and words');
+  console.log('PASS: chat text cleaning, 120-character cap, profanity masking (with spacing tricks) without false positives, nickname rules, rate limiting, incoming message validation.');
+})().catch(error => { console.error(error); process.exitCode = 1; });

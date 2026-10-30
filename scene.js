@@ -1,9 +1,10 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-2';
-import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-2';
-import { buildWorld } from './environment.js?v=rpg-2';
-import { ROOMS, DESTINATIONS, SPAWN, roomAt } from './world.js?v=rpg-2';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-2';
+import { planPath, stepMovement } from './navigation.js?v=rpg-3';
+import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-3';
+import { buildWorld } from './environment.js?v=rpg-3';
+import { ROOMS, DESTINATIONS, SPAWN, roomAt } from './world.js?v=rpg-3';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-3';
+import { createSocial } from './social.js?v=rpg-3';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -82,6 +83,7 @@ const motePositions = new Float32Array(40 * 3); for (let i = 0; i < 40; i++) { m
 const motesGeometry = new THREE.BufferGeometry(); motesGeometry.setAttribute('position', new THREE.BufferAttribute(motePositions, 3));
 const motes = new THREE.Points(motesGeometry, new THREE.PointsMaterial({ color: '#fff3ce', size: .05, transparent: true, opacity: .55, depthWrite: false })); scene.add(motes);
 
+let social = null, localWalking = false;
 let action = 'stand', facing = 0, elapsed = 0, contextLost = false, raf = 0, lastTime = 0;
 const target = new THREE.Vector3(SPAWN.x, 0, SPAWN.z);
 const route = [];
@@ -144,6 +146,7 @@ function setOutfit(color) {
   if (!PALETTES[color]) return; player.setColors(PALETTES[color]);
   for (const b of outfitButtons) { const active = b.dataset.color === color; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); }
   try { localStorage.setItem('jjimjiljung-outfit', color); } catch { /* Private browsing may disable storage. */ }
+  savedOutfit = color; social?.outfitChanged();
 }
 outfitButtons.forEach(b => b.addEventListener('click', () => setOutfit(b.dataset.color)));
 setOutfit(savedOutfit);
@@ -259,7 +262,8 @@ viewport.addEventListener('wheel', e => { e.preventDefault(); view.zoom = THREE.
 const MOVE_KEYS = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
 const typing = target => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 document.addEventListener('keydown', e => {
-  if (typing(e.target) || placesDialog.open || !document.body.classList.contains('room-ready') || contextLost || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'Enter' && social && !typing(e.target) && !document.querySelector('dialog[open]') && !(e.target instanceof HTMLButtonElement) && !social.isChatOpen()) { e.preventDefault(); document.querySelector('#chat-open').click(); return; }
+  if (typing(e.target) || document.querySelector('dialog[open]') || !document.body.classList.contains('room-ready') || contextLost || e.metaKey || e.ctrlKey || e.altKey) return;
   const direction = MOVE_KEYS[e.code] || MOVE_KEYS[e.key];
   if (direction) {
     // Leave Space/Enter on focused buttons alone; arrows still scroll nothing here.
@@ -398,6 +402,7 @@ function frame(now) {
   if (action === 'lie') shadow.position.z -= Math.cos(hero.rotation.y) * .3;
   world.update(elapsed, reducedMotion);
   updateOcclusion(dt);
+  localWalking = walking; social?.update(dt, reducedMotion);
   motes.visible = !reducedMotion; if (!reducedMotion) { motes.position.set(view.focus.x, 0, view.focus.z); motes.rotation.y = elapsed * .02; }
   renderer.render(scene, camera); raf = requestAnimationFrame(frame);
 }
@@ -412,3 +417,9 @@ hint.textContent = walkHint;
 viewport.dataset.ready = 'true'; lastTime = performance.now(); raf = requestAnimationFrame(frame);
 document.body.classList.add('room-ready');
 window.lockRoomControls(false);
+// Multiplayer starts after the room is ready, so a slow network never blocks entering.
+document.querySelector('#chat-input').addEventListener('focus', () => { keys.clear(); stopJoystick(); });
+social = createSocial({
+  scene, camera, kit, viewport, actorScale: ACTOR_SCALE, makeShadow: contactShadow,
+  getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, walking: localWalking, outfit: savedOutfit, room: currentRoom.id, visible: hero.visible })
+});

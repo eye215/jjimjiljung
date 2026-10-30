@@ -21,11 +21,17 @@ const server = http.createServer((req, res) => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = process.env.TEST_URL || `http://127.0.0.1:${server.address().port}/`;
   const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}), args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
-  const ready = page => page.waitForSelector('#viewport[data-ready="true"]', { timeout: 120000 });
+  const ready = async page => {
+    await page.waitForSelector('#viewport[data-ready="true"]', { timeout: 120000 });
+    // Play solo: the nickname prompt is covered by tests/multiplayer.cjs.
+    if (await page.locator('#join-dialog').evaluate(dialog => dialog.open).catch(() => false)) await page.locator('#join-solo').click();
+  };
   const state = page => page.evaluate(() => window.__characterTestState());
   const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    // Software WebGL can take several seconds per frame on a busy CI machine.
+    page.setDefaultTimeout(120000);
     // Instrument only the test response, keeping debug state out of production.
     await page.route('**/scene.js*', async route => {
       const response = await route.fetch();

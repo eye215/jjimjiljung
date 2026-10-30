@@ -14,7 +14,9 @@ A tiny, warm 3D jjimjilbang for a quiet break. Open [the live room](https://eye2
 - Full-screen mobile layout, safe-area spacing, reduced-motion support, optional user-activated synthesized ambience, and the last outfit saved locally when storage is available.
 - Clear loading, missing-module, unsupported-WebGL and context-loss states, with a retry button. Rendering and sound pause while the page is hidden.
 
-Not yet implemented: multiplayer, group chat and NPC conversation (see the roadmap below).
+- **Multiplayer and public chat (Phase 2).** Pick a nickname (or look around alone), then see other visitors walk, sit, lie down and change outfits in real time, with name tags over their heads and a live visitor count. The 💬 chat opens a portrait-first bottom sheet on phones (a side panel on PC and in landscape) that stays above the on-screen keyboard. Messages also pop up as speech bubbles. Visitors get join/leave notices and an unread badge. Messages are capped at 120 characters, rate-limited (at least 1.2 s apart, at most 5 per 10 s, and receivers drop floods), and a first-line word filter masks rude words with ♨. Typing never moves the character.
+
+Not yet implemented: private rooms, AI moderation, voice chat/STT and NPC conversation (see the roadmap below).
 
 ## Code map
 
@@ -25,6 +27,10 @@ Not yet implemented: multiplayer, group chat and NPC conversation (see the roadm
 | `environment.js` | Builds the 3D rooms from `world.js`: canvas-drawn textures, walls with cutaway/fade metadata, furniture, signs, lights, steam. Static props are merged per material. |
 | `character.js` | The plush character factory and pose animation. Each character owns its outfit materials, so several visitors can wear different palettes (needed for remote players). |
 | `sleep.js` | 수면실 dream mode: first-person blend, starry ceiling, galaxy dome and spiral, generated lullaby (Web Audio). |
+| `social.js` | Remote visitors (shared character model, interpolation), name tags, speech bubbles, chat panel, nickname entry, connection status. |
+| `net.js` | Realtime transports: Supabase Realtime (Presence and Broadcast) in production; a BroadcastChannel transport between tabs for tests (`?net=local`). |
+| `chat-rules.js` | Pure chat rules: text cleaning, 120-character cap, profanity masking, nickname rules, rate limits, incoming validation. |
+| `config.js` | Public Supabase URL, publishable key and channel name. |
 | `scene.js` | Renderer, follow camera, input, actions, residents, room detection, wall cutaway/fading, error handling. |
 
 ### Performance notes (mobile)
@@ -33,11 +39,20 @@ Not yet implemented: multiplayer, group chat and NPC conversation (see the roadm
 - Each character merges its non-animated parts per material (about 16 draw calls instead of about 60).
 - Pixel ratio is capped (1.5 on touch devices), all shaders are compiled before entering, and rendering pauses while the tab is hidden.
 
+## Supabase setup (Phase 2)
+
+- Project: `xojeavzrmdizganxjygj`, dedicated to 찜질중 on the Free plan. The StageFlow project is separate and untouched.
+- The browser only uses the project URL and the **publishable** key in `config.js`. Publishable keys are meant to be public. Never commit a secret/service_role key or the database password.
+- No tables are needed: visitors use Realtime **Presence** (who is here) and **Broadcast** (`state` about 5 times a second while moving with an idle heartbeat, and `chat`) on the channel `jjimjil:main`.
+- If visitors never connect, check **Realtime → Settings** in the dashboard and make sure public channel access is allowed (the app does not sign users in yet).
+- Free-plan limits: 200 concurrent connections and a monthly message quota. Movement updates are throttled to stay well inside it for small groups.
+- `supabase-js` **2.117.3** is vendored as `vendor/supabase.umd.js` (MIT, see `vendor/SUPABASE-LICENSE.txt`) and only loads after the room is ready, so a slow network never blocks entering.
+
 ## Run / deploy
 
 This is a buildless static site. Serve the repository root over HTTP (for example `python -m http.server 8000`), then open `http://localhost:8000`. Opening `index.html` as a local file will not load ES modules.
 
-GitHub Pages serves `main` / repository root. No secret, backend, build service, external model, font or CDN is required. Three.js **0.170.0** is vendored in `vendor/`, with its MIT license. All textures and geometry are generated locally at startup. Module URLs carry a `?v=` version so returning visitors get matching files after a deploy; bump it in `index.html` and the imports when modules change.
+GitHub Pages serves `main` / repository root. No secret, build service, external model, font or CDN is required; the only external service is Supabase Realtime for multiplayer. Three.js **0.170.0** is vendored in `vendor/`, with its MIT license. All textures and geometry are generated locally at startup. Module URLs carry a `?v=` version so returning visitors get matching files after a deploy; bump it in `index.html` and the imports when modules change.
 
 `assets/sauna-room-v1.png` is the earlier 2.5D environment plate. It is no longer loaded and is kept only as the art-direction reference for colours and props.
 
@@ -46,6 +61,8 @@ GitHub Pages serves `main` / repository root. No secret, backend, build service,
 Use Node.js and install the pinned development dependency with `npm install`, then `npx playwright install chromium`, `npm run check` and `npm test`. Alternatively set `BROWSER_PATH` to an installed Chromium/Chrome executable. `TEST_URL` can target the deployed site instead of the local test server. Test screenshots go to ignored `test-results/`.
 
 - `tests/navigation.cjs`: every room-to-room route through doorways, routes never leave the floor or cut furniture (sampled every centimetre), blocked/off-map taps, walls block, doorways open, sliding, wall glide, anti-tunnelling.
+- `tests/chat.cjs`: text cleaning, length cap, profanity masking including spacing tricks (and no false positives on everyday words), nickname rules, rate limits, incoming validation.
+- `tests/multiplayer.cjs`: two tabs over the local transport: nickname validation, seeing each other, count and name tags, movement/pose/outfit sync, chat both ways with bubbles and unread badge, throttling, masking, typing does not walk, leaving.
 - `tests/sleep.cjs`: dream mode only in 수면실, first-person camera, lullaby on/mute, 30-second galaxy, wake-up.
 - `tests/smoke.cjs`: desktop, 390px and 320px mobile, 820px tablet and landscape layouts; joystick/tray overlap; all poses and waving; drag orbit, wheel zoom and recenter; the six-room travel dialog and focus handling; camera-relative joystick movement, release and cancel; wall collision; walking through the 불가마 door with the room badge updating; wall cutaway/fading; tap-to-walk; held-key walking; outfit persistence; audio; reduced motion; local-only assets; WebGL context loss/retry; failed module; unavailable WebGL; loading guard.
 
@@ -55,7 +72,7 @@ Chromium uses software WebGL in CI-like environments, so these tests are slow bu
 
 Each phase ships only after design QA, tests and a verified Pages deploy.
 
-### Phase 2 — multiplayer and public text chat (needs a Supabase project)
+### Phase 2 — multiplayer and public text chat ✅ done
 - Supabase Realtime (free plan): **Presence** for nickname, outfit, current room, visitor count, join/leave; **Broadcast** for positions (~8 Hz while moving, interpolated) and chat.
 - Portrait-first mobile chat: a bottom-sheet chat panel that sits above the on-screen keyboard (`visualViewport`), speech bubbles over heads, nickname labels, recent history, open/close. Landscape and PC stay supported.
 - Basic safety from day one: message length and send-rate limits, plus a local Korean/English profanity filter.

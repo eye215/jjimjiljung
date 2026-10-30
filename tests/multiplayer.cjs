@@ -1,0 +1,106 @@
+const { chromium } = require('playwright');
+const assert = require('node:assert/strict');
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const output = path.join(root, 'test-results');
+fs.mkdirSync(output, { recursive: true });
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url, 'http://localhost');
+  const file = path.resolve(root, '.' + decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));
+  if (!file.startsWith(root + path.sep)) return res.writeHead(403).end();
+  fs.readFile(file, (error, data) => {
+    if (error) return res.writeHead(404).end();
+    const types = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.png': 'image/png' };
+    res.setHeader('Content-Type', types[path.extname(file)] || 'text/plain');
+    res.end(data);
+  });
+});
+(async () => {
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = (process.env.TEST_URL || `http://127.0.0.1:${server.address().port}/`) + '?net=local';
+  const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}), args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  try {
+    // Two visitors in one browser talk over BroadcastChannel (`?net=local`), which
+    // exercises the same presence/state/chat code paths as Supabase Realtime.
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await context.route('**/scene.js*', async route => {
+      const response = await route.fetch();
+      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit })), me: [hero.position.x, hero.position.z] }), teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
+    });
+    const errors = [];
+    const open = async name => {
+      const page = await context.newPage();
+      page.on('pageerror', error => errors.push(name + ': ' + error.message));
+      await page.goto(base);
+      await page.waitForSelector('#viewport[data-ready="true"]', { timeout: 120000 });
+      assert.equal(await page.locator('#join-dialog').evaluate(dialog => dialog.open), true, 'First visit asks for a nickname');
+      await page.locator('#join-enter').click();
+      assert.match(await page.locator('#join-note').textContent(), /닉네임/, 'Empty nickname is rejected');
+      await page.locator('#nickname').fill('씨발');
+      await page.locator('#join-enter').click();
+      assert.match(await page.locator('#join-note').textContent(), /다른 닉네임/, 'Rude nickname is rejected');
+      await page.locator('#nickname').fill(name);
+      await page.locator('#join-enter').click();
+      assert.equal(await page.locator('#join-dialog').evaluate(dialog => dialog.open), false);
+      return page;
+    };
+    const mp = page => page.evaluate(() => window.__mp.state());
+    // Both tabs share localStorage, so the second one must not reuse the first nickname silently.
+    const a = await open('보리');
+    await a.evaluate(() => localStorage.removeItem('jjimjiljung-nickname'));
+    const b = await open('율무');
+    // 1. Each visitor sees the other one.
+    for (const [page, other] of [[a, '율무'], [b, '보리']]) {
+      await page.waitForFunction(name => { const s = window.__mp.state(); return s.status === 'online' && s.count === 2 && s.remotes.some(r => r.name === name && r.placed); }, other, { timeout: 60000 });
+      assert.match(await page.locator('#online-text').textContent(), /2명 접속 중/, 'Visitor count is shown');
+      assert.equal(await page.locator('.nametag:not(.self) b', { hasText: other }).count(), 1, 'Name tag is shown');
+    }
+    // 2. Movement and poses arrive and are interpolated.
+    await a.evaluate(() => window.__mp.teleport(-3, 1.5));
+    await a.locator('[data-action="sit"]').click();
+    await b.waitForFunction(() => { const r = window.__mp.state().remotes[0]; return Math.hypot(r.x + 3, r.z - 1.5) < .1 && r.action === 'sit'; }, null, { timeout: 60000 });
+    await a.locator('[data-color="lilac"]').click();
+    await b.waitForFunction(() => window.__mp.state().remotes[0].outfit === 'lilac', null, { timeout: 30000 });
+    // 3. Chat travels both ways, with a speech bubble over the sender.
+    await a.locator('#chat-open').click();
+    assert.equal(await a.locator('#chat').isVisible(), true);
+    await a.locator('#chat-input').fill('안녕하세요! 식혜 드실래요?');
+    await a.locator('#chat-input').press('Enter');
+    await b.waitForFunction(() => [...document.querySelectorAll('#chat-log li.them span')].some(el => el.textContent.includes('식혜 드실래요')), null, { timeout: 30000 });
+    await b.waitForFunction(() => [...document.querySelectorAll('.nametag:not(.self) .bubble')].some(el => !el.hidden && el.textContent.includes('식혜')), null, { timeout: 10000 });
+    assert.equal(await b.locator('#chat-unread').textContent(), '1', 'Unread badge counts new messages');
+    await b.screenshot({ path: path.join(output, 'multiplayer-bubble.png') });
+    // 4. Rate limit and profanity masking.
+    const burst = await a.evaluate(() => {
+      const input = document.querySelector('#chat-input'), form = document.querySelector('#chat-form'), notes = [];
+      for (const text of ['하나', '둘']) { input.value = text; form.requestSubmit(); notes.push(document.querySelector('#chat-note').textContent); }
+      return notes;
+    });
+    assert.match(burst[1], /천천히/, 'Rapid messages are throttled');
+    await a.waitForTimeout(1300);
+    await a.locator('#chat-input').fill('이 씨 발 게임 좋아');
+    await a.locator('#chat-input').press('Enter');
+    await b.waitForFunction(() => [...document.querySelectorAll('#chat-log li.them span')].some(el => el.textContent.includes('♨') && !el.textContent.includes('발')), null, { timeout: 30000 });
+    await b.locator('#chat-open').click();
+    await b.locator('#chat-input').fill('반가워요 😊');
+    await b.locator('#chat-input').press('Enter');
+    await a.waitForFunction(() => [...document.querySelectorAll('#chat-log li.them')].some(el => el.textContent.includes('율무') && el.textContent.includes('반가워요')), null, { timeout: 30000 });
+    assert.equal(await a.locator('#chat-input').evaluate(input => input.maxLength), 120, 'Message length is capped');
+    await a.screenshot({ path: path.join(output, 'multiplayer-chat.png') });
+    // Typing in chat must not move the character.
+    const before = (await mp(a)).me;
+    await a.locator('#chat-input').fill('wasd');
+    assert.deepEqual((await mp(a)).me, before, 'Typing WASD in chat does not walk');
+    await a.locator('#chat-close').click();
+    assert.equal(await a.locator('#chat').isVisible(), false);
+    // 5. Leaving updates the other visitor.
+    await b.close();
+    await a.waitForFunction(() => { const s = window.__mp.state(); return s.count === 1 && s.remotes.length === 0; }, null, { timeout: 30000 });
+    assert.match(await a.locator('#online-text').textContent(), /1명 접속 중/);
+    assert(await a.locator('#chat-log li.system', { hasText: '율무님이 나갔어요' }).count() >= 1, 'Leave notice appears');
+    assert.deepEqual(errors, [], 'No JS errors');
+    console.log('PASS (local transport): nickname validation, two visitors see each other with name tags and count, movement/pose/outfit sync, chat both ways with bubbles and unread badge, rate limit, profanity masking, length cap, typing does not walk, leave handling.');
+  } finally { await browser.close(); server.close(); }
+})().catch(error => { console.error(error); server.close(); process.exitCode = 1; });
