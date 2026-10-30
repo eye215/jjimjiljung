@@ -108,6 +108,18 @@ const server = http.createServer((req, res) => {
     await b.locator('#chat-input').press('Enter');
     await a.waitForFunction(() => [...document.querySelectorAll('#chat-log li.them')].some(el => el.textContent.includes('율무') && el.textContent.includes('반가워요')), null, { timeout: 30000 });
     assert.equal(await a.locator('#chat-input').evaluate(input => input.maxLength), 120, 'Message length is capped');
+    // Two display modes (saved on the device) and the swipe-up history.
+    await a.locator('#chat-mode').click();
+    assert.equal(await a.locator('#chat').getAttribute('data-mode'), 'subtitle');
+    assert.equal(await a.evaluate(() => localStorage.getItem('jjimjiljung-chat-mode')), 'subtitle');
+    await a.screenshot({ path: path.join(output, 'multiplayer-subtitles.png') });
+    await a.locator('#chat-history').click();
+    assert.equal(await a.locator('#chat').evaluate(el => el.classList.contains('history')), true, 'History opens');
+    assert(await a.locator('#chat-log').evaluate(el => el.getBoundingClientRect().height <= innerHeight * .41), 'History stays under 40% of the screen');
+    await a.screenshot({ path: path.join(output, 'multiplayer-history.png') });
+    await a.locator('#chat-history').click();
+    await a.locator('#chat-mode').click();
+    assert.equal(await a.locator('#chat').getAttribute('data-mode'), 'bubble');
     await a.screenshot({ path: path.join(output, 'multiplayer-chat.png') });
     // Typing in chat must not move the character.
     const before = (await mp(a)).me;
@@ -115,12 +127,16 @@ const server = http.createServer((req, res) => {
     assert.deepEqual((await mp(a)).me, before, 'Typing WASD in chat does not walk');
     await a.locator('#chat-close').click();
     assert.equal(await a.locator('#chat').isVisible(), false);
+    // Tapping outside puts the composer away.
+    await a.locator('#chat-open').click();
+    await a.mouse.click(195, 300);
+    assert.equal(await a.locator('#chat').isVisible(), false, 'Outside tap closes the composer');
     // 5. Leaving updates the other visitor.
     await b.close();
     await a.waitForFunction(() => { const s = window.__mp.state(); return s.count === 1 && s.remotes.length === 0; }, null, { timeout: 30000 });
     assert.match(await a.locator('#online-text').textContent(), /1명 접속 중/);
     assert(await a.locator('#chat-log li.system', { hasText: '율무님이 나갔어요' }).count() >= 1, 'Leave notice appears');
     assert.deepEqual(errors, [], 'No JS errors');
-    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, greeting with auto target, high-five, 온기 and cooldown, chat both ways with bubbles and unread badge, rate limit, profanity masking, length cap, typing does not walk, leave handling.');
+    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, greeting with auto target, high-five, 온기 and cooldown, chat both ways with bubbles and unread badge, panel-less composer (bubble/subtitle modes, history, outside tap), rate limit, profanity masking, length cap, typing does not walk, leave handling.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

@@ -346,3 +346,35 @@ body.sleeping .room-badge{opacity:0}
 .greet-pick{pointer-events:auto;width:40px;height:40px;border-radius:50%;border:0;font-size:22px;background:var(--lg-thick);box-shadow:var(--glass-ring),0 6px 14px rgba(120,60,30,.2);animation:pickPop .5s cubic-bezier(.3,1.6,.5,1)}
 @keyframes pickPop{from{transform:scale(.3);opacity:0}}
 .greet-fly{position:absolute;left:0;top:0;margin:-14px 0 0 -14px;font-size:28px;pointer-events:none;will-change:transform}
+/* ---------- Chat without a panel: a composer above the keyboard ---------- */
+#chat{position:fixed;z-index:15;left:0;right:0;top:auto;bottom:var(--keyboard,0px);width:auto;height:auto;max-width:560px;margin:0 auto;padding:0 10px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;justify-content:flex-end;gap:8px;background:none;border:0;border-radius:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;overflow:visible;color:var(--ink)}
+#chat:before{display:none}
+#chat header{display:none}
+#chat-log{flex:none;max-height:0;padding:0 6px;overflow:hidden;gap:4px;background:none}
+#chat-log li{max-width:100%;flex-direction:row;align-items:baseline;gap:6px;font-size:15px;line-height:1.45;color:#fff;text-shadow:0 1px 3px rgba(40,20,10,.75),0 0 10px rgba(40,20,10,.35)}
+#chat-log li b{font-size:13px;color:#ffe2c9;text-shadow:inherit}#chat-log li b:after{content:":"}
+#chat-log li span,#chat-log li.me span{background:none;border:0;box-shadow:none;padding:0;border-radius:0;color:inherit;-webkit-backdrop-filter:none;backdrop-filter:none}
+#chat-log li.me b{display:inline}#chat-log li time{display:none}
+#chat-log li.system{align-self:flex-start;background:none;border:0;padding:0;font-size:13px;color:rgba(255,246,235,.85)}
+/* 자막 모드: the last four lines, fading away. */
+#chat[data-mode=subtitle] #chat-log{max-height:9.5em}
+#chat[data-mode=subtitle]:not(.history) #chat-log li{display:none;animation:subtitleFade 9s ease-in forwards}
+#chat[data-mode=subtitle]:not(.history) #chat-log li:nth-last-child(-n+4){display:flex}
+@keyframes subtitleFade{0%,70%{opacity:1}100%{opacity:0}}
+/* 지난 대화: swipe up or ⌃; a light blur, at most 40% of the screen. */
+#chat.history header{display:flex;align-items:center;gap:8px;padding:0 6px;border:0}
+#chat.history h2{font-size:14px;margin:0;color:#fff;text-shadow:0 1px 3px rgba(40,20,10,.7)}
+#chat.history #chat-count{background:rgba(255,255,255,.5);color:var(--ink)}
+#chat.history #chat-rename{margin-left:auto;min-height:32px;padding:0 12px;border:0;border-radius:999px;background:var(--lg-fill);color:var(--ink);font-size:12.5px;box-shadow:var(--glass-ring)}
+#chat.history #chat-log{max-height:40svh;overflow-y:auto;padding:12px;border-radius:24px;background:rgba(40,25,18,.18);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+#chat-note{margin:0 6px;align-self:flex-start;border:0;border-radius:999px;padding:6px 12px;background:var(--lg-thick);color:var(--ink);box-shadow:var(--glass-ring)}
+#chat-form{display:flex;align-items:center;gap:6px;padding:6px;border:0;border-radius:999px;background:var(--lg-thick);-webkit-backdrop-filter:var(--lg-blur);backdrop-filter:var(--lg-blur);box-shadow:var(--glass-ring),0 10px 30px rgba(60,30,10,.18)}
+#chat-form button{flex-shrink:0;width:40px;height:40px;min-height:40px;padding:0;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(107,70,54,.08);color:var(--ink);font-size:18px;font-weight:800;box-shadow:none}
+#chat-form #chat-send{width:44px;height:44px;background:var(--hot);color:#fff;font-size:22px;box-shadow:0 6px 14px rgba(242,104,60,.3)}
+#chat-form #chat-history[aria-pressed=true]{transform:rotate(180deg)}
+#chat-input{flex:1;min-width:0;min-height:44px;border:0;border-radius:999px;padding:0 14px;background:rgba(255,255,255,.75);box-shadow:inset 0 1px 2px rgba(80,40,20,.08);font-size:16px;color:var(--ink)}
+#chat-input:focus{outline:2px solid rgba(242,104,60,.35);outline-offset:0}
+/* Unread: a dot on the chat button (the count stays for screen readers). */
+#chat-open em{min-width:12px;width:12px;height:12px;padding:0;font-size:0;top:4px;right:4px}
+@media(max-width:760px){#chat{left:0;right:0;top:auto;height:auto;bottom:var(--keyboard,0px);border-radius:0}body.keyboard-open #chat{height:auto}}
+@media(max-height:500px) and (orientation:landscape){#chat{left:auto;right:0;top:auto;width:min(60%,440px);height:auto;border-radius:0}}

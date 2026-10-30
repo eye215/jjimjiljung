@@ -1,18 +1,18 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-17';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-17';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-17';
-import { createTowelGame } from './towel.js?v=rpg-17';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-17';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-17';
-import { buildWorld } from './environment.js?v=rpg-17';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-17';
-import { createTvAds } from './ads.js?v=rpg-17';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-17';
-import { createSocial } from './social.js?v=rpg-17';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-17';
-import { createShop } from './shop.js?v=rpg-17';
-import { createInvite } from './invite.js?v=rpg-17';
+import { planPath, stepMovement } from './navigation.js?v=rpg-18';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-18';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-18';
+import { createTowelGame } from './towel.js?v=rpg-18';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-18';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-18';
+import { buildWorld } from './environment.js?v=rpg-18';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-18';
+import { createTvAds } from './ads.js?v=rpg-18';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-18';
+import { createSocial } from './social.js?v=rpg-18';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-18';
+import { createShop } from './shop.js?v=rpg-18';
+import { createInvite } from './invite.js?v=rpg-18';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
