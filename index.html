@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><link rel="stylesheet" href="./style.css?v=rpg-3">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><link rel="stylesheet" href="./style.css?v=rpg-4">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -36,8 +36,8 @@
 <dialog id="join-dialog" aria-labelledby="join-title">
 <form id="join-form" method="dialog">
 <span class="places-eyebrow">함께 쉬는 찜질방</span><h2 id="join-title">닉네임을 정해 주세요</h2>
-<p>다른 손님들에게 이 이름이 머리 위에 보여요.</p>
-<input id="nickname" name="nickname" maxlength="10" autocomplete="nickname" enterkeyhint="go" placeholder="예: 말랑찜질러" aria-describedby="join-note">
+<p>찜질방에 어울리는 이름을 골라 두었어요. 마음대로 고쳐도 돼요.</p>
+<div class="nickname-row"><input id="nickname" name="nickname" maxlength="10" autocomplete="nickname" enterkeyhint="go" placeholder="예: 말랑양머리" aria-describedby="join-note"><button type="button" id="nickname-reroll" aria-label="다른 닉네임 추천받기">🎲</button></div>
 <p id="join-note" role="alert"></p>
 <div class="join-actions"><button type="button" id="join-solo">혼자 둘러보기</button><button type="submit" id="join-enter">입장하기</button></div>
 </form>
@@ -61,5 +61,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-3').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-4').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>

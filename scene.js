@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-3';
-import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-3';
-import { buildWorld } from './environment.js?v=rpg-3';
-import { ROOMS, DESTINATIONS, SPAWN, roomAt } from './world.js?v=rpg-3';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-3';
-import { createSocial } from './social.js?v=rpg-3';
+import { planPath, stepMovement } from './navigation.js?v=rpg-4';
+import { createCharacterKit, PALETTES, mesh } from './character.js?v=rpg-4';
+import { buildWorld } from './environment.js?v=rpg-4';
+import { ROOMS, DESTINATIONS, SPAWN, roomAt } from './world.js?v=rpg-4';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-4';
+import { createSocial } from './social.js?v=rpg-4';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.

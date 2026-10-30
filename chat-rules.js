@@ -52,3 +52,16 @@ export function readChat(payload) {
   if (!id || !text || !mid) return null;
   return { id, name, text, mid, room: typeof payload.room === 'string' ? payload.room.slice(0, 20) : 'lobby', ts: Date.now() };
 }
+
+// Cosy jjimjilbang nickname suggestions: a soft feeling + a sauna thing.
+// Pure word combinations (no network); always ≤ MAX_NICKNAME characters.
+const FEELINGS = ['말랑', '뽀송', '따끈', '노곤', '포근', '몽글', '보들', '나른', '촉촉', '살랑', '느긋', '꿀잠', '사르르', '보송', '토닥', '푹신', '훈훈', '도란'];
+const THINGS = ['양머리', '식혜', '맥반석', '구운계란', '불가마', '소금방', '수건', '찜질러', '온돌', '황토', '편백', '김모락', '목침', '살얼음', '꿀잠러', '반신욕', '세신러', '토끼수건'];
+export function suggestNickname(random = Math.random) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const feeling = FEELINGS[Math.floor(random() * FEELINGS.length)], thing = THINGS[Math.floor(random() * THINGS.length)];
+    const name = random() < .35 ? `${feeling}한${thing}` : feeling + thing;
+    if ([...name].length <= MAX_NICKNAME && !name.includes('한한')) return name;
+  }
+  return '말랑양머리';
+}
