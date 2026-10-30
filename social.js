@@ -1,12 +1,12 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-4';
-import { PALETTES } from './character.js?v=rpg-4';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-4';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-4';
+import { connect } from './net.js?v=rpg-5';
+import { PALETTES } from './character.js?v=rpg-5';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-5';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-5';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
-const ACTIONS = ['stand', 'sit', 'lie', 'egg', 'drink', 'wave'];
+const ACTIONS = ['stand', 'sit', 'lie', 'wave'];
 const MOVE_INTERVAL = 200, IDLE_INTERVAL = 2500, HISTORY = 60;
 const $ = selector => document.querySelector(selector);
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
@@ -89,6 +89,14 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     remote.target.f = finite(payload.f);
     remote.action = ACTIONS.includes(payload.a) ? payload.a : 'stand';
     remote.walking = payload.w === true;
+    // Snack signature `kind:style:serial` restarts the eating animation once.
+    const snack = typeof payload.s === 'string' ? payload.s.slice(0, 40) : '';
+    if (snack !== remote.snack) {
+      remote.snack = snack;
+      const [kind, style] = snack.split(':');
+      if (kind === 'egg' || kind === 'drink') remote.character.startSnack(kind, { style: style === 'forehead' ? 'forehead' : 'normal' });
+      else if (remote.character.snack) remote.character.stopSnack();
+    }
     if (PALETTES[payload.o] && payload.o !== remote.outfit) { remote.outfit = payload.o; remote.character.setColors(PALETTES[payload.o]); }
     if (!remote.placed) {
       remote.placed = true; remote.character.root.visible = true; remote.shadow.visible = true;
@@ -220,11 +228,11 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
       // Send my state ~5×/s while moving or changing pose, and a heartbeat when idle.
       const now = performance.now();
       if (link && status === 'online') {
-        const signature = `${local.action}|${local.walking}|${local.outfit}`;
+        const signature = `${local.action}|${local.walking}|${local.outfit}|${local.snack}`;
         const due = now - lastSent > (local.walking ? MOVE_INTERVAL : IDLE_INTERVAL) || signature !== lastSignature;
         if (due && now - lastSent > 120) {
           lastSent = now; lastSignature = signature;
-          link.send('state', { id, x: +local.x.toFixed(2), z: +local.z.toFixed(2), f: +local.facing.toFixed(2), a: local.action, w: local.walking, o: local.outfit, r: local.room });
+          link.send('state', { id, x: +local.x.toFixed(2), z: +local.z.toFixed(2), f: +local.facing.toFixed(2), a: local.action, s: local.snack, w: local.walking, o: local.outfit, r: local.room });
         }
       }
       place(selfLabel, local, local.visible && !selfLabel.hidden);

@@ -11,6 +11,12 @@ A tiny, warm 3D jjimjilbang for a quiet break. Open [the live room](https://eye2
 - **Controls.** Mobile: thumb joystick (camera-relative), tap the floor to walk, drag to orbit the camera, pinch to zoom. PC: WASD / arrow keys (hold to walk), click to walk, drag to orbit, wheel to zoom, Q/E to turn, Home or 내 위치 to reset the view. 둘러보기 walks you into any room.
 - Sit, lie down with a pillow, eat a roasted egg, drink sikhye, or wave hello. Arriving in a room picks a fitting pose (sit by the hearth, lie on the salt or a sleeping mat). Faces blink and close their eyes to rest.
 - **수면실 dream mode (Phase 3).** Lie down on a 수면실 mat and the camera glides into a first-person view under a ceiling of glow-in-the-dark stars while a soft lullaby starts. The lullaby is generated in the browser, so no audio file is downloaded and there is no licence to manage. After 30 quiet seconds the room fades into a slowly turning galaxy. 일어나기, 산책, a tap on the floor or the joystick wakes you up. A music on/off button is remembered. Reduced-motion users get a still galaxy.
+- **매점 & 간식 (Phase 4).**
+  - **Eating:** eggs and sikhye are eaten in your current pose, so you can sit and snack. Both hands hold a roasted 맥반석 egg (speckled shell → crack → peeled, three bites showing the yolk) or a paper cup of 살얼음 식혜 (rice grains, straw, the level drops with each sip). The face munches with puffed cheeks, shell bits fly, and sparkles mark the finish. Others see you eat.
+  - **Getting snacks:** they come from your 간식 가방. An empty bag offers a walk to the 매점, which opens on arrival. There, claim **one free egg and one free sikhye per day** (Korea time) or buy more for 5 온기 ♨.
+  - **Earning 온기:** sitting or lying earns 온기 every 30 s (double in 불가마/소금방). Newcomers start with 10, and earning is capped at 60 a day.
+  - **Mini-games:** "이마로 계란 깨기" (tap in the golden zone; the character cracks the egg on their forehead) and "식혜 원샷" (hold to drink, rest before brain freeze). Each uses one snack and rewards up to 3 ♨.
+  - **Saving:** the bag and points are saved on this device for now (moving to the server in Phase 5).
 - Full-screen mobile layout, safe-area spacing, reduced-motion support, optional user-activated synthesized ambience, and the last outfit saved locally when storage is available.
 - Clear loading, missing-module, unsupported-WebGL and context-loss states, with a retry button. Rendering and sound pause while the page is hidden.
 
@@ -31,6 +37,8 @@ Not yet implemented: private rooms, AI moderation, voice chat/STT and NPC conver
 | `net.js` | Realtime transports: Supabase Realtime (Presence and Broadcast) in production; a BroadcastChannel transport between tabs for tests (`?net=local`). |
 | `chat-rules.js` | Pure chat rules: text cleaning, 120-character cap, profanity masking, nickname rules, rate limits, incoming validation. |
 | `config.js` | Public Supabase URL, publishable key and channel name. |
+| `economy.js` | Wallet rules: snack bag, 온기 points, daily free snack (Korea day), earning cap, mini-game scoring. Pure and unit-tested. |
+| `shop.js` | 매점 sheet, wallet chip, empty-bag prompt, both mini-games. |
 | `scene.js` | Renderer, follow camera, input, actions, residents, room detection, wall cutaway/fading, error handling. |
 
 ### Performance notes (mobile)
@@ -63,6 +71,8 @@ Use Node.js and install the pinned development dependency with `npm install`, th
 - `tests/navigation.cjs`: every room-to-room route through doorways, routes never leave the floor or cut furniture (sampled every centimetre), blocked/off-map taps, walls block, doorways open, sliding, wall glide, anti-tunnelling.
 - `tests/chat.cjs`: text cleaning, length cap, profanity masking including spacing tricks (and no false positives on everyday words), nickname rules, rate limits, incoming validation.
 - `tests/multiplayer.cjs`: two tabs over the local transport: nickname validation, seeing each other, count and name tags, movement/pose/outfit sync, chat both ways with bubbles and unread badge, throttling, masking, typing does not walk, leaving.
+- `tests/economy.cjs`: welcome points, free snack once per Korea day, buying, persistence, tamper sanitising, daily cap, mini-game scores.
+- `tests/shop.cjs`: empty-bag prompt walks to the 매점, daily free claims, buying, eating while sitting, finishing, putting snacks away, both mini-games.
 - `tests/sleep.cjs`: dream mode only in 수면실, first-person camera, lullaby on/mute, 30-second galaxy, wake-up.
 - `tests/smoke.cjs`: desktop, 390px and 320px mobile, 820px tablet and landscape layouts; joystick/tray overlap; all poses and waving; drag orbit, wheel zoom and recenter; the six-room travel dialog and focus handling; camera-relative joystick movement, release and cancel; wall collision; walking through the 불가마 door with the room badge updating; wall cutaway/fading; tap-to-walk; held-key walking; outfit persistence; audio; reduced motion; local-only assets; WebGL context loss/retry; failed module; unavailable WebGL; loading guard.
 
@@ -83,7 +93,7 @@ Each phase ships only after design QA, tests and a verified Pages deploy.
 - Calm sleep music starts automatically. Lying down is a tap, so browsers allow the sound to play. Music is generated in the browser or uses a properly licensed track, with a volume control and mute.
 - After 30 seconds of lying still, the view fades into a slowly turning galaxy (stars, nebula, and a gentle shader). Waking up (the button, walking, or tapping the floor) fades back to the room. Reduced-motion users get a static starfield.
 
-### Phase 4 — 매점 & 간식 (no external setup)
+### Phase 4 — 매점 & 간식 ✅ done
 - **Eat while sitting:** egg and sikhye become something you do in a pose, so you can sit (or stand) and snack. Other visitors see it too.
 - **Buy at the 매점:** walk up to the counter and a 매점 button appears. Pick 구운 계란 or 식혜 and they go into a small snack bag in the action tray (계란 ×2). With an empty bag, the snack buttons point you to the shop.
 - **One free each per day:** one free egg and one free sikhye every day, resetting at midnight Korea time. Anything more costs 온기 points (♨), earned by resting in 불가마/소금방, chatting and the mini-games.
