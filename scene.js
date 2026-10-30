@@ -1,18 +1,19 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-18';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-18';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-18';
-import { createTowelGame } from './towel.js?v=rpg-18';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-18';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-18';
-import { buildWorld } from './environment.js?v=rpg-18';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-18';
-import { createTvAds } from './ads.js?v=rpg-18';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-18';
-import { createSocial } from './social.js?v=rpg-18';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-18';
-import { createShop } from './shop.js?v=rpg-18';
-import { createInvite } from './invite.js?v=rpg-18';
+import { planPath, stepMovement } from './navigation.js?v=rpg-19';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-19';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-19';
+import { createTowelGame } from './towel.js?v=rpg-19';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-19';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-19';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-19';
+import { buildWorld } from './environment.js?v=rpg-19';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-19';
+import { createTvAds } from './ads.js?v=rpg-19';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-19';
+import { createSocial } from './social.js?v=rpg-19';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-19';
+import { createShop } from './shop.js?v=rpg-19';
+import { createInvite } from './invite.js?v=rpg-19';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -711,6 +712,31 @@ function onGreet({ type, from, name, gid }) {
   greetIn = { from, gid }; setTimeout(() => { if (greetIn?.gid === gid) greetIn = null; }, GREET_EXPIRE);
   toast(`${name}님이 인사했어요`, '👋 받아주기', () => { if (greetIn?.gid !== gid) return; greetIn = null; social.sendGreet(from, 'accept', gid); highFive(remote); }, GREET_EXPIRE);
 }
+
+// ---------- 사주방: today's fortune, computed in the browser ----------
+const fortuneDialog = document.querySelector('#fortune-dialog'), fortuneForm = document.querySelector('#fortune-form'), fortuneResult = document.querySelector('#fortune-result');
+function showFortune(birth) {
+  const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null); if (!f) return;
+  const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+  fortuneResult.innerHTML = `<p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
+  const b = fortuneResult.querySelectorAll('b');
+  b[0].textContent = `${f.mine}(${f.element})`; b[1].textContent = `${f.today}(${f.todayElement})`; b[2].textContent = f.color; b[3].textContent = f.number;
+  fortuneResult.querySelector('h3').textContent = f.title; fortuneResult.querySelector('.fortune-text').textContent = f.text;
+  fortuneResult.hidden = false;
+}
+document.querySelector('#fortune-open').addEventListener('click', () => {
+  placesDialog.close(); const saved = loadBirth();
+  fortuneResult.hidden = true;
+  if (saved?.date) { document.querySelector('#fortune-date').value = saved.date; document.querySelector('#fortune-time').value = saved.time || ''; showFortune(saved); }
+  fortuneDialog.showModal();
+});
+fortuneForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const birth = { date: document.querySelector('#fortune-date').value, time: document.querySelector('#fortune-time').value };
+  if (!birth.date) return; saveBirth(birth); showFortune(birth);
+});
+document.querySelector('#fortune-close').addEventListener('click', () => fortuneDialog.close());
+document.querySelector('#fortune-forget').addEventListener('click', () => { saveBirth(null); fortuneForm.reset(); fortuneResult.hidden = true; toast('생년월일을 지웠어요'); });
 
 const towelNudge = document.querySelector('#towel-nudge');
 towelNudge.querySelector('button').addEventListener('click', () => { towelNudge.hidden = true; goToTowel(); });

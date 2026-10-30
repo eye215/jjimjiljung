@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="800"><meta property="og:image:height" content="400"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-18">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="800"><meta property="og:image:height" content="400"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-19">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -66,6 +66,12 @@
 <div class="shop-games"><button data-game="egg">🥚 이마로 계란 깨기<small>계란 1개 사용</small></button><button data-game="drink">🥤 식혜 원샷<small>식혜 1개 사용</small></button></div>
 <p class="places-footnote">계란·식혜는 하루에 하나씩 무료예요. 앉거나 누워서 쉬면 30초마다 온기 ♨가 모여요 (불가마·소금방은 두 배).</p>
 </dialog>
+<dialog id="fortune-dialog" aria-labelledby="fortune-title">
+<div class="places-heading"><div><span class="places-eyebrow">사주방</span><h2 id="fortune-title">오늘의 운세</h2></div><button id="fortune-close" aria-label="운세 닫기">×</button></div>
+<form id="fortune-form"><label>생년월일<input id="fortune-date" type="date" required min="1900-01-01" max="2030-12-31"></label><label>태어난 시간 <small>(몰라도 괜찮아요)</small><input id="fortune-time" type="time"></label><button type="submit" id="fortune-go">운세 보기</button></form>
+<section id="fortune-result" hidden aria-live="polite"></section>
+<p class="places-footnote">재미로 보는 운세예요. 생년월일은 이 기기에만 저장되고, 아래에서 지울 수 있어요. <button type="button" id="fortune-forget" class="link-button">생년월일 지우기</button></p>
+</dialog>
 <dialog id="places-dialog" aria-labelledby="places-title" aria-describedby="places-description">
 <div class="places-heading"><div><span class="places-eyebrow">작은 찜질방 산책</span><h2 id="places-title">어디로 가볼까요?</h2></div><button id="places-close" aria-label="둘러보기 닫기">×</button></div>
 <p id="places-description">가고 싶은 방을 고르면 문을 지나 안까지 걸어가요.</p>
@@ -77,6 +83,7 @@
 <button data-place="ice"><span aria-hidden="true">❄</span><b>얼음방</b><small>잠깐 시원한 기분</small></button>
 <button data-place="lobby"><span aria-hidden="true">♧</span><b>중앙 휴게실</b><small>모두 모이는 곳</small></button>
 </div>
+<button type="button" id="fortune-open" class="fortune-entry">🔮 오늘의 운세 <small>무료 · 생년월일은 이 기기에만 저장</small></button>
 <p class="places-footnote">직접 걸어 다녀도 돼요. 문을 지나면 방 이름이 바뀌어요.<br><a href="./privacy.html">개인정보처리방침</a></p>
 </dialog>
 <script>
@@ -85,5 +92,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-18').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-19').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>

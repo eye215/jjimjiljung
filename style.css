@@ -378,3 +378,20 @@ body.sleeping .room-badge{opacity:0}
 #chat-open em{min-width:12px;width:12px;height:12px;padding:0;font-size:0;top:4px;right:4px}
 @media(max-width:760px){#chat{left:0;right:0;top:auto;height:auto;bottom:var(--keyboard,0px);border-radius:0}body.keyboard-open #chat{height:auto}}
 @media(max-height:500px) and (orientation:landscape){#chat{left:auto;right:0;top:auto;width:min(60%,440px);height:auto;border-radius:0}}
+/* 사주방 */
+.fortune-entry{width:100%;margin-top:12px;min-height:56px;border:0;border-radius:20px;background:linear-gradient(135deg,#efe6ff,#ffe6ef);color:var(--ink);font-weight:800;font-size:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:var(--glass-ring)}
+.fortune-entry small{font-size:12px;font-weight:600;color:var(--ink-soft)}
+#fortune-dialog{color:var(--ink);border:0;border-radius:28px;padding:22px;width:400px;max-width:calc(100% - 24px);max-height:calc(100svh - 32px);overflow:auto;background:linear-gradient(180deg,rgba(255,252,248,.95),rgba(248,242,255,.92));box-shadow:0 30px 80px rgba(37,21,8,.3)}
+#fortune-dialog::backdrop{background:rgba(33,24,14,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+#fortune-close{border:0;background:rgba(107,70,54,.08);color:var(--ink);border-radius:50%;width:40px;height:40px;font-size:24px;line-height:1;flex-shrink:0}
+#fortune-form{display:grid;gap:10px;margin-top:14px}
+#fortune-form label{display:grid;gap:5px;font-size:14px;font-weight:700}#fortune-form small{font-weight:500;color:var(--ink-soft)}
+#fortune-form input{min-height:46px;border:0;border-radius:14px;padding:0 14px;font:inherit;font-size:16px;color:var(--ink);background:rgba(255,255,255,.85);box-shadow:inset 0 0 0 1px rgba(107,70,54,.12)}
+#fortune-go{min-height:50px;border:0;border-radius:999px;background:var(--hot);color:#fff;font-weight:800;font-size:16px}
+#fortune-result{margin-top:16px;padding:16px;border-radius:22px;background:rgba(255,255,255,.7);box-shadow:var(--glass-ring)}
+#fortune-result h3{margin:4px 0 6px;font-size:20px;letter-spacing:-.03em}
+.fortune-pillars,.fortune-lucky{margin:0;font-size:13px;color:var(--ink-soft)}.fortune-pillars b,.fortune-lucky b{color:var(--ink)}
+.fortune-text{margin:0 0 10px;font-size:14.5px;line-height:1.55}
+#fortune-result dl{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:0 0 10px}#fortune-result dl div{display:flex;justify-content:space-between}#fortune-result dt{font-weight:700;font-size:14px}#fortune-result dd{margin:0;color:var(--tint);letter-spacing:1px}
+.fortune-lucky i{display:inline-block;width:12px;height:12px;border-radius:50%;margin:0 4px -1px;box-shadow:0 0 0 1.5px #fff,0 0 0 2.5px rgba(107,70,54,.2)}
+.link-button{border:0;background:none;padding:0;color:#8a6448;text-decoration:underline;font:inherit;font-size:inherit}
