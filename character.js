@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { GLTFLoader } from './vendor/three-addons/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/three-addons/SkeletonUtils.js';
-import { towelMesh, setTowelColor } from './props.js?v=rpg-21';
+import { towelMesh, setTowelColor } from './props.js?v=rpg-22';
 
 // Reference-inspired plush silhouette: deep towel cap, tiny dot eyes,
 // barely visible neck, soft mittens and short legs. No bag or shoulder strap.

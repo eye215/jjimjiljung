@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
-import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-21';
-import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-21';
+import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-22';
+import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-22';
 
 // Procedural, cosy jjimjilbang built from the shared map data. Everything is
 // generated locally: textures are drawn on canvases and static props are merged
@@ -387,6 +387,15 @@ export function buildWorld({ scene, kit }) {
         cylinder(g, mat('#c9a23a', { metalness: .4, roughness: .4 }), [x + cw * .3, y + .1, d / 2 - .02], .025, .025, .02, 10).rotation.x = Math.PI / 2;
       }
     },
+    frontdesk(g, w, d) {
+      // Reception: a wooden desk, a key board with numbered tags and a stack of 찜질복.
+      box(g, M.plank, [0, .5, 0], [w, 1, d], .04, 4);
+      box(g, M.lightWood, [0, 1.03, .04], [w + .1, .06, d + .1], .02, 4);
+      box(g, M.darkWood, [0, 1.55, -d / 2 - .02], [w * .9, .7, .05], .02, 4);
+      for (let i = 0; i < 12; i++) { const x = -w * .38 + (i % 6) * w * .152, y = 1.75 - Math.floor(i / 6) * .3; cylinder(g, mat('#c9a23a', { metalness: .4, roughness: .4 }), [x, y, -d / 2 + .02], .02, .02, .04, 8).rotation.x = Math.PI / 2; box(g, mat(['#f2a7c3', '#9fd0f2', '#b6e3a1', '#f7d27c'][i % 4]), [x, y - .1, -d / 2 + .03], [.08, .12, .015], .01, 2); }
+      for (let i = 0; i < 4; i++) box(g, mat(['#f4b39a', '#bfe0c8', '#c9b8e8', '#f6dc8b'][i], { map: textile, roughness: 1 }), [w * .3, 1.1 + i * .07, .05], [.4, .06, .32], .02, 4);
+      sign(g, '카운터', [0, .6, d / 2 + .01], 0, .9, { bg: '#fff4da', ink: '#7b4524' });
+    },
     hotpool(g, w, d) { pool(g, w, d, '#7fd0d8', '#ffd7b0', true); },
     coldpool(g, w, d) { pool(g, w, d, '#8fc6f0', '#e8f6ff', false); },
     shower(g, w) {
@@ -461,8 +470,8 @@ export function buildWorld({ scene, kit }) {
   decor(g => { for (const y of [1.15, 1.45]) { box(g, M.lightWood, [0, y, 0], [3.4, .05, .3], .02, 4); for (let i = 0; i < 9; i++) cylinder(g, mat(['#f2d58a', '#e98d6b', '#f4e3c0', '#a8d38a'][i % 4]), [-1.5 + i * .37, y + .12, 0], .08, .08, .2, 10); } }, [14.6, 0, 0], -Math.PI / 2, ['x', 15]);
 
   // ---------- Lighting ----------
-  const pointPositions = { fortune: [-11.5, 2.2, 11], locker: [-5, 2.3, 11], bath: [3, 2.3, 11], scrub: [11.5, 2.3, 11], lobby: [0, 2.6, 1.5], hot: [0, 2.2, -10], ice: [-9.5, 2.3, -9], sleep: [9.5, 2.1, -9], salt: [-11.5, 2.2, 0], shop: [11.5, 2.4, 0] };
-  const intensities = { fortune: 8, locker: 9, bath: 10, scrub: 9, lobby: 9, hot: 22, ice: 10, sleep: 7, salt: 12, shop: 10 };
+  const pointPositions = { entrance: [11.5, 2.3, 5.5], fortune: [-11.5, 2.2, 11], locker: [-5, 2.3, 11], bath: [3, 2.3, 11], scrub: [11.5, 2.3, 11], lobby: [0, 2.6, 1.5], hot: [0, 2.2, -10], ice: [-9.5, 2.3, -9], sleep: [9.5, 2.1, -9], salt: [-11.5, 2.2, 0], shop: [11.5, 2.4, 0] };
+  const intensities = { entrance: 8, fortune: 8, locker: 9, bath: 10, scrub: 9, lobby: 9, hot: 22, ice: 10, sleep: 7, salt: 12, shop: 10 };
   for (const room of ROOMS) {
     const light = new THREE.PointLight(room.light, intensities[room.id], 11, 1.4); light.position.set(...pointPositions[room.id]); scene.add(light); lights[room.id] = light;
   }

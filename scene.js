@@ -1,19 +1,19 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-21';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-21';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-21';
-import { createTowelGame } from './towel.js?v=rpg-21';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-21';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-21';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-21';
-import { buildWorld } from './environment.js?v=rpg-21';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-21';
-import { createTvAds } from './ads.js?v=rpg-21';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-21';
-import { createSocial } from './social.js?v=rpg-21';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-21';
-import { createShop } from './shop.js?v=rpg-21';
-import { createInvite } from './invite.js?v=rpg-21';
+import { planPath, stepMovement } from './navigation.js?v=rpg-22';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-22';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-22';
+import { createTowelGame } from './towel.js?v=rpg-22';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-22';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-22';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-22';
+import { buildWorld } from './environment.js?v=rpg-22';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-22';
+import { createTvAds } from './ads.js?v=rpg-22';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-22';
+import { createSocial } from './social.js?v=rpg-22';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-22';
+import { createShop } from './shop.js?v=rpg-22';
+import { createInvite } from './invite.js?v=rpg-22';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -82,6 +82,7 @@ const residents = [
   { x: 9.5, z: -11.05, y: .1, face: 0, action: 'lie' },
   { x: 14.5, z: -1.7, y: 0, face: -Math.PI / 2, action: 'stand', greeter: true },
   { x: 13.4, z: 11.6, y: 0, face: -Math.PI / 2, action: 'stand', scrubber: true },
+  { x: 14.7, z: 4.8, y: 0, face: -Math.PI / 2, action: 'stand', clerk: true },
   { x: 5.4, z: 10.25, y: .05, face: Math.PI, action: 'sit' },
   { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' }
 ].map((config, index) => {
@@ -569,7 +570,7 @@ function frame(now) {
   player.animate(action, walking, dt, reducedMotion, WALK_SPEED / 1.9);
   for (const resident of residents) {
     const near = Math.hypot(resident.root.position.x - hero.position.x, resident.root.position.z - hero.position.z) < 8;
-    resident.animate((resident.config.greeter && action === 'wave' && near) || (resident.config.scrubber && scrubbing > 0) ? 'wave' : resident.config.action, false, dt, reducedMotion);
+    resident.animate((resident.config.greeter && action === 'wave' && near) || (resident.config.scrubber && scrubbing > 0) || (resident.config.clerk && deskWave > 0) ? 'wave' : resident.config.action, false, dt, reducedMotion);
   }
   shadow.position.set(hero.position.x, .012, hero.position.z); shadow.scale.set(action === 'lie' ? 1.1 : 1, action === 'lie' ? 1.7 : 1, 1);
   if (action === 'lie') shadow.position.z -= Math.cos(hero.rotation.y) * .3;
@@ -742,13 +743,17 @@ document.querySelector('#fortune-forget').addEventListener('click', () => { save
 
 // ---------- South wing spots: 사물함 갈아입기, 사주방 운세, 세신 ----------
 const spotButton = document.querySelector('#spot-action');
-let spot = null, scrubbing = 0, scrubReady = 0;
+let spot = null, scrubbing = 0, scrubReady = 0, deskWave = 0;
+// 입구 카운터: the first visit hands over a locker key (kept on this device) and a fresh 찜질복.
+let lockerKey = 0; try { lockerKey = Number(localStorage.getItem('jjimjiljung-key')) || 0; } catch { /* storage may be unavailable */ }
 const SCRUB_TIME = 6, SCRUB_GAP = 10 * 60 * 1000, SCRUB_REWARD = 2;
 function updateSpots(dt) {
   const near = SPOTS.find(s => s.room === currentRoom.id && Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < s.r) || null;
   const show = near && !towelGame.isOpen && !shop.playing && !scrubbing && !document.querySelector('dialog[open]');
   if (near !== spot || spotButton.hidden === !!show) { spot = near; spotButton.hidden = !show; if (near) spotButton.textContent = near.label; }
   if (show) towelNudge.hidden = true;
+  if (near?.id === 'locker' && lockerKey) spotButton.textContent = `👕 ${lockerKey}번 사물함에서 갈아입기`;
+  deskWave = Math.max(0, deskWave - dt);
   if (scrubbing > 0) {
     // Getting up (any other pose or walking away) stops the scrub without a reward.
     if (action !== 'lie') { scrubbing = 0; return; }
@@ -762,7 +767,15 @@ function updateSpots(dt) {
 }
 spotButton.addEventListener('click', () => {
   if (!spot) return;
-  if (spot.id === 'locker') outfitButton.click();
+  if (spot.id === 'desk') {
+    deskWave = 2.5; faceTo({ x: 14.7, z: 4.8 });
+    if (!lockerKey) {
+      lockerKey = 1 + Math.floor(Math.random() * 120); try { localStorage.setItem('jjimjiljung-key', String(lockerKey)); } catch { /* storage may be unavailable */ }
+      applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom') }); player.celebrate();
+      toast(`${lockerKey}번 열쇠와 새 찜질복을 받았어요! 탈의실 사물함에서 갈아입을 수 있어요 🔑`);
+    } else toast(`어서 오세요! ${lockerKey}번 열쇠는 그대로예요. 푹 쉬다 가세요 ♨`);
+  }
+  else if (spot.id === 'locker') outfitButton.click();
   else if (spot.id === 'fortune') document.querySelector('#fortune-open').click();
   else if (spot.id === 'scrub') {
     if (Date.now() < scrubReady) { toast(`세신은 ${Math.ceil((scrubReady - Date.now()) / 60000)}분 뒤에 또 받을 수 있어요`); return; }

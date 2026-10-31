@@ -31,11 +31,21 @@ const server = http.createServer((req, res) => {
     await page.goto(base); await page.waitForSelector('#viewport[data-ready="true"]');
     if (await page.locator('#join-dialog').evaluate(d => d.open)) await page.locator('#join-solo').click();
     // The places dialog lists the four new rooms.
-    for (const id of ['locker', 'bath', 'scrub', 'fortune']) assert.equal(await page.locator(`[data-place="${id}"]`).count(), 1);
+    for (const id of ['entrance', 'locker', 'bath', 'scrub', 'fortune']) assert.equal(await page.locator(`[data-place="${id}"]`).count(), 1);
+    // 입구 카운터: first visit gives a locker key and a fresh outfit; the locker shows the number.
+    await page.evaluate(() => window.__w.tp(12.6, 5.5));
+    await page.locator('#spot-action', { hasText: '열쇠' }).waitFor();
+    const fresh = await page.locator('#viewport').getAttribute('data-outfit');
+    await page.locator('#spot-action').click();
+    const key = await page.evaluate(() => localStorage.getItem('jjimjiljung-key'));
+    assert(+key >= 1 && +key <= 120, 'A locker key is handed over');
+    assert.notEqual(await page.locator('#viewport').getAttribute('data-outfit'), fresh, 'with a fresh 찜질복');
+    await page.locator('#spot-action').click();
+    assert.match(await page.locator('#toast span').textContent(), new RegExp(`${key}번 열쇠는 그대로`));
     // 탈의실: the locker button re-dyes the outfit.
     await page.evaluate(() => window.__w.tp(-6, 11));
     await page.waitForFunction(() => window.__w.room() === 'locker');
-    await page.locator('#spot-action', { hasText: '사물함' }).waitFor();
+    await page.locator('#spot-action', { hasText: `${key}번 사물함` }).waitFor();
     const before = await page.locator('#viewport').getAttribute('data-outfit');
     await page.locator('#spot-action').click();
     assert.notEqual(await page.locator('#viewport').getAttribute('data-outfit'), before, 'Lockers change the outfit');
@@ -61,6 +71,6 @@ const server = http.createServer((req, res) => {
     await page.waitForFunction(() => window.__w.room() === 'bath');
     await page.screenshot({ path: path.join(output, 'wing-bath.png') });
     assert.deepEqual(errors, [], 'No JS errors');
-    console.log('PASS: south wing rooms in the places dialog, 탈의실 locker re-dye, 사주방 fortune spot, 세신 reward and cooldown, 목욕탕 reachable.');
+    console.log('PASS: 입구 카운터 key and outfit, south wing rooms in the places dialog, 탈의실 locker re-dye, 사주방 fortune spot, 세신 reward and cooldown, 목욕탕 reachable.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

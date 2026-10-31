@@ -1,5 +1,5 @@
-import { ADSENSE_CLIENT, ADS_TEST_MODE } from './config.js?v=rpg-21';
-import { AD_REWARD } from './economy.js?v=rpg-21';
+import { ADSENSE_CLIENT, ADS_TEST_MODE } from './config.js?v=rpg-22';
+import { AD_REWARD } from './economy.js?v=rpg-22';
 
 // Rewarded TV ads through Google H5 Games Ads (Ad Placement API).
 // This is the one external script the site loads, and only after the visitor
