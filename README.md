@@ -188,8 +188,8 @@ npm test                         # 테스트 10종 (아래 표)
 | ✅ 배포 | 패널 없는 채팅 UI: 키보드 위 입력 필드만, 말풍선/자막 모드 토글(기기 저장), ⌃·위로 쓸기로 지난 대화(화면 40% 이하), 바깥 탭으로 닫기, 안 읽음 점. 신청제 그룹 채팅은 서버 단계에서 | Claude |
 | 📝 준비됨 | 신청제 그룹 채팅 서버: `supabase/migrations/20261031_groups.sql`(그룹·신청·차단·설정·신고 테이블, RLS, `request_chat`/`answer_chat`/`leave_group` RPC로 1분 만료·10분 3회 거절·1분 3회·6명 제한, Realtime private channel 정책). **사용자가 SQL Editor에서 실행해야 함**(작업 환경은 supabase.co 차단). 클라이언트 연동·초대 토큰은 실행 후 진행 | 사용자 실행 대기 |
 | ✅ 배포 | 사주방(오늘의 운세): `saju.js` 브라우저 계산, 둘러보기 → 🔮 오늘의 운세, 생년월일은 기기에만 | Claude |
-| 🧪 테스트 중 | Phase 6 남쪽 별관(Codex가 멈춘 동안 사용자 요청으로 진행): 사주방·탈의실·목욕탕·세신실 4개 방(`world.js` ROOMS/DOORS/FURNITURE/DESTINATIONS/SPOTS, 기존 재질 재사용), 사물함=옷 갈아입기, 사주방=운세, 세신=누워서 6초 후 온기 +2(10분 쿨다운), 목욕탕 휴식 온기 2배, NPC 세신사·냉탕 손님. `environment.js`는 문 방향(`door.side`), 조명 항목, 새 가구 빌더만 추가 | Claude |
-| 🧪 테스트 중 | 입구 카운터: 휴게실 동쪽 `entrance` 방, 직원 NPC, 처음 방문 시 사물함 열쇠 번호(기기 저장 `jjimjiljung-key`)와 새 찜질복, 탈의실 버튼에 열쇠 번호 표시 | Claude |
+| ✅ 배포 | Phase 6 남쪽 별관(Codex가 멈춘 동안 사용자 요청으로 진행): 사주방·탈의실·목욕탕·세신실 4개 방(`world.js` ROOMS/DOORS/FURNITURE/DESTINATIONS/SPOTS, 기존 재질 재사용), 사물함=옷 갈아입기, 사주방=운세, 세신=누워서 6초 후 온기 +2(10분 쿨다운), 목욕탕 휴식 온기 2배, NPC 세신사·냉탕 손님. `environment.js`는 문 방향(`door.side`), 조명 항목, 새 가구 빌더만 추가 | Claude |
+| ✅ 배포 | 입구 카운터: 휴게실 동쪽 `entrance` 방, 직원 NPC, 처음 방문 시 사물함 열쇠 번호(기기 저장 `jjimjiljung-key`)와 새 찜질복, 탈의실 버튼에 열쇠 번호 표시 | Claude |
 | ⏸ 대기 | Phase 5 익명 로그인·클라우드 저장 |
 | 🎨 Codex | 3D 배경 디자인 시안 3종 → 확정 후 별도 브랜치에서 구현 | 아래 협업 규칙 |
 
