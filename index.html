@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="800"><meta property="og:image:height" content="400"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-25">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="800"><meta property="og:image:height" content="400"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-26">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -19,7 +19,7 @@
 <form id="chat-form" autocomplete="off"><button id="chat-close" type="button" aria-label="채팅 닫기">×</button><button id="chat-history" type="button" aria-pressed="false" aria-label="지난 대화 보기">⌃</button><input id="chat-input" name="message" type="text" enterkeyhint="send" placeholder="따뜻한 한마디를 남겨요" aria-label="채팅 메시지"><button id="chat-mode" type="button" aria-label="자막 모드로 보기">💭</button><button type="submit" id="chat-send" aria-label="보내기">↑</button></form>
 </section>
 <button id="wallet" aria-label="온기와 간식 가방, 매점 열기"><span>♨ <b id="wallet-points">0</b></span><span>🥚 <b id="wallet-egg">0</b></span><span>🥤 <b id="wallet-drink">0</b></span></button>
-<div id="dress" role="group" aria-label="옷 갈아입기"><button id="cap-toggle" class="glass-round" aria-pressed="false" aria-label="양머리 쓰기" hidden><span aria-hidden="true">🐑</span></button><button id="outfit-random" class="glass-round" aria-label="옷 색깔 랜덤으로 바꾸기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg><i aria-hidden="true">🎲</i></button></div>
+<div id="dress" role="group" aria-label="옷 갈아입기"><button id="cap-toggle" class="glass-round" aria-pressed="false" aria-label="양머리 쓰기" hidden><span aria-hidden="true">🐑</span></button><button id="outfit-random" class="glass-round" hidden aria-label="옷 색깔 랜덤으로 바꾸기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg><i aria-hidden="true">🎲</i></button></div>
 <button id="towel-open" hidden></button>
 <button id="spot-action" hidden></button>
 <div id="towel-nudge" role="status" hidden><span>🐑 수건 받아서 양머리 만들기</span><button type="button">가기</button></div>
@@ -99,5 +99,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-25').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-26').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>

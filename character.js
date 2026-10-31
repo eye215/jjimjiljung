@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { GLTFLoader } from './vendor/three-addons/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/three-addons/SkeletonUtils.js';
-import { towelMesh, setTowelColor } from './props.js?v=rpg-25';
+import { towelMesh, setTowelColor } from './props.js?v=rpg-26';
 
 // Reference-inspired plush silhouette: deep towel cap, tiny dot eyes,
 // barely visible neck, soft mittens and short legs. No bag or shoulder strap.
@@ -747,7 +747,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       if (sleep && character.snack) character.stopSnack();
       updateBursts(dt);
       pillow.visible = sleep && weights[CLIPS.lie] > .5;
-      const goal = sleep ? CLIPS.lie : eating ? CLIPS.drink : sitting ? (character.sitStyle === 'cross' ? CLIPS.sit : CLIPS.drink) : walking ? (speed >= 1.8 ? CLIPS.run : CLIPS.walk) : action === 'wave' || cheering ? CLIPS.wave : null;
+      const goal = sleep ? CLIPS.lie : eating ? CLIPS.drink : sitting ? (character.sitStyle === 'cross' ? CLIPS.sit : CLIPS.drink) : walking ? (speed >= 1.8 ? CLIPS.run : CLIPS.walk) : action === 'wave' || (cheering && !sitting) ? CLIPS.wave : null;
       let total = 0, lift = 0;
       for (const name of Object.values(CLIPS)) {
         const w = weights[name] = THREE.MathUtils.damp(weights[name], name === goal ? 1 : 0, 9, dt);
@@ -764,17 +764,27 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       liftHead(.85 * (weights[CLIPS.sit] + weights[CLIPS.drink]));
       model.updateMatrixWorld(true);
       lowerArms(Math.max(0, 1 - total));
+      // Seated cheer: stay put and throw both hands up once, then lower them.
+      if (cheering && sitting && !reducedMotion) {
+        const up = Math.sin(Math.PI * Math.min(1, (1.6 - cheer) / 1.2));
+        root.getWorldQuaternion(q1); forward.set(0, 0, 1).applyQuaternion(q1);
+        model.updateMatrixWorld(true);
+        rotateBoneWorld(upperArms[0], q1.setFromAxisAngle(forward, 2.2 * up));
+        rotateBoneWorld(upperArms[1], q1.setFromAxisAngle(forward, -2.2 * up));
+      }
       model.updateMatrixWorld(true);
       handsOffFace();
       body.position.y = lift * PLUSH_SCALE;
       const breath = reducedMotion ? 0 : Math.sin(elapsed * 2) * .008 * Math.max(0, 1 - total);
       body.scale.set(1 - breath * .5, 1 + breath, 1 - breath * .5);
-      rig.position.y = THREE.MathUtils.damp(rig.position.y, cheering && !reducedMotion ? Math.abs(Math.sin(cheer * 9)) * .12 : 0, 18, dt);
+      rig.position.y = THREE.MathUtils.damp(rig.position.y, cheering && !sitting && !reducedMotion ? Math.abs(Math.sin(cheer * 9)) * .12 : 0, 18, dt);
       proxy(arms[0], upperArms[0]); proxy(arms[1], upperArms[1]); proxy(legs[0], upLegs[0]); proxy(legs[1], upLegs[1]);
       const blink = !reducedMotion && (elapsed + character.blinkOffset) % 4.7 > 4.52;
       character.setExpression(sleep || (blink && !eating) ? 'sleep' : eating ? eating.face : action === 'wave' || cheering ? 'happy' : 'normal');
     };
     character.setExpression('normal'); eyes.forEach(eye => { eye.visible = false; });
+    // Every plush starts wearing its cap (residents keep it); the scene sets the player's own state.
+    character.setTowel(true);
     return character;
   }
   const createCharacter = plushModel ? createPlush : createProcedural;

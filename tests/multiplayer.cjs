@@ -72,7 +72,7 @@ const server = http.createServer((req, res) => {
     await a.locator('#game [data-tap]').click();
     await b.waitForFunction(() => { const r = window.__mp.state().remotes[0]; return r.snack === 'egg' && r.action === 'sit'; }, null, { timeout: 60000 });
     await a.locator('#game [data-game-close]').click();
-    await a.locator('#outfit-random').click();
+    await a.locator('#outfit-random').dispatchEvent('click');
     const dyed = await a.locator('#viewport').getAttribute('data-outfit');
     await b.waitForFunction(code => window.__mp.state().remotes[0].outfit === code, dyed, { timeout: 30000 });
     // 2b. 인사: the only visitor nearby is greeted at once; they high-five back.
