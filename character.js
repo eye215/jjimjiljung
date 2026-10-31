@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { GLTFLoader } from './vendor/three-addons/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/three-addons/SkeletonUtils.js';
-import { towelMesh, setTowelColor } from './props.js?v=rpg-22';
+import { towelMesh, setTowelColor } from './props.js?v=rpg-23';
 
 // Reference-inspired plush silhouette: deep towel cap, tiny dot eyes,
 // barely visible neck, soft mittens and short legs. No bag or shoulder strap.
@@ -87,7 +87,7 @@ const CLIP_LIFT = { Walking: .013, Running: .005, Sit_Cross_Legged_on_Floor: .10
 const PLUSH_SCALE = 1 / .62;
 // Towel prop fits on the plush (model metres): sheep cap on the head, shoulder
 // towel around the neck, pillow under the sleeping head. Tuned in design QA.
-const HAIR_FIT = { length: .82, y: .99, z: .0, capWide: 1, capDeep: .86, capTall: .76 };
+const HAIR_FIT = { length: .85, y: .975, z: .006, capWide: 1, capDeep: .86, capTall: .76 };
 // Height option C (-20%), bottom edge kept: tall 1.24 → .992 and lowered by half the difference.
 const CAP_FIT = { length: 1.22, y: 1.022, z: .01, tall: .992 };
 const SHOULDER_FIT = { length: .44, y: .45, z: .02, depth: 1.45 };
@@ -303,12 +303,37 @@ function tuckHair(skinned) {
   pos.needsUpdate = true;
 }
 
+// Marks the baked bob per vertex (attribute `hairMask`) so the shader can drop whole
+// triangles of it under the short-hair GLB; testing texels left speckles at the edges.
+function markHair(skinned) {
+  const texel = hairTexels(skinned); if (!texel) return;
+  const g = skinned.geometry, pos = g.attributes.position, n = pos.count, index = g.index;
+  const dark = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i); if (y < .5) continue;
+    // Keep the eyes (small dark patches on the face front); everything else dark on the head is hair.
+    if (z > .15 && y > .7 && y < .86 && Math.abs(x) > .05 && Math.abs(x) < .22) continue;
+    const [r, gg, b] = texel(i); if (Math.max(r, gg, b) < 120) dark[i] = 1;
+  }
+  // Grow by one ring over welded neighbours so the bob's lighter highlight edges go too.
+  const key = i => `${Math.round(pos.getX(i) * 2000)},${Math.round(pos.getY(i) * 2000)},${Math.round(pos.getZ(i) * 2000)}`;
+  const weld = new Map(); for (let i = 0; i < n; i++) { const k = key(i); weld.set(k, (weld.get(k) || 0) | dark[i]); }
+  const mask = new Float32Array(n);
+  for (let i = 0; i < n; i++) mask[i] = weld.get(key(i)) ? 1 : 0;
+  const grown = mask.slice();
+  for (let t = 0; t < index.count; t += 3) {
+    const a = index.getX(t), b = index.getX(t + 1), c = index.getX(t + 2);
+    if (mask[a] || mask[b] || mask[c]) for (const v of [a, b, c]) if (pos.getY(v) > .62 && !(pos.getZ(v) > .15 && pos.getY(v) < .86)) grown[v] = 1;
+  }
+  g.setAttribute('hairMask', new THREE.BufferAttribute(grown, 1));
+}
+
 export function createCharacterKit(renderer, plushModel = null, towels = {}) {
   // Shared plush geometry is edited once: short-hair GLB → tuck the bob; otherwise trim it.
   if (plushModel && !plushModel.userData.hairDone) {
     let skinned = null; plushModel.scene.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
     // With the short-hair GLB the bob is hidden in the shader (see `uHideHair`); otherwise it is trimmed.
-    if (!towels.hair) trimHair(skinned);
+    if (!towels.hair) trimHair(skinned); else markHair(skinned);
     const texel = hairTexels(skinned); if (texel) smoothClothWeights(skinned, texel);
     // Softer, cleaner plush surface and no ♨ on the top.
     // Strong edge-aware smoothing clears Meshy's baked blotches; eyes, mouth and cheeks keep their edges.
@@ -658,22 +683,21 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     const material = new THREE.MeshPhysicalMaterial({ map: base.map, roughness: 1, metalness: 0, side: towels.hair ? THREE.DoubleSide : THREE.FrontSide, sheen: .3, sheenRoughness: .9, sheenColor: new THREE.Color('#fff3ea') });
     material.onBeforeCompile = shader => {
       Object.assign(shader.uniforms, uniforms);
-      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying float vRestY;\nvarying vec3 vRest;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRestY = position.y; vRest = position;');
-      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vRestY;\nvarying vec3 vRest;\nuniform vec3 uTop;\nuniform vec3 uBottom;\nuniform float uHideHair;').replace('#include <map_fragment>', `#include <map_fragment>
+      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying float vRestY;\nvarying vec3 vRest;\nattribute float hairMask;\nvarying float vHair;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRestY = position.y; vRest = position; vHair = hairMask;');
+      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vRestY;\nvarying vec3 vRest;\nvarying float vHair;\nuniform vec3 uTop;\nuniform vec3 uBottom;\nuniform float uHideHair;').replace('#include <map_fragment>', `#include <map_fragment>
         {
           vec3 c = diffuseColor.rgb; float hi = max(c.r, max(c.g, c.b)), lo = min(c.r, min(c.g, c.b));
           // The baked bob gives way to the short-hair GLB: dark hair texels on the head are not drawn
           // (the eyes on the face front stay). The material is double-sided then, so the skin's
           // inner side closes the nape where the bob used to be the only surface.
-          bool face = vRest.z > .2 && abs(vRest.x) < .24 && vRest.y < .88;
-          if (uHideHair > .5 && vRest.y > .5 && hi < .2 && !face) discard;
+          if (uHideHair > .5 && vHair > .5) discard;
           float lum = dot(c, vec3(.2126, .7152, .0722));
           float cloth = (1. - smoothstep(.07, .16, (hi - lo) / max(hi, .001))) * smoothstep(.12, .3, lum) * (1. - smoothstep(.64, .68, vRestY));
           vec3 tint = mix(uBottom, uTop, smoothstep(.31, .335, vRestY));
           diffuseColor.rgb = mix(c, tint * clamp(lum / .7, .35, 1.12), cloth);
         }`);
     };
-    material.customProgramCacheKey = () => 'plush-dye-v2';
+    material.customProgramCacheKey = () => 'plush-dye-v3';
     skinned.material = material;
     // Sheep cap on the head bone (head-bone units are centimetres).
     const towel = baseTowel.clone(), seam = mat(colors[4], { roughness: 1 });
