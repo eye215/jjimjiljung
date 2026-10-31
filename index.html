@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="800"><meta property="og:image:height" content="400"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-19">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="800"><meta property="og:image:height" content="400"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-22">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -21,6 +21,7 @@
 <button id="wallet" aria-label="온기와 간식 가방, 매점 열기"><span>♨ <b id="wallet-points">0</b></span><span>🥚 <b id="wallet-egg">0</b></span><span>🥤 <b id="wallet-drink">0</b></span></button>
 <div id="dress" role="group" aria-label="옷 갈아입기"><button id="cap-toggle" class="glass-round" aria-pressed="false" aria-label="양머리 쓰기" hidden><span aria-hidden="true">🐑</span></button><button id="outfit-random" class="glass-round" aria-label="옷 색깔 랜덤으로 바꾸기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg><i aria-hidden="true">🎲</i></button></div>
 <button id="towel-open" hidden></button>
+<button id="spot-action" hidden></button>
 <div id="towel-nudge" role="status" hidden><span>🐑 수건 받아서 양머리 만들기</span><button type="button">가기</button></div>
 <section id="towel-game" class="glass-sheet" aria-labelledby="towel-title" data-stage="0" hidden><header><span id="towel-step"></span><button id="towel-close" type="button" aria-label="양머리 만들기 닫기">×</button></header><h2 id="towel-title"></h2><p id="towel-note" aria-live="polite"></p><div id="towel-body"></div><div class="towel-dots" aria-hidden="true"><i></i><i></i><i></i></div></section>
 <section id="person-card" class="glass-card" aria-label="손님 정보" hidden><div class="person-head"><i class="towel-swatch"></i><div><b data-name></b><small data-towel></small></div><button type="button" data-close aria-label="닫기">×</button></div><div class="person-actions"><button type="button" data-wave>👋 인사</button><button type="button" data-trade>🔁 수건 바꾸자고 하기</button></div></section>
@@ -64,7 +65,7 @@
 <div id="shop-tv" hidden><p></p><button type="button">📺 TV 보러 가기</button></div>
 <h3 class="shop-sub">미니게임 <small>성공하면 온기를 받아요</small></h3>
 <div class="shop-games"><button data-game="egg">🥚 이마로 계란 깨기<small>계란 1개 사용</small></button><button data-game="drink">🥤 식혜 원샷<small>식혜 1개 사용</small></button></div>
-<p class="places-footnote">계란·식혜는 하루에 하나씩 무료예요. 앉거나 누워서 쉬면 30초마다 온기 ♨가 모여요 (불가마·소금방은 두 배).</p>
+<p class="places-footnote">계란·식혜는 하루에 하나씩 무료예요. 앉거나 누워서 쉬면 30초마다 온기 ♨가 모여요 (불가마·소금방·목욕탕은 두 배).</p>
 </dialog>
 <dialog id="fortune-dialog" aria-labelledby="fortune-title">
 <div class="places-heading"><div><span class="places-eyebrow">사주방</span><h2 id="fortune-title">오늘의 운세</h2></div><button id="fortune-close" aria-label="운세 닫기">×</button></div>
@@ -81,6 +82,11 @@
 <button data-place="shop"><span aria-hidden="true">🥚</span><b>매점</b><small>계란과 식혜</small></button>
 <button data-place="sleep"><span aria-hidden="true">☾</span><b>수면실</b><small>조용히 한숨 자기</small></button>
 <button data-place="ice"><span aria-hidden="true">❄</span><b>얼음방</b><small>잠깐 시원한 기분</small></button>
+<button data-place="entrance"><span aria-hidden="true">🔑</span><b>입구</b><small>카운터 · 열쇠 받기</small></button>
+<button data-place="locker"><span aria-hidden="true">👕</span><b>탈의실</b><small>사물함에서 갈아입기</small></button>
+<button data-place="bath"><span aria-hidden="true">🛁</span><b>목욕탕</b><small>온탕·냉탕·샤워</small></button>
+<button data-place="scrub"><span aria-hidden="true">🧽</span><b>세신실</b><small>시원하게 때밀이</small></button>
+<button data-place="fortune"><span aria-hidden="true">🔮</span><b>사주방</b><small>오늘의 운세</small></button>
 <button data-place="lobby"><span aria-hidden="true">♧</span><b>중앙 휴게실</b><small>모두 모이는 곳</small></button>
 </div>
 <button type="button" id="fortune-open" class="fortune-entry">🔮 오늘의 운세 <small>무료 · 생년월일은 이 기기에만 저장</small></button>
@@ -92,5 +98,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-19').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-22').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>

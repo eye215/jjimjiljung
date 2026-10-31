@@ -1,19 +1,19 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-19';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-19';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-19';
-import { createTowelGame } from './towel.js?v=rpg-19';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-19';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-19';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-19';
-import { buildWorld } from './environment.js?v=rpg-19';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, roomAt } from './world.js?v=rpg-19';
-import { createTvAds } from './ads.js?v=rpg-19';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-19';
-import { createSocial } from './social.js?v=rpg-19';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-19';
-import { createShop } from './shop.js?v=rpg-19';
-import { createInvite } from './invite.js?v=rpg-19';
+import { planPath, stepMovement } from './navigation.js?v=rpg-22';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-22';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-22';
+import { createTowelGame } from './towel.js?v=rpg-22';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-22';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-22';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-22';
+import { buildWorld } from './environment.js?v=rpg-22';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-22';
+import { createTvAds } from './ads.js?v=rpg-22';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-22';
+import { createSocial } from './social.js?v=rpg-22';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-22';
+import { createShop } from './shop.js?v=rpg-22';
+import { createInvite } from './invite.js?v=rpg-22';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -81,6 +81,9 @@ const residents = [
   { x: 3.2, z: -8.5, y: .05, face: -.5, action: 'sit' },
   { x: 9.5, z: -11.05, y: .1, face: 0, action: 'lie' },
   { x: 14.5, z: -1.7, y: 0, face: -Math.PI / 2, action: 'stand', greeter: true },
+  { x: 13.4, z: 11.6, y: 0, face: -Math.PI / 2, action: 'stand', scrubber: true },
+  { x: 14.7, z: 4.8, y: 0, face: -Math.PI / 2, action: 'stand', clerk: true },
+  { x: 5.4, z: 10.25, y: .05, face: Math.PI, action: 'sit' },
   { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' }
 ].map((config, index) => {
   const actor = kit.createCharacter(outfitColors(randomOutfit(seeded(index * 977 + 31))));
@@ -296,7 +299,7 @@ function moveTo(x, z) {
 function arrive() {
   const place = activeDestination;
   destinationMarker.visible = false;
-  if (place) { setAction(place.action || 'stand'); activeDestination = place; status.textContent = place.arrival; }
+  if (place) { setAction(place.action || 'stand'); if (place.facing != null) facing = place.facing; activeDestination = place; status.textContent = place.arrival; }
   if (place?.id === 'shop' && openShopOnArrival) { openShopOnArrival = false; shop.openShop(); }
   if (place?.id === 'towel') { facing = TOWEL_SPOT.facing; if (openTowelOnArrival) { openTowelOnArrival = false; towelGame.open(); } }
 }
@@ -567,7 +570,7 @@ function frame(now) {
   player.animate(action, walking, dt, reducedMotion, WALK_SPEED / 1.9);
   for (const resident of residents) {
     const near = Math.hypot(resident.root.position.x - hero.position.x, resident.root.position.z - hero.position.z) < 8;
-    resident.animate(resident.config.greeter && action === 'wave' && near ? 'wave' : resident.config.action, false, dt, reducedMotion);
+    resident.animate((resident.config.greeter && action === 'wave' && near) || (resident.config.scrubber && scrubbing > 0) || (resident.config.clerk && deskWave > 0) ? 'wave' : resident.config.action, false, dt, reducedMotion);
   }
   shadow.position.set(hero.position.x, .012, hero.position.z); shadow.scale.set(action === 'lie' ? 1.1 : 1, action === 'lie' ? 1.7 : 1, 1);
   if (action === 'lie') shadow.position.z -= Math.cos(hero.rotation.y) * .3;
@@ -578,10 +581,10 @@ function frame(now) {
   // Resting earns 온기: every 30 s sitting or lying (double in 불가마 and 소금방).
   if ((action === 'sit' || action === 'lie') && !shop.playing) {
     restTimer += dt;
-    if (restTimer >= REST_SECONDS) { restTimer = 0; const got = wallet.earn(currentRoom.id === 'hot' || currentRoom.id === 'salt' ? 2 : 1); if (got) toast(`쉬는 동안 온기가 모였어요 +${got}♨`); }
+    if (restTimer >= REST_SECONDS) { restTimer = 0; const got = wallet.earn(['hot', 'salt', 'bath'].includes(currentRoom.id) ? 2 : 1); if (got) toast(`쉬는 동안 온기가 모였어요 +${got}♨`); }
   } else restTimer = Math.min(restTimer, REST_SECONDS * .5);
   shop.setNearShop(currentRoom.id === 'shop' && !nearTowels());
-  updateTowelShelf();
+  updateTowelShelf(); updateSpots(dt);
   motes.visible = !reducedMotion; if (!reducedMotion) { motes.position.set(view.focus.x, 0, view.focus.z); motes.rotation.y = elapsed * .02; }
   renderer.render(scene, camera); raf = requestAnimationFrame(frame);
 }
@@ -737,6 +740,50 @@ fortuneForm.addEventListener('submit', event => {
 });
 document.querySelector('#fortune-close').addEventListener('click', () => fortuneDialog.close());
 document.querySelector('#fortune-forget').addEventListener('click', () => { saveBirth(null); fortuneForm.reset(); fortuneResult.hidden = true; toast('생년월일을 지웠어요'); });
+
+// ---------- South wing spots: 사물함 갈아입기, 사주방 운세, 세신 ----------
+const spotButton = document.querySelector('#spot-action');
+let spot = null, scrubbing = 0, scrubReady = 0, deskWave = 0;
+// 입구 카운터: the first visit hands over a locker key (kept on this device) and a fresh 찜질복.
+let lockerKey = 0; try { lockerKey = Number(localStorage.getItem('jjimjiljung-key')) || 0; } catch { /* storage may be unavailable */ }
+const SCRUB_TIME = 6, SCRUB_GAP = 10 * 60 * 1000, SCRUB_REWARD = 2;
+function updateSpots(dt) {
+  const near = SPOTS.find(s => s.room === currentRoom.id && Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < s.r) || null;
+  const show = near && !towelGame.isOpen && !shop.playing && !scrubbing && !document.querySelector('dialog[open]');
+  if (near !== spot || spotButton.hidden === !!show) { spot = near; spotButton.hidden = !show; if (near) spotButton.textContent = near.label; }
+  if (show) towelNudge.hidden = true;
+  if (near?.id === 'locker' && lockerKey) spotButton.textContent = `👕 ${lockerKey}번 사물함에서 갈아입기`;
+  deskWave = Math.max(0, deskWave - dt);
+  if (scrubbing > 0) {
+    // Getting up (any other pose or walking away) stops the scrub without a reward.
+    if (action !== 'lie') { scrubbing = 0; return; }
+    scrubbing -= dt;
+    if (scrubbing <= 0) {
+      scrubbing = 0; scrubReady = Date.now() + SCRUB_GAP;
+      const got = wallet.earn(SCRUB_REWARD); player.celebrate();
+      toast(`개운해요! 때가 쏙 빠졌어요 ✨${got ? ` 온기 +${got}♨` : ''}`); status.textContent = '몸도 마음도 반질반질해졌어요.';
+    }
+  }
+}
+spotButton.addEventListener('click', () => {
+  if (!spot) return;
+  if (spot.id === 'desk') {
+    deskWave = 2.5; faceTo({ x: 14.7, z: 4.8 });
+    if (!lockerKey) {
+      lockerKey = 1 + Math.floor(Math.random() * 120); try { localStorage.setItem('jjimjiljung-key', String(lockerKey)); } catch { /* storage may be unavailable */ }
+      applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom') }); player.celebrate();
+      toast(`${lockerKey}번 열쇠와 새 찜질복을 받았어요! 탈의실 사물함에서 갈아입을 수 있어요 🔑`);
+    } else toast(`어서 오세요! ${lockerKey}번 열쇠는 그대로예요. 푹 쉬다 가세요 ♨`);
+  }
+  else if (spot.id === 'locker') outfitButton.click();
+  else if (spot.id === 'fortune') document.querySelector('#fortune-open').click();
+  else if (spot.id === 'scrub') {
+    if (Date.now() < scrubReady) { toast(`세신은 ${Math.ceil((scrubReady - Date.now()) / 60000)}분 뒤에 또 받을 수 있어요`); return; }
+    const [x, z] = spot.bed; route.length = 0; hero.position.set(x, 0, z); target.copy(hero.position); view.focus.set(x, 0, z);
+    setAction('lie'); facing = -Math.PI / 2; scrubbing = SCRUB_TIME; spotButton.hidden = true;
+    toast('슥슥… 세신사님이 시원하게 밀어 드려요 🧽'); status.textContent = '가만히 누워 있어요. 시원해요~';
+  }
+});
 
 const towelNudge = document.querySelector('#towel-nudge');
 towelNudge.querySelector('button').addEventListener('click', () => { towelNudge.hidden = true; goToTowel(); });

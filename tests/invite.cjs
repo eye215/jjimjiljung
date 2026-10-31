@@ -52,6 +52,8 @@ const server = http.createServer((req, res) => {
     assert.equal(link.searchParams.get('from'), '보들식혜', 'Invite carries the sender nickname');
     assert.match(shared.message.content.description, /보들식혜님이/);
     await page.screenshot({ path: path.join(output, 'invite.png') });
+    // Two 3D rooms rendering at once is very slow on software WebGL; finish with the first page.
+    await page.close();
     // 2. SDK blocked: the link is copied instead.
     const offline = await context.newPage();
     await offline.route('https://t1.kakaocdn.net/**', route => route.abort());

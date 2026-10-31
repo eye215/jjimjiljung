@@ -395,3 +395,7 @@ body.sleeping .room-badge{opacity:0}
 #fortune-result dl{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:0 0 10px}#fortune-result dl div{display:flex;justify-content:space-between}#fortune-result dt{font-weight:700;font-size:14px}#fortune-result dd{margin:0;color:var(--tint);letter-spacing:1px}
 .fortune-lucky i{display:inline-block;width:12px;height:12px;border-radius:50%;margin:0 4px -1px;box-shadow:0 0 0 1.5px #fff,0 0 0 2.5px rgba(107,70,54,.2)}
 .link-button{border:0;background:none;padding:0;color:#8a6448;text-decoration:underline;font:inherit;font-size:inherit}
+/* South wing context button (사물함 · 운세 · 세신). */
+#spot-action{position:absolute;z-index:4;left:50%;transform:translateX(-50%);bottom:calc(var(--safe-bottom) + 232px);min-height:48px;padding:10px 20px;border:0;border-radius:999px;color:var(--ink);font-weight:750;font-size:15px;white-space:nowrap;background:var(--lg-thick);-webkit-backdrop-filter:var(--lg-blur);backdrop-filter:var(--lg-blur);box-shadow:var(--glass-ring);animation:toast .4s ease-out}
+#spot-action:active{transform:translateX(-50%) scale(.95)}
+body.sleeping #spot-action,body.playing #spot-action,body.towel-playing #spot-action,body.chat-open #spot-action{display:none}
