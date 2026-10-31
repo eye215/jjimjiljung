@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-28';
-import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-28';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-28';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-28';
+import { connect } from './net.js?v=rpg-29';
+import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-29';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-29';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-29';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -316,7 +316,21 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     await api.report(remote.uid, group?.id || null, reason).catch(() => {});
     notify('신고가 접수됐어요. 확인 후 조치할게요');
   }
-  async function restoreGroup() { await loadSafety(); const gid = await link?.groups?.myGroup().catch(() => null); if (gid) await joinGroup(gid); }
+  // A one-time invite token from the link: join the inviter's group once connected.
+  let pendingJoin = '';
+  async function createInviteToken() {
+    const api = link?.groups; if (!api || status !== 'online') return '';
+    const token = await api.createInvite(nickname).catch(() => null); if (!token) return '';
+    const gid = await api.myGroup().catch(() => null); if (gid) await joinGroup(gid);
+    return token;
+  }
+  async function redeem() {
+    const token = pendingJoin, api = link?.groups; if (!token || !api) return; pendingJoin = '';
+    const gid = await api.redeemInvite(token, nickname).catch(() => null);
+    if (gid) { await joinGroup(gid); notify('초대한 친구의 그룹에 들어왔어요! 바로 이야기해 보세요 💬'); }
+    else notify('초대 링크가 만료됐거나 그룹이 꽉 찼어요');
+  }
+  async function restoreGroup() { await loadSafety(); if (pendingJoin) { await redeem(); return; } const gid = await link?.groups?.myGroup().catch(() => null); if (gid) await joinGroup(gid); }
   ui2.leave.addEventListener('click', async () => {
     if (!group) return; const channel = group.channel;
     // Leave on the server first, then tell the others (their member list refreshes) and close.
@@ -359,7 +373,8 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
       }
       return best;
     },
-    requestChat, block, report,
+    requestChat, block, report, createInviteToken,
+    joinWith(token) { pendingJoin = token; if (link && status === 'online') redeem(); },
     isBlocked: remoteId => blockedIds.has(remotes.get(remoteId)?.uid),
     get group() { return group ? { id: group.id, size: group.members.size } : null; },
     sendGreet(to, type, gid) { if (link && status === 'online') link.send('greet', { from: id, to, type, gid }); },

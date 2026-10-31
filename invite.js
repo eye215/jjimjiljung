@@ -1,4 +1,4 @@
-import { cleanNickname } from './chat-rules.js?v=rpg-28';
+import { cleanNickname } from './chat-rules.js?v=rpg-29';
 
 // 카카오톡 친구 초대. The JavaScript key is a public, domain-restricted key
 // (allowed sites are set in Kakao Developers), so it is safe in the browser.
@@ -21,17 +21,20 @@ function loadKakao() {
   return sdk;
 }
 
-export function inviteUrl(nickname) {
+// `token` (optional) is a one-time server invite: opening the link joins my group.
+export function inviteUrl(nickname, token = '') {
   const url = new URL(SITE_URL);
   const name = cleanNickname(nickname || '');
   if (name) url.searchParams.set('from', name);
+  if (/^[0-9a-z]{6,40}$/.test(token || '')) url.searchParams.set('join', token);
   return url.href;
 }
 
-export function createInvite({ button, getNickname, toast }) {
+export function createInvite({ button, getNickname, toast, getToken = async () => '' }) {
   async function share() {
     const name = cleanNickname(getNickname() || '');
-    const url = inviteUrl(name);
+    const token = await getToken().catch(() => '');
+    const url = inviteUrl(name, token);
     try {
       const Kakao = await loadKakao();
       if (!Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
@@ -59,10 +62,11 @@ export function createInvite({ button, getNickname, toast }) {
   // Arriving from an invite: greet the visitor, then tidy the address bar.
   const params = new URLSearchParams(location.search);
   const from = cleanNickname(params.get('from') || '');
-  if (params.has('from')) {
-    params.delete('from');
+  const join = /^[0-9a-z]{6,40}$/.test(params.get('join') || '') ? params.get('join') : '';
+  if (params.has('from') || params.has('join')) {
+    params.delete('from'); params.delete('join');
     const rest = params.toString();
     history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
   }
-  return { share, invitedBy: from };
+  return { share, invitedBy: from, joinToken: join };
 }

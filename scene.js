@@ -1,19 +1,19 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-28';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-28';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-28';
-import { createTowelGame } from './towel.js?v=rpg-28';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-28';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-28';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-28';
-import { buildWorld } from './environment.js?v=rpg-28';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-28';
-import { createTvAds } from './ads.js?v=rpg-28';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-28';
-import { createSocial } from './social.js?v=rpg-28';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-28';
-import { createShop } from './shop.js?v=rpg-28';
-import { createInvite } from './invite.js?v=rpg-28';
+import { planPath, stepMovement } from './navigation.js?v=rpg-29';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-29';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-29';
+import { createTowelGame } from './towel.js?v=rpg-29';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-29';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-29';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-29';
+import { buildWorld } from './environment.js?v=rpg-29';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-29';
+import { createTvAds } from './ads.js?v=rpg-29';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-29';
+import { createSocial } from './social.js?v=rpg-29';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-29';
+import { createShop } from './shop.js?v=rpg-29';
+import { createInvite } from './invite.js?v=rpg-29';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -828,7 +828,8 @@ if (!outfit.hasTowel) {
   }, 2500);
 }
 // 카카오톡 친구 초대, and a warm hello for visitors who came from an invite.
-const invite = createInvite({ button: document.querySelector('#invite'), getNickname: () => social.nickname, toast });
+const invite = createInvite({ button: document.querySelector('#invite'), getNickname: () => social.nickname, toast, getToken: () => social.createInviteToken() });
+if (invite.joinToken) social.joinWith(invite.joinToken);
 if (invite.invitedBy) {
   const joinText = document.querySelector('#join-intro');
   if (document.querySelector('#join-dialog').open && joinText) joinText.textContent = `${invite.invitedBy}님의 초대로 왔어요! 이름을 정하고 함께 찜질해요 ♨`;
