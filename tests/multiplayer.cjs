@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     await context.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), block: () => social.block([...social.remotes.keys()][0]), group: () => social.group, teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
+      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), block: () => social.block([...social.remotes.keys()][0]), invite: () => social.createInviteToken(), group: () => social.group, teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
     });
     await context.addInitScript(() => localStorage.setItem('jjimjiljung-wallet-v1', JSON.stringify({ points: 50, bag: { egg: 5, drink: 5 }, free: { egg: '', drink: '' } })));
     const errors = [];
@@ -153,12 +153,23 @@ const server = http.createServer((req, res) => {
     await a.evaluate(() => window.__mp.ask());
     await a.waitForFunction(() => /응답이 없어요/.test(document.querySelector('#toast span').textContent), null, { timeout: 30000 });
     assert.equal(await b.locator('#chatreq-card').isVisible(), false, 'Blocked visitors cannot send requests');
+    // Invite link: a one-time token makes the opener join the inviter's group right away.
+    const token = await a.evaluate(() => window.__mp.invite());
+    assert.match(token, /^[0-9a-z]{6,40}$/, 'An invite token is issued');
+    const guest = await context.newPage(); guest.setDefaultTimeout(120000);
+    guest.on('pageerror', error => errors.push('guest: ' + error.message));
+    await guest.addInitScript(() => localStorage.setItem('jjimjiljung-nickname', '찜질손님'));
+    await guest.goto(base + '&from=%EB%B3%B4%EB%A6%AC&join=' + token);
+    await guest.waitForSelector('#viewport[data-ready="true"]', { timeout: 120000 });
+    await guest.waitForFunction(() => window.__mp.group()?.size >= 2, null, { timeout: 60000 });
+    assert.equal(new URL(guest.url()).searchParams.has('join'), false, 'The token leaves the address bar');
+    await guest.close();
     // 5. Leaving updates the other visitor.
     await b.close();
     await a.waitForFunction(() => { const s = window.__mp.state(); return s.count === 1 && s.remotes.length === 0; }, null, { timeout: 30000 });
     assert.match(await a.locator('#online-text').textContent(), /1명 접속 중/);
     assert(await a.locator('#chat-log li.system', { hasText: '율무님이 나갔어요' }).count() >= 1, 'Leave notice appears');
     assert.deepEqual(errors, [], 'No JS errors');
-    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, greeting with auto target, high-five, 온기 and cooldown, chat request → accept → group chat both ways with bubbles and unread badge (no public chat), blocking, panel-less composer (bubble/subtitle modes, history, outside tap), rate limit, profanity masking, length cap, typing does not walk, leave handling.');
+    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, greeting with auto target, high-five, 온기 and cooldown, chat request → accept → group chat both ways with bubbles and unread badge (no public chat), blocking, invite-link group join, panel-less composer (bubble/subtitle modes, history, outside tap), rate limit, profanity masking, length cap, typing does not walk, leave handling.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

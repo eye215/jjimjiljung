@@ -3,7 +3,7 @@
 //   connect({ id, presence, onPresence, onMessage, onStatus }) → { track, send, leave }
 // onPresence receives an array of presence payloads (one per visitor).
 // onStatus receives 'connecting' | 'online' | 'offline'.
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-28';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-29';
 
 const EVENTS = ['state', 'chat', 'trade', 'greet', 'chatreq', 'chatans'];
 
@@ -53,6 +53,8 @@ export async function connectSupabase({ id, presence, onPresence, onMessage, onS
     myGroup: async () => (await one(client.from('group_members').select('group_id').eq('user_id', uid).limit(1)))[0]?.group_id || null,
     members: group => one(client.from('group_members').select('user_id,nickname').eq('group_id', group)),
     leave: () => one(client.rpc('leave_group')),
+    createInvite: name => one(client.rpc('create_invite', { my_name: name })),
+    redeemInvite: (token, name) => one(client.rpc('redeem_invite', { invite_token: token, my_name: name })),
     block: target => one(client.from('blocks').upsert({ user_id: uid, blocked: target })),
     unblock: target => one(client.from('blocks').delete().eq('user_id', uid).eq('blocked', target)),
     blocked: async () => (await one(client.from('blocks').select('blocked').eq('user_id', uid))).map(r => r.blocked),
@@ -109,6 +111,18 @@ function localGroups(uid) {
     async myGroup() { return groupOf(read(), uid); },
     async members(group) { return read().members.filter(m => m.group === group).map(m => ({ user_id: m.user, nickname: m.nickname })); },
     async leave() { const db = read(); db.members = db.members.filter(m => m.user !== uid); write(db); },
+    async createInvite(name) {
+      const db = read(); let group = groupOf(db, uid);
+      if (!group) { group = 'g' + Math.random().toString(36).slice(2); db.members.push({ group, user: uid, nickname: name }); }
+      const token = Math.random().toString(36).slice(2, 14); (db.invites ||= []).push({ token, inviter: uid, at: Date.now() }); write(db); return token;
+    },
+    async redeemInvite(token, name) {
+      const db = read(); const i = (db.invites || []).find(x => x.token === token && !x.used && Date.now() - x.at < 86400000);
+      if (!i || i.inviter === uid) return null;
+      if ((db.blocks || []).some(b => (b.user === i.inviter && b.blocked === uid) || (b.user === uid && b.blocked === i.inviter))) return null;
+      const group = groupOf(db, i.inviter); if (!group || db.members.filter(m => m.group === group).length >= 6) return null;
+      db.members = db.members.filter(m => m.user !== uid); db.members.push({ group, user: uid, nickname: name }); i.used = uid; write(db); return group;
+    },
     async block(target) { const db = read(); db.blocks = (db.blocks || []).filter(b => !(b.user === uid && b.blocked === target)); db.blocks.push({ user: uid, blocked: target }); write(db); },
     async unblock(target) { const db = read(); db.blocks = (db.blocks || []).filter(b => !(b.user === uid && b.blocked === target)); write(db); },
     async blocked() { return (read().blocks || []).filter(b => b.user === uid).map(b => b.blocked); },
