@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-27';
-import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-27';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-27';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-27';
+import { connect } from './net.js?v=rpg-28';
+import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-28';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-28';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-28';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -132,6 +132,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     if (senderLimit.check()) return; senderLimit.hit();
     const remote = remotes.get(message.id);
     if (remote && group && remote.uid && !group.members.has(remote.uid)) return;
+    if (remote?.uid && blockedIds.has(remote.uid)) return;
     append({ kind: 'them', name: remote?.name || message.name, text: message.text, ts: message.ts });
     if (remote) say(remote.label, message.text);
   }
@@ -237,7 +238,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   // Asking someone: the server records the request and enforces the limits; a broadcast
   // only nudges the other visitor to look it up. Accepting puts both in one group (≤ 6),
   // whose messages travel on a members-only private channel.
-  let group = null, outgoing = null, incoming = null;
+  let group = null, outgoing = null, incoming = null, blockedIds = new Set();
   const ui2 = { card: $('#chatreq-card'), name: $('#chatreq-name'), left: $('#chatreq-left'), accept: $('#chatreq-accept'), decline: $('#chatreq-decline'), leave: $('#chat-leave') };
   const NO_ANSWER = '응답이 없어요';
   const RESULT = { sent: null, pending: '이미 신청했어요. 답을 기다려요', rate_limited: '조금 뒤에 다시 신청해요 (1분에 3번까지)', group_full: '그룹이 꽉 찼어요 (최대 6명)', cooling_down: NO_ANSWER, unavailable: NO_ANSWER, invalid: NO_ANSWER };
@@ -257,6 +258,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   async function onChatSignal(event, payload) {
     if (!payload || payload.to !== id || typeof payload.from !== 'string' || !remotes.has(payload.from)) return;
     const remote = remotes.get(payload.from), api = link?.groups; if (!api || !remote.uid) return;
+    if (blockedIds.has(remote.uid)) return;
     if (event === 'chatreq') {
       let request = null; try { request = await api.pendingFrom(remote.uid); } catch { /* not verified, ignore */ }
       if (!request || incoming) return;
@@ -295,10 +297,30 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     system('그룹 대화가 시작됐어요. 말풍선은 우리 그룹에게만 보여요');
   }
   function dropGroup() { group?.channel.leave(); group = null; ui2.leave.hidden = true; ui.count.textContent = ''; viewport.dataset.group = '0'; }
-  async function restoreGroup() { const gid = await link?.groups?.myGroup().catch(() => null); if (gid) await joinGroup(gid); }
+  async function loadSafety() {
+    const api = link?.groups; if (!api) return;
+    blockedIds = new Set(await api.blocked().catch(() => []));
+    noReq.checked = await api.noRequests().catch(() => false);
+  }
+  const noReq = $('#chat-norequests');
+  noReq.addEventListener('change', () => { link?.groups?.setNoRequests(noReq.checked).catch(() => {}); notify(noReq.checked ? '이제 대화 신청을 받지 않아요' : '대화 신청을 다시 받아요'); });
+  async function block(remoteId) {
+    const remote = remotes.get(remoteId), api = link?.groups; if (!remote?.uid || !api) return;
+    await api.block(remote.uid).catch(() => {}); blockedIds.add(remote.uid);
+    if (incoming?.from === remoteId) closeIncoming();
+    remote.label.querySelector('.bubble').hidden = true;
+    notify(`${remote.name}님을 차단했어요. 서로 신청하거나 말풍선을 볼 수 없어요`);
+  }
+  async function report(remoteId, reason) {
+    const remote = remotes.get(remoteId), api = link?.groups; if (!remote?.uid || !api) return;
+    await api.report(remote.uid, group?.id || null, reason).catch(() => {});
+    notify('신고가 접수됐어요. 확인 후 조치할게요');
+  }
+  async function restoreGroup() { await loadSafety(); const gid = await link?.groups?.myGroup().catch(() => null); if (gid) await joinGroup(gid); }
   ui2.leave.addEventListener('click', async () => {
-    if (!group) return; const channel = group.channel; channel.send('member', { id });
-    dropGroup(); await link.groups.leave().catch(() => {}); channel.send?.('member', { id }); system('그룹에서 나왔어요'); notify('그룹에서 나왔어요');
+    if (!group) return; const channel = group.channel;
+    // Leave on the server first, then tell the others (their member list refreshes) and close.
+    await link.groups.leave().catch(() => {}); channel.send('member', { id }); dropGroup(); system('그룹에서 나왔어요'); notify('그룹에서 나왔어요');
   });
 
   const pickHits = [];
@@ -337,7 +359,8 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
       }
       return best;
     },
-    requestChat,
+    requestChat, block, report,
+    isBlocked: remoteId => blockedIds.has(remotes.get(remoteId)?.uid),
     get group() { return group ? { id: group.id, size: group.members.size } : null; },
     sendGreet(to, type, gid) { if (link && status === 'online') link.send('greet', { from: id, to, type, gid }); },
     sendTrade(to, type, towel = null, tid = '') { if (link && status === 'online') link.send('trade', { from: id, to, type, towel, tid }); },

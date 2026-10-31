@@ -3,7 +3,7 @@
 //   connect({ id, presence, onPresence, onMessage, onStatus }) → { track, send, leave }
 // onPresence receives an array of presence payloads (one per visitor).
 // onStatus receives 'connecting' | 'online' | 'offline'.
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-27';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-28';
 
 const EVENTS = ['state', 'chat', 'trade', 'greet', 'chatreq', 'chatans'];
 
@@ -53,6 +53,12 @@ export async function connectSupabase({ id, presence, onPresence, onMessage, onS
     myGroup: async () => (await one(client.from('group_members').select('group_id').eq('user_id', uid).limit(1)))[0]?.group_id || null,
     members: group => one(client.from('group_members').select('user_id,nickname').eq('group_id', group)),
     leave: () => one(client.rpc('leave_group')),
+    block: target => one(client.from('blocks').upsert({ user_id: uid, blocked: target })),
+    unblock: target => one(client.from('blocks').delete().eq('user_id', uid).eq('blocked', target)),
+    blocked: async () => (await one(client.from('blocks').select('blocked').eq('user_id', uid))).map(r => r.blocked),
+    setNoRequests: on => one(client.from('chat_settings').upsert({ user_id: uid, no_requests: on })),
+    noRequests: async () => (await one(client.from('chat_settings').select('no_requests').eq('user_id', uid).limit(1)))[0]?.no_requests || false,
+    report: (reported, group, reason) => one(client.from('reports').insert({ reporter: uid, reported, group_id: group, reason: (reason || '').slice(0, 300) })),
     joinGroup(group, onMessage) {
       const ch = client.channel('group:' + group, { config: { private: true, broadcast: { self: false } } });
       for (const event of ['msg', 'member']) ch.on('broadcast', { event }, message => onMessage(event, message.payload));
@@ -81,6 +87,8 @@ function localGroups(uid) {
     async requestChat(target) {
       const db = read(); expire(db); const now = Date.now();
       if (!target || target === uid) return 'invalid';
+      if ((db.blocks || []).some(b => (b.user === target && b.blocked === uid) || (b.user === uid && b.blocked === target))) return 'unavailable';
+      if ((db.settings || {})[target]) return 'unavailable';
       if (db.requests.filter(r => r.from === uid && now - r.at < 60000).length >= 3) return 'rate_limited';
       if (db.requests.filter(r => r.from === uid && r.to === target && ['declined', 'expired'].includes(r.status) && now - r.answered < 600000).length >= 3) return 'cooling_down';
       if (db.requests.some(r => r.from === uid && r.to === target && r.status === 'pending')) return 'pending';
@@ -101,6 +109,12 @@ function localGroups(uid) {
     async myGroup() { return groupOf(read(), uid); },
     async members(group) { return read().members.filter(m => m.group === group).map(m => ({ user_id: m.user, nickname: m.nickname })); },
     async leave() { const db = read(); db.members = db.members.filter(m => m.user !== uid); write(db); },
+    async block(target) { const db = read(); db.blocks = (db.blocks || []).filter(b => !(b.user === uid && b.blocked === target)); db.blocks.push({ user: uid, blocked: target }); write(db); },
+    async unblock(target) { const db = read(); db.blocks = (db.blocks || []).filter(b => !(b.user === uid && b.blocked === target)); write(db); },
+    async blocked() { return (read().blocks || []).filter(b => b.user === uid).map(b => b.blocked); },
+    async setNoRequests(on) { const db = read(); db.settings = { ...(db.settings || {}), [uid]: on }; write(db); },
+    async noRequests() { return !!(read().settings || {})[uid]; },
+    async report(reported, group, reason) { const db = read(); (db.reports ||= []).push({ reporter: uid, reported, group, reason, at: Date.now() }); write(db); },
     joinGroup(group, onMessage) {
       const bus = new BroadcastChannel('local:group:' + group);
       bus.onmessage = ({ data }) => { if (data && data.from !== uid && groupOf(read(), uid) === group) onMessage(data.event, data.payload); };
