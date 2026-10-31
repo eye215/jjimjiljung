@@ -1,8 +1,11 @@
-import { SNACKS, REST_SECONDS, scoreEggCrack, scoreOneShot } from './economy.js?v=rpg-22';
+import { SNACKS, REST_SECONDS, scoreEggCrack, scoreOneShot } from './economy.js?v=rpg-27';
 
 // 매점 sheet, wallet chip, empty-bag prompt and the two snack mini-games.
 // scene.js owns the character; this module only calls back into it.
 const $ = selector => document.querySelector(selector);
+// Korean particle after a word: 이/가, 을/를 depending on the final consonant (계란이, 식혜가).
+const batchim = word => { const c = word.charCodeAt(word.length - 1) - 0xac00; return c >= 0 && c < 11172 && c % 28 !== 0; };
+const josa = (word, withFinal, without) => word + (batchim(word) ? withFinal : without);
 
 export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
   const ui = {
@@ -40,7 +43,7 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
   ui.tvGo.addEventListener('click', () => { ui.dialog.close(); tv?.go(); });
   ui.dialog.addEventListener('click', event => {
     const free = event.target.closest('[data-free]'), buy = event.target.closest('[data-buy]'), game = event.target.closest('[data-game]');
-    if (free) { const kind = free.closest('[data-snack]').dataset.snack; if (wallet.claimFree(kind)) toast(`오늘의 무료 ${SNACKS[kind].short}를 받았어요! 🎁`); }
+    if (free) { const kind = free.closest('[data-snack]').dataset.snack; if (wallet.claimFree(kind)) toast(`오늘의 무료 ${josa(SNACKS[kind].short, '을', '를')} 받았어요! 🎁`); }
     if (buy) { const kind = buy.closest('[data-snack]').dataset.snack; if (wallet.buy(kind)) toast(`${SNACKS[kind].short} 하나 샀어요 (♨ -${SNACKS[kind].price})`); }
     if (game) { const kind = game.dataset.game; if (wallet.count(kind) > 0) { ui.dialog.close(); startGame(kind); } }
   });
@@ -48,8 +51,8 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
   // Eating from the action tray: use one from the bag, or point to the shop.
   function request(kind) {
     if (wallet.consume(kind)) { eat(kind, 'normal'); return true; }
-    if (wallet.freeAvailable(kind)) toast(`가방이 비었어요. 매점에서 오늘의 무료 ${SNACKS[kind].short}를 받아 가세요!`, '매점 가기', goToShop);
-    else toast(`${SNACKS[kind].short}가 다 떨어졌어요. 매점에서 사 올까요?`, '매점 가기', goToShop);
+    if (wallet.freeAvailable(kind)) toast(`가방이 비었어요. 매점에서 오늘의 무료 ${josa(SNACKS[kind].short, '을', '를')} 받아 가세요!`, '매점 가기', goToShop);
+    else toast(`${josa(SNACKS[kind].short, '이', '가')} 다 떨어졌어요. 매점에서 사 올까요?`, '매점 가기', goToShop);
     return false;
   }
 
@@ -72,14 +75,15 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
     ui.result.querySelector('b').textContent = text;
     ui.result.querySelector('.game-reward').textContent = granted ? `온기 +${granted}♨` : points ? '오늘 받을 수 있는 온기를 다 모았어요' : '';
     const left = wallet.count(lastGame), again = ui.result.querySelector('[data-game-again]');
-    again.textContent = left ? `한 번 더 · ${SNACKS[lastGame].short} ${left}개` : `${SNACKS[lastGame].short}가 없어요`; again.disabled = !left;
+    // No snack left: the button leads to the 매점 instead of sitting there disabled.
+    again.textContent = left ? `한 번 더 · ${SNACKS[lastGame].short} ${left}개` : '🛒 매점 가기'; again.dataset.shop = left ? '' : '1'; again.disabled = false;
     ui.body.hidden = true; ui.result.hidden = false; running = null;
   }
   // Closing mid-game puts the snack away too (the one-shot cup has no natural end).
   function cancelGame() { if (running) { running.stop(); running = null; if (snackRef()) stopSnack(); } ui.game.hidden = true; document.body.classList.remove('playing'); }
   ui.game.querySelector('#game-close').addEventListener('click', cancelGame);
   ui.result.querySelector('[data-game-close]').addEventListener('click', cancelGame);
-  ui.result.querySelector('[data-game-again]').addEventListener('click', () => { const kind = lastGame; cancelGame(); startGame(kind); });
+  ui.result.querySelector('[data-game-again]').addEventListener('click', event => { const kind = lastGame, toShop = event.currentTarget.dataset.shop === '1'; cancelGame(); if (toShop) goToShop(); else startGame(kind); });
 
   // 이마로 계란 깨기: tap when the marker crosses the sweet spot.
   function eggGame() {

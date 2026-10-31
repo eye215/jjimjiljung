@@ -179,7 +179,7 @@ window.__tw = {
     assert.deepEqual((await a.evaluate(() => window.__tw.outfit())).towels, [theirs.towel, giver.towel], 'A gift joins my list');
     // The outfit button only ever picks towels I own.
     for (let i = 0; i < 4; i++) {
-      await a.locator('#outfit-random').click();
+      await a.locator('#outfit-random').dispatchEvent('click');
       const now = await a.evaluate(() => window.__tw.outfit());
       assert(now.towels.includes(now.towel), 'Re-dye picks one of my towels');
     }

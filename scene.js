@@ -1,19 +1,19 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-22';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-22';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-22';
-import { createTowelGame } from './towel.js?v=rpg-22';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-22';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-22';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-22';
-import { buildWorld } from './environment.js?v=rpg-22';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-22';
-import { createTvAds } from './ads.js?v=rpg-22';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-22';
-import { createSocial } from './social.js?v=rpg-22';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-22';
-import { createShop } from './shop.js?v=rpg-22';
-import { createInvite } from './invite.js?v=rpg-22';
+import { planPath, stepMovement } from './navigation.js?v=rpg-27';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-27';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-27';
+import { createTowelGame } from './towel.js?v=rpg-27';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-27';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-27';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-27';
+import { buildWorld } from './environment.js?v=rpg-27';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-27';
+import { createTvAds } from './ads.js?v=rpg-27';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-27';
+import { createSocial } from './social.js?v=rpg-27';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-27';
+import { createShop } from './shop.js?v=rpg-27';
+import { createInvite } from './invite.js?v=rpg-27';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -57,7 +57,7 @@ scene.add(sun, sun.target);
 
 // The plush GLB (2.5 MB) loads behind the loading screen; without it the
 // built-in character is used so the room always opens.
-const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap', 'hair'])]);
+const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap'])]);
 const kit = createCharacterKit(renderer, plushModel, towelProps);
 const world = buildWorld({ scene, kit });
 const sleep = createSleepMode({ scene, canvasTexture: kit.canvasTexture });
@@ -83,7 +83,7 @@ const residents = [
   { x: 14.5, z: -1.7, y: 0, face: -Math.PI / 2, action: 'stand', greeter: true },
   { x: 13.4, z: 11.6, y: 0, face: -Math.PI / 2, action: 'stand', scrubber: true },
   { x: 14.7, z: 4.8, y: 0, face: -Math.PI / 2, action: 'stand', clerk: true },
-  { x: 5.4, z: 10.25, y: .05, face: Math.PI, action: 'sit' },
+  { x: 1.5, z: 12.3, y: 0, face: -.4, action: 'sit' },
   { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' }
 ].map((config, index) => {
   const actor = kit.createCharacter(outfitColors(randomOutfit(seeded(index * 977 + 31))));
@@ -97,6 +97,8 @@ const motePositions = new Float32Array(40 * 3); for (let i = 0; i < 40; i++) { m
 const motesGeometry = new THREE.BufferGeometry(); motesGeometry.setAttribute('position', new THREE.BufferAttribute(motePositions, 3));
 const motes = new THREE.Points(motesGeometry, new THREE.PointsMaterial({ color: '#fff3ce', size: .05, transparent: true, opacity: .55, depthWrite: false })); scene.add(motes);
 
+// Soaking in a bath (scene-wide so posture changes can climb out at once).
+let soak = null;
 let social = null, localWalking = false, snackSig = '', snackSerial = 0, restTimer = 0;
 let action = 'stand', facing = 0, elapsed = 0, contextLost = false, raf = 0, lastTime = 0;
 const target = new THREE.Vector3(SPAWN.x, 0, SPAWN.z);
@@ -211,6 +213,7 @@ function updateActionButtons() {
 }
 function setAction(next) {
   if (!messages[next]) return;
+  if (soak && next !== 'sit') leaveSoak();
   interruptSnack();
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick();
   action = next; target.copy(hero.position); status.textContent = messages[next];
@@ -608,7 +611,8 @@ social = createSocial({
   scene, camera, kit, viewport, actorScale: ACTOR_SCALE, makeShadow: contactShadow,
   getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
   onTrade: payload => onTrade(payload),
-  onGreet: payload => onGreet(payload)
+  onGreet: payload => onGreet(payload),
+  notify: text => toast(text)
 });
 // ---------- Tapping a visitor: wave, or offer to swap sheep-cap towels ----------
 const personCard = document.querySelector('#person-card'), tradeCard = document.querySelector('#trade-card');
@@ -625,6 +629,7 @@ function openPerson(remote) {
 }
 function closePerson() { personCard.hidden = true; personId = null; }
 personCard.querySelector('[data-close]').addEventListener('click', closePerson);
+personCard.querySelector('[data-chat]').addEventListener('click', () => { const target = personId; closePerson(); if (target) social.requestChat(target); });
 personCard.querySelector('[data-wave]').addEventListener('click', () => {
   const remote = social.remotes.get(personId); closePerson(); if (remote) greet(remote);
 });
@@ -743,17 +748,30 @@ document.querySelector('#fortune-forget').addEventListener('click', () => { save
 
 // ---------- South wing spots: 사물함 갈아입기, 사주방 운세, 세신 ----------
 const spotButton = document.querySelector('#spot-action');
-let spot = null, scrubbing = 0, scrubReady = 0, deskWave = 0;
+let spot = null, scrubbing = 0, scrubReady = 0, deskWave = 0, shower = 0;
+// 목욕탕: soak in a pool or shower for 온기 (each with its own cooldown).
+const BATH = { hotpool: { time: 8, reward: 2, gap: 300000, enter: '따끈따끈~ 온탕에 들어왔어요 ♨', done: '몸이 사르르 풀렸어요' }, coldpool: { time: 6, reward: 2, gap: 300000, enter: '으아, 차가워! 냉탕에 들어왔어요 🧊', done: '정신이 번쩍! 상쾌해요' }, shower: { time: 4, reward: 1, gap: 180000, enter: '쏴아~ 샤워 중이에요 🚿', done: '깨끗하게 씻었어요' } };
+const bathReady = {};
+function bathReward(kind) {
+  const b = BATH[kind]; bathReady[kind] = Date.now() + b.gap;
+  const got = wallet.earn(b.reward); player.celebrate(); toast(`${b.done}${got ? ` 온기 +${got}♨` : ''}`);
+}
+function leaveSoak() { const back = soak.back; soak = null; hero.position.set(back[0], 0, back[1]); target.copy(hero.position); }
 // 입구 카운터: the first visit hands over a locker key (kept on this device) and a fresh 찜질복.
 let lockerKey = 0; try { lockerKey = Number(localStorage.getItem('jjimjiljung-key')) || 0; } catch { /* storage may be unavailable */ }
 const SCRUB_TIME = 6, SCRUB_GAP = 10 * 60 * 1000, SCRUB_REWARD = 2;
 function updateSpots(dt) {
   const near = SPOTS.find(s => s.room === currentRoom.id && Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < s.r) || null;
-  const show = near && !towelGame.isOpen && !shop.playing && !scrubbing && !document.querySelector('dialog[open]');
+  const show = near && !towelGame.isOpen && !shop.playing && !scrubbing && !soak && !shower && !document.querySelector('dialog[open]');
   if (near !== spot || spotButton.hidden === !!show) { spot = near; spotButton.hidden = !show; if (near) spotButton.textContent = near.label; }
   if (show) towelNudge.hidden = true;
   if (near?.id === 'locker' && lockerKey) spotButton.textContent = `👕 ${lockerKey}번 사물함에서 갈아입기`;
   deskWave = Math.max(0, deskWave - dt);
+  if (soak && !soak.done && (soak.t -= dt) <= 0) { soak.done = true; bathReward(soak.kind); }
+  if (shower > 0) {
+    if (action !== 'stand' || Math.hypot(hero.position.x - spot?.x, hero.position.z - spot?.z) > 1.2 || localWalking) shower = 0;
+    else if ((shower -= dt) <= 0) { shower = 0; bathReward('shower'); }
+  }
   if (scrubbing > 0) {
     // Getting up (any other pose or walking away) stops the scrub without a reward.
     if (action !== 'lie') { scrubbing = 0; return; }
@@ -774,6 +792,15 @@ spotButton.addEventListener('click', () => {
       applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom') }); player.celebrate();
       toast(`${lockerKey}번 열쇠와 새 찜질복을 받았어요! 탈의실 사물함에서 갈아입을 수 있어요 🔑`);
     } else toast(`어서 오세요! ${lockerKey}번 열쇠는 그대로예요. 푹 쉬다 가세요 ♨`);
+  }
+  else if (BATH[spot.id]) {
+    const kind = spot.id, b = BATH[kind];
+    if (Date.now() < (bathReady[kind] || 0)) { toast(`조금 쉬었다가 다시 해요 (${Math.ceil((bathReady[kind] - Date.now()) / 60000)}분)`); return; }
+    if (spot.pool) {
+      const back = [spot.x, spot.z]; setAction('sit'); hero.position.set(spot.pool[0], 0, spot.pool[1]); target.copy(hero.position);
+      facing = 0; soak = { kind, t: b.time, back, done: false };
+    } else { setAction('stand'); facing = Math.PI; shower = b.time; }
+    toast(b.enter); spotButton.hidden = true;
   }
   else if (spot.id === 'locker') outfitButton.click();
   else if (spot.id === 'fortune') document.querySelector('#fortune-open').click();

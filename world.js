@@ -145,6 +145,9 @@ export const SPOTS = Object.freeze([
   { id: 'desk', room: 'entrance', x: 13, z: 5.5, r: 2.4, label: '🔑 열쇠와 찜질복 받기' },
   { id: 'locker', room: 'locker', x: -6.6, z: 11, r: 2.6, label: '👕 사물함에서 갈아입기' },
   { id: 'fortune', room: 'fortune', x: -11.5, z: 11.4, r: 2.2, label: '🔮 오늘의 운세 보기' },
+  { id: 'hotpool', room: 'bath', x: .6, z: 9.7, r: 1.5, label: '♨ 온탕에 들어가기', pool: [.6, 11.6] },
+  { id: 'coldpool', room: 'bath', x: 5.4, z: 10.3, r: 1.3, label: '🧊 냉탕에 들어가기', pool: [5.4, 12] },
+  { id: 'shower', room: 'bath', x: -.6, z: 8.1, r: 1, label: '🚿 샤워하기' }, { id: 'shower', room: 'bath', x: 6.6, z: 8.1, r: 1, label: '🚿 샤워하기' },
   { id: 'scrub', room: 'scrub', x: 11.5, z: 10, r: 2.4, label: '🧽 세신 받기', bed: [11.5, 10] },
   { id: 'scrub', room: 'scrub', x: 11.5, z: 13.2, r: 2.4, label: '🧽 세신 받기', bed: [11.5, 13.2] }
 ].map(Object.freeze));

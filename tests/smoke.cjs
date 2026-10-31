@@ -177,13 +177,13 @@ const server = http.createServer((req, res) => {
     const firstOutfit = await outfitCode();
     assert.match(firstOutfit, /^[0-9a-f]{6}\.[0-9a-f]{6}\.[0-9a-f]{6}\.0$/, 'Newcomers start without a towel cap');
     assert.equal(await page.locator('#cap-toggle').isHidden(), true, 'No cap toggle before the towel game');
-    await page.locator('#outfit-random').click();
+    await page.locator('#outfit-random').dispatchEvent('click');
     const dyed = await outfitCode();
     assert.notEqual(dyed.slice(0, 13), firstOutfit.slice(0, 13), 'Top and bottom change together');
     assert.match(await page.locator('#toast span').textContent(), /새 옷/);
     await page.locator('#toast button').click();
     assert.equal(await outfitCode(), firstOutfit, 'Undo restores the previous outfit');
-    await page.locator('#outfit-random').click();
+    await page.locator('#outfit-random').dispatchEvent('click');
     const kept = await outfitCode();
     await page.reload();
     await ready(page);

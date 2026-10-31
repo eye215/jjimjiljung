@@ -26,7 +26,7 @@ const server = http.createServer((req, res) => {
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__w = { tp: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); }, room: () => currentRoom.id, action: () => action, points: () => wallet.snapshot().points };' });
+      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__w = { tp: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); }, room: () => currentRoom.id, action: () => action, points: () => wallet.snapshot().points, pos: () => [hero.position.x, hero.position.z], soak: () => soak && { ...soak }, fast: () => { if (soak) soak.t = .05; if (shower) shower = .05; } };' });
     });
     await page.goto(base); await page.waitForSelector('#viewport[data-ready="true"]');
     if (await page.locator('#join-dialog').evaluate(d => d.open)) await page.locator('#join-solo').click();
@@ -66,11 +66,24 @@ const server = http.createServer((req, res) => {
     await page.locator('[data-action="stand"]').click();
     await page.locator('#spot-action', { hasText: '세신' }).click();
     assert.match(await page.locator('#toast span').textContent(), /분 뒤에 또/, 'Scrub cooldown');
-    // 목욕탕 counts double while resting (checked by room id).
-    await page.evaluate(() => window.__w.tp(3, 9.5));
+    // 목욕탕: soak in the hot bath for 온기, climb out to the edge when standing; shower too.
+    await page.evaluate(() => window.__w.tp(.6, 9.7));
     await page.waitForFunction(() => window.__w.room() === 'bath');
+    await page.locator('#spot-action', { hasText: '온탕' }).click();
+    assert.equal((await page.evaluate(() => window.__w.soak())).kind, 'hotpool');
+    let p0 = await page.evaluate(() => window.__w.points());
+    await page.evaluate(() => window.__w.fast());
+    await page.waitForFunction(p => window.__w.points() > p, p0, { timeout: 120000 });
+    await page.locator('[data-action="stand"]').click();
+    assert.equal(await page.evaluate(() => window.__w.soak()), null);
+    assert((await page.evaluate(() => window.__w.pos()))[1] < 10, 'Climbs out to the pool edge');
+    await page.evaluate(() => window.__w.tp(-.6, 8.1));
+    await page.locator('#spot-action', { hasText: '샤워' }).click();
+    p0 = await page.evaluate(() => window.__w.points());
+    await page.evaluate(() => window.__w.fast());
+    await page.waitForFunction(p => window.__w.points() > p, p0, { timeout: 120000 });
     await page.screenshot({ path: path.join(output, 'wing-bath.png') });
     assert.deepEqual(errors, [], 'No JS errors');
-    console.log('PASS: 입구 카운터 key and outfit, south wing rooms in the places dialog, 탈의실 locker re-dye, 사주방 fortune spot, 세신 reward and cooldown, 목욕탕 reachable.');
+    console.log('PASS: 입구 카운터 key and outfit, south wing rooms in the places dialog, 탈의실 locker re-dye, 사주방 fortune spot, 세신 reward and cooldown, 목욕탕 hot-bath soak (온기, climbing out) and shower.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

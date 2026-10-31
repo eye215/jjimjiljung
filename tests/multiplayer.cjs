@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     await context.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
+      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), group: () => social.group, teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
     });
     await context.addInitScript(() => localStorage.setItem('jjimjiljung-wallet-v1', JSON.stringify({ points: 50, bag: { egg: 5, drink: 5 }, free: { egg: '', drink: '' } })));
     const errors = [];
@@ -72,7 +72,7 @@ const server = http.createServer((req, res) => {
     await a.locator('#game [data-tap]').click();
     await b.waitForFunction(() => { const r = window.__mp.state().remotes[0]; return r.snack === 'egg' && r.action === 'sit'; }, null, { timeout: 60000 });
     await a.locator('#game [data-game-close]').click();
-    await a.locator('#outfit-random').click();
+    await a.locator('#outfit-random').dispatchEvent('click');
     const dyed = await a.locator('#viewport').getAttribute('data-outfit');
     await b.waitForFunction(code => window.__mp.state().remotes[0].outfit === code, dyed, { timeout: 30000 });
     // 2b. 인사: the only visitor nearby is greeted at once; they high-five back.
@@ -83,9 +83,23 @@ const server = http.createServer((req, res) => {
     assert.match(await a.locator('#toast span').textContent(), /온기 \+1/, 'First greeting with a partner today gives 온기');
     await a.locator('[data-action="wave"]').click();
     assert.match(await a.locator('#toast span').textContent(), /초 뒤에 다시 인사/, 'Same person: 30-second cooldown');
-    // 3. Chat travels both ways, with a speech bubble over the sender.
+    // 3. No public chat: talking needs a request the other visitor accepts (server rules, local mock here).
     await a.locator('#chat-open').click();
     assert.equal(await a.locator('#chat').isVisible(), true);
+    await a.locator('#chat-input').fill('혹시 들리나요?');
+    await a.locator('#chat-input').press('Enter');
+    assert.match(await a.locator('#chat-note').textContent(), /대화를 신청/, 'Strangers cannot be messaged');
+    await a.locator('#chat-close').click();
+    await a.evaluate(() => window.__mp.ask());
+    await b.locator('#chatreq-card').waitFor({ state: 'visible', timeout: 30000 });
+    assert.match(await b.locator('#chatreq-name').textContent(), /보리님이 대화를 신청/);
+    await b.locator('#chatreq-accept').click();
+    await a.waitForFunction(() => window.__mp.group()?.size === 2, null, { timeout: 30000 });
+    await b.waitForFunction(() => window.__mp.group()?.size === 2, null, { timeout: 30000 });
+    await a.evaluate(() => window.__mp.ask());
+    assert.match(await a.locator('#toast span').textContent(), /이미 같은 그룹/);
+    // Group chat travels both ways, with a speech bubble over the sender.
+    await a.locator('#chat-open').click();
     await a.locator('#chat-input').fill('안녕하세요! 식혜 드실래요?');
     await a.locator('#chat-input').press('Enter');
     await b.waitForFunction(() => [...document.querySelectorAll('#chat-log li.them span')].some(el => el.textContent.includes('식혜 드실래요')), null, { timeout: 30000 });
@@ -137,6 +151,6 @@ const server = http.createServer((req, res) => {
     assert.match(await a.locator('#online-text').textContent(), /1명 접속 중/);
     assert(await a.locator('#chat-log li.system', { hasText: '율무님이 나갔어요' }).count() >= 1, 'Leave notice appears');
     assert.deepEqual(errors, [], 'No JS errors');
-    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, greeting with auto target, high-five, 온기 and cooldown, chat both ways with bubbles and unread badge, panel-less composer (bubble/subtitle modes, history, outside tap), rate limit, profanity masking, length cap, typing does not walk, leave handling.');
+    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, greeting with auto target, high-five, 온기 and cooldown, chat request → accept → group chat both ways with bubbles and unread badge (no public chat), panel-less composer (bubble/subtitle modes, history, outside tap), rate limit, profanity masking, length cap, typing does not walk, leave handling.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });
