@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
-import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-19';
-import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-19';
+import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-21';
+import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-21';
 
 // Procedural, cosy jjimjilbang built from the shared map data. Everything is
 // generated locally: textures are drawn on canvases and static props are merged
@@ -205,8 +205,8 @@ export function buildWorld({ scene, kit }) {
   for (const door of DOORS) {
     const frame = new THREE.Group();
     // Local frame: opening spans x, wall thickness spans z, +z faces the lobby.
-    const lobbySide = door.axis === 'z' ? 1 : door.line < 0 ? 1 : -1;
-    if (door.axis === 'z') frame.position.set(door.at, 0, door.line); else { frame.position.set(door.line, 0, door.at); frame.rotation.y = lobbySide > 0 ? Math.PI / 2 : -Math.PI / 2; }
+    const lobbySide = door.side ?? (door.axis === 'z' ? (door.line > 0 ? -1 : 1) : door.line < 0 ? 1 : -1);
+    if (door.axis === 'z') { frame.position.set(door.at, 0, door.line); if (lobbySide < 0) frame.rotation.y = Math.PI; } else { frame.position.set(door.line, 0, door.at); frame.rotation.y = lobbySide > 0 ? Math.PI / 2 : -Math.PI / 2; }
     scene.add(frame);
     const w = door.width, unitMeshes = [];
     for (const side of [-1, 1]) unitMeshes.push(box(frame, M.trim, [side * (w / 2 + .07), DOOR_HEIGHT / 2 + .1, 0], [.16, DOOR_HEIGHT + .2, WALL_THICKNESS + .12], .03, 4));
@@ -241,6 +241,19 @@ export function buildWorld({ scene, kit }) {
   void domeCrown;
 
   // ---------- Furniture ----------
+  // A sunken-looking bath: stone rim, tinted water and (for the hot one) rising steam.
+  function pool(g, w, d, water, glowColor, hot) {
+    for (const [x, z, sw, sd] of [[0, -d / 2, w, .2], [0, d / 2, w, .2], [-w / 2, 0, .2, d], [w / 2, 0, .2, d]]) box(g, M.stone, [x, .2, z], [sw + .1, .4, sd], .05, 4);
+    const surface = mesh(new THREE.PlaneGeometry(w - .3, d - .3), new THREE.MeshStandardMaterial({ color: water, roughness: .1, metalness: .1, emissive: glowColor, emissiveIntensity: .25, transparent: true, opacity: .9 }), g, [0, .3, 0]);
+    surface.rotation.x = -Math.PI / 2; surface.castShadow = false; surface.userData.dynamic = true;
+    animated.push(t => { surface.material.emissiveIntensity = .22 + Math.sin(t * 1.3 + w) * .05; });
+    if (!hot) return;
+    const puff = mat('#ffffff', { transparent: true, opacity: .35, roughness: 1 });
+    for (let i = 0; i < 6; i++) {
+      const p = ellipsoid(g, puff.clone(), [(random() - .5) * (w - .8), .6, (random() - .5) * (d - .8)], [.22, .16, .22]); p.castShadow = false; p.userData.dynamic = true;
+      const phase = random() * 3; animated.push(t => { const k = (t * .35 + phase) % 1; p.position.y = .45 + k * 1.2; p.material.opacity = .35 * (1 - k); p.scale.setScalar(.2 + k * .25); });
+    }
+  }
   const builders = {
     tv(g, w, d) {
       box(g, M.darkWood, [0, .3, 0], [w, .6, d * .8], .06, 4);
@@ -363,6 +376,42 @@ export function buildWorld({ scene, kit }) {
       for (const y of [.3, .78, 1.26]) box(g, M.lightWood, [0, y, 0], [w, .05, d], .02, 4);
       sign(g, '양머리 수건', [0, 1.62, 0], 0, 1.2, { bg: '#fff6ea', ink: '#9b5a30', border: '#c99a72' });
     },
+    // ---------- South wing ----------
+    lockers(g, w, d) {
+      // A bank of wooden lockers with numbered key tags; local front faces +z.
+      const cols = Math.max(2, Math.round(w / .5)), cw = w / cols;
+      box(g, M.darkWood, [0, .95, -d / 2 + .04], [w, 1.9, .08], .02, 4);
+      for (let c = 0; c < cols; c++) for (let r = 0; r < 3; r++) {
+        const x = -w / 2 + cw * (c + .5), y = .34 + r * .6;
+        box(g, mat(['#e9c79f', '#dcb68c', '#e3bf96'][(c + r) % 3]), [x, y, .02], [cw - .04, .56, d - .08], .03, 4);
+        cylinder(g, mat('#c9a23a', { metalness: .4, roughness: .4 }), [x + cw * .3, y + .1, d / 2 - .02], .025, .025, .02, 10).rotation.x = Math.PI / 2;
+      }
+    },
+    hotpool(g, w, d) { pool(g, w, d, '#7fd0d8', '#ffd7b0', true); },
+    coldpool(g, w, d) { pool(g, w, d, '#8fc6f0', '#e8f6ff', false); },
+    shower(g, w) {
+      box(g, mat('#e8f0f2'), [0, 1, -.15], [w, 2, .1], .03, 4);
+      for (const x of [-w / 4, w / 4]) {
+        cylinder(g, mat('#c8d0d4', { metalness: .6, roughness: .3 }), [x, 1.6, -.05], .02, .02, .3, 8).rotation.x = Math.PI / 2;
+        cylinder(g, mat('#c8d0d4', { metalness: .6, roughness: .3 }), [x, 1.6, .1], .08, .06, .04, 14);
+        box(g, mat('#f2c9a8'), [x, .18, .05], [.34, .36, .3], .05, 4);
+      }
+    },
+    scrubbed(g, w, d) {
+      // A low padded table with a rolled towel at the head end.
+      box(g, mat('#d9b48c'), [0, .05, 0], [w, .1, d], .03, 4).castShadow = false;
+      box(g, mat('#f6efe2', { map: textile, roughness: 1 }), [0, .12, 0], [w - .1, .06, d - .1], .03, 4);
+      const roll = cylinder(g, M.towel, [-w / 2 + .2, .2, 0], .09, .09, d - .2, 14); roll.rotation.x = Math.PI / 2;
+    },
+    fortunetable(g, w, d) {
+      box(g, M.darkWood, [0, .3, 0], [w, .08, d], .03, 4);
+      for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(g, M.darkWood, [x * (w / 2 - .1), .14, z * (d / 2 - .1)], [.08, .28, .08], .02, 2);
+      box(g, mat('#5b3d8a', { roughness: 1 }), [0, .35, 0], [w - .1, .02, d - .1], .01, 2);
+      const ball = mesh(new THREE.SphereGeometry(.17, 24, 16), new THREE.MeshPhysicalMaterial({ color: '#d9c8ff', roughness: .05, transmission: .4, emissive: '#9a7bff', emissiveIntensity: .5 }), g, [0, .55, 0]);
+      ball.castShadow = false; cylinder(g, mat('#c9a23a', { metalness: .5, roughness: .4 }), [0, .4, 0], .1, .13, .07, 16);
+      ball.userData.dynamic = true; animated.push(t => { ball.material.emissiveIntensity = .4 + Math.sin(t * 1.6) * .2; });
+      sign(g, '사 주', [0, .7, -d / 2 - .02], 0, .7, { bg: '#efe6ff', ink: '#5d528f', border: '#7d72b0' });
+    },
     stool(g) { cylinder(g, mat('#e7a27a'), [0, .38, 0], .22, .22, .08, 16); cylinder(g, M.darkWood, [0, .18, 0], .05, .07, .36, 8); }
   };
   const blobTexture = canvasTexture((c, w, h) => {
@@ -412,8 +461,8 @@ export function buildWorld({ scene, kit }) {
   decor(g => { for (const y of [1.15, 1.45]) { box(g, M.lightWood, [0, y, 0], [3.4, .05, .3], .02, 4); for (let i = 0; i < 9; i++) cylinder(g, mat(['#f2d58a', '#e98d6b', '#f4e3c0', '#a8d38a'][i % 4]), [-1.5 + i * .37, y + .12, 0], .08, .08, .2, 10); } }, [14.6, 0, 0], -Math.PI / 2, ['x', 15]);
 
   // ---------- Lighting ----------
-  const pointPositions = { lobby: [0, 2.6, 1.5], hot: [0, 2.2, -10], ice: [-9.5, 2.3, -9], sleep: [9.5, 2.1, -9], salt: [-11.5, 2.2, 0], shop: [11.5, 2.4, 0] };
-  const intensities = { lobby: 9, hot: 22, ice: 10, sleep: 7, salt: 12, shop: 10 };
+  const pointPositions = { fortune: [-11.5, 2.2, 11], locker: [-5, 2.3, 11], bath: [3, 2.3, 11], scrub: [11.5, 2.3, 11], lobby: [0, 2.6, 1.5], hot: [0, 2.2, -10], ice: [-9.5, 2.3, -9], sleep: [9.5, 2.1, -9], salt: [-11.5, 2.2, 0], shop: [11.5, 2.4, 0] };
+  const intensities = { fortune: 8, locker: 9, bath: 10, scrub: 9, lobby: 9, hot: 22, ice: 10, sleep: 7, salt: 12, shop: 10 };
   for (const room of ROOMS) {
     const light = new THREE.PointLight(room.light, intensities[room.id], 11, 1.4); light.position.set(...pointPositions[room.id]); scene.add(light); lights[room.id] = light;
   }
