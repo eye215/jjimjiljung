@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
-import { ROOMS } from './world.js?v=rpg-26';
+import { ROOMS } from './world.js?v=rpg-27';
 
 // 수면실 immersion: lying down there slides the camera into a first-person view
 // under a starry ceiling, starts a soft generated lullaby, and after a quiet

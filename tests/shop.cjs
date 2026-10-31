@@ -80,7 +80,7 @@ const server = http.createServer((req, res) => {
     await page.locator('[data-action="egg"]').click();
     await page.locator('#game [data-tap]').click();
     await page.locator('#game-result').waitFor({ state: 'visible' });
-    assert.equal(await page.locator('#game [data-game-again]').isDisabled(), true, 'No 한 번 더 without an egg left');
+    assert.equal(await page.locator('#game [data-game-again]').textContent(), '🛒 매점 가기', 'No egg left: the button leads to the 매점');
     await page.locator('#game [data-game-close]').click();
     // 식혜 button = 원샷 (hold, then let go until the timer ends).
     await page.locator('[data-action="drink"]').click();
