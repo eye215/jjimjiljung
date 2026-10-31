@@ -1,4 +1,4 @@
-import { cleanNickname } from './chat-rules.js?v=rpg-27';
+import { cleanNickname } from './chat-rules.js?v=rpg-28';
 
 // 카카오톡 친구 초대. The JavaScript key is a public, domain-restricted key
 // (allowed sites are set in Kakao Developers), so it is safe in the browser.

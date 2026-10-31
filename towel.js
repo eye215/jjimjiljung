@@ -1,4 +1,4 @@
-import { randomPart } from './outfit.js?v=rpg-27';
+import { randomPart } from './outfit.js?v=rpg-28';
 
 // 양머리 만들기: a three-step mini-game at the 매점 towel shelf.
 // 1) the towel unfurls, then swipe it down to fold it, 2) tap left/right in turn

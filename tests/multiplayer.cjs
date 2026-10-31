@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     await context.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), group: () => social.group, teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
+      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), block: () => social.block([...social.remotes.keys()][0]), group: () => social.group, teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
     });
     await context.addInitScript(() => localStorage.setItem('jjimjiljung-wallet-v1', JSON.stringify({ points: 50, bag: { egg: 5, drink: 5 }, free: { egg: '', drink: '' } })));
     const errors = [];
@@ -145,12 +145,20 @@ const server = http.createServer((req, res) => {
     await a.locator('#chat-open').click();
     await a.mouse.click(195, 300);
     assert.equal(await a.locator('#chat').isVisible(), false, 'Outside tap closes the composer');
+    // Safety: after b blocks a, a's request goes unanswered ("응답이 없어요") and no card appears.
+    await a.locator('#chat-open').click(); await a.locator('#chat-history').click();
+    await a.locator('#chat-leave').click();
+    await a.waitForFunction(() => !window.__mp.group(), null, { timeout: 30000 });
+    await b.evaluate(() => window.__mp.block());
+    await a.evaluate(() => window.__mp.ask());
+    await a.waitForFunction(() => /응답이 없어요/.test(document.querySelector('#toast span').textContent), null, { timeout: 30000 });
+    assert.equal(await b.locator('#chatreq-card').isVisible(), false, 'Blocked visitors cannot send requests');
     // 5. Leaving updates the other visitor.
     await b.close();
     await a.waitForFunction(() => { const s = window.__mp.state(); return s.count === 1 && s.remotes.length === 0; }, null, { timeout: 30000 });
     assert.match(await a.locator('#online-text').textContent(), /1명 접속 중/);
     assert(await a.locator('#chat-log li.system', { hasText: '율무님이 나갔어요' }).count() >= 1, 'Leave notice appears');
     assert.deepEqual(errors, [], 'No JS errors');
-    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, greeting with auto target, high-five, 온기 and cooldown, chat request → accept → group chat both ways with bubbles and unread badge (no public chat), panel-less composer (bubble/subtitle modes, history, outside tap), rate limit, profanity masking, length cap, typing does not walk, leave handling.');
+    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, greeting with auto target, high-five, 온기 and cooldown, chat request → accept → group chat both ways with bubbles and unread badge (no public chat), blocking, panel-less composer (bubble/subtitle modes, history, outside tap), rate limit, profanity masking, length cap, typing does not walk, leave handling.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });
