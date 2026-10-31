@@ -1,19 +1,19 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-23';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-23';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-23';
-import { createTowelGame } from './towel.js?v=rpg-23';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-23';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-23';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-23';
-import { buildWorld } from './environment.js?v=rpg-23';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-23';
-import { createTvAds } from './ads.js?v=rpg-23';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-23';
-import { createSocial } from './social.js?v=rpg-23';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-23';
-import { createShop } from './shop.js?v=rpg-23';
-import { createInvite } from './invite.js?v=rpg-23';
+import { planPath, stepMovement } from './navigation.js?v=rpg-24';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-24';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-24';
+import { createTowelGame } from './towel.js?v=rpg-24';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-24';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-24';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-24';
+import { buildWorld } from './environment.js?v=rpg-24';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-24';
+import { createTvAds } from './ads.js?v=rpg-24';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-24';
+import { createSocial } from './social.js?v=rpg-24';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-24';
+import { createShop } from './shop.js?v=rpg-24';
+import { createInvite } from './invite.js?v=rpg-24';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -57,7 +57,7 @@ scene.add(sun, sun.target);
 
 // The plush GLB (2.5 MB) loads behind the loading screen; without it the
 // built-in character is used so the room always opens.
-const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap', 'hair'])]);
+const [plushModel, towelProps] = await Promise.all([loadPlushModel(), loadTowelProps(['cap'])]);
 const kit = createCharacterKit(renderer, plushModel, towelProps);
 const world = buildWorld({ scene, kit });
 const sleep = createSleepMode({ scene, canvasTexture: kit.canvasTexture });

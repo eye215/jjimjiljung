@@ -3,7 +3,7 @@
 //   connect({ id, presence, onPresence, onMessage, onStatus }) → { track, send, leave }
 // onPresence receives an array of presence payloads (one per visitor).
 // onStatus receives 'connecting' | 'online' | 'offline'.
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-23';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-24';
 
 const EVENTS = ['state', 'chat', 'trade', 'greet'];
 
