@@ -1,19 +1,19 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-24';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-24';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-24';
-import { createTowelGame } from './towel.js?v=rpg-24';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-24';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-24';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-24';
-import { buildWorld } from './environment.js?v=rpg-24';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-24';
-import { createTvAds } from './ads.js?v=rpg-24';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-24';
-import { createSocial } from './social.js?v=rpg-24';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-24';
-import { createShop } from './shop.js?v=rpg-24';
-import { createInvite } from './invite.js?v=rpg-24';
+import { planPath, stepMovement } from './navigation.js?v=rpg-25';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-25';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-25';
+import { createTowelGame } from './towel.js?v=rpg-25';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-25';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-25';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-25';
+import { buildWorld } from './environment.js?v=rpg-25';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-25';
+import { createTvAds } from './ads.js?v=rpg-25';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-25';
+import { createSocial } from './social.js?v=rpg-25';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-25';
+import { createShop } from './shop.js?v=rpg-25';
+import { createInvite } from './invite.js?v=rpg-25';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -608,7 +608,8 @@ social = createSocial({
   scene, camera, kit, viewport, actorScale: ACTOR_SCALE, makeShadow: contactShadow,
   getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
   onTrade: payload => onTrade(payload),
-  onGreet: payload => onGreet(payload)
+  onGreet: payload => onGreet(payload),
+  notify: text => toast(text)
 });
 // ---------- Tapping a visitor: wave, or offer to swap sheep-cap towels ----------
 const personCard = document.querySelector('#person-card'), tradeCard = document.querySelector('#trade-card');
@@ -625,6 +626,7 @@ function openPerson(remote) {
 }
 function closePerson() { personCard.hidden = true; personId = null; }
 personCard.querySelector('[data-close]').addEventListener('click', closePerson);
+personCard.querySelector('[data-chat]').addEventListener('click', () => { const target = personId; closePerson(); if (target) social.requestChat(target); });
 personCard.querySelector('[data-wave]').addEventListener('click', () => {
   const remote = social.remotes.get(personId); closePerson(); if (remote) greet(remote);
 });

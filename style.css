@@ -399,3 +399,7 @@ body.sleeping .room-badge{opacity:0}
 #spot-action{position:absolute;z-index:4;left:50%;transform:translateX(-50%);bottom:calc(var(--safe-bottom) + 232px);min-height:48px;padding:10px 20px;border:0;border-radius:999px;color:var(--ink);font-weight:750;font-size:15px;white-space:nowrap;background:var(--lg-thick);-webkit-backdrop-filter:var(--lg-blur);backdrop-filter:var(--lg-blur);box-shadow:var(--glass-ring);animation:toast .4s ease-out}
 #spot-action:active{transform:translateX(-50%) scale(.95)}
 body.sleeping #spot-action,body.playing #spot-action,body.towel-playing #spot-action,body.chat-open #spot-action{display:none}
+#chatreq-card{right:14px;width:auto;max-width:420px;display:flex;flex-direction:column;gap:2px;z-index:9}
+#chatreq-card .person-actions{margin-top:12px}
+#chat-leave{min-height:32px;padding:0 12px;border:0;border-radius:999px;background:rgba(255,255,255,.55);color:var(--ink);font-size:12.5px;font-weight:700}
+.person-actions{flex-wrap:wrap}.person-actions [data-trade]{flex-basis:100%}

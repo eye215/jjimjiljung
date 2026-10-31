@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-24';
-import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-24';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-24';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-24';
+import { connect } from './net.js?v=rpg-25';
+import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-25';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-25';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-25';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -14,7 +14,7 @@ const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toS
 
 const dress = (character, code) => { const outfit = decodeOutfit(code) || decodeOutfit('peach'); character.setColors(outfitColors(outfit)); character.setTowel(capOn(outfit)); };
 
-export function createSocial({ scene, camera, kit, viewport, getLocal, makeShadow, actorScale, onLocalBubble, onTrade, onGreet }) {
+export function createSocial({ scene, camera, kit, viewport, getLocal, makeShadow, actorScale, onLocalBubble, onTrade, onGreet, notify = () => {} }) {
   const id = newId();
   const ui = {
     online: $('#online'), onlineText: $('#online-text'), chat: $('#chat'), log: $('#chat-log'), form: $('#chat-form'), input: $('#chat-input'),
@@ -56,6 +56,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
       remote = { id: info.id, character, outfit: info.outfit, name: info.name, label: makeLabel(info.name), shadow: makeShadow(), target: { x: 0, z: 0, f: 0 }, action: 'stand', walking: false, placed: false };
       remote.shadow.visible = false; remotes.set(info.id, remote);
     }
+    if (info.uid) remote.uid = info.uid;
     if (info.name && info.name !== remote.name) { remote.name = info.name; remote.label.querySelector('b').textContent = info.name; }
     if (info.outfit && info.outfit !== remote.outfit) { remote.outfit = info.outfit; dress(remote.character, info.outfit); }
     return remote;
@@ -68,7 +69,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   }
   function readPresence(entry) {
     if (!entry || typeof entry.id !== 'string' || entry.id === id) return null;
-    return { id: entry.id.slice(0, 40), name: cleanNickname(entry.name) || '손님', outfit: decodeOutfit(entry.outfit) ? entry.outfit : 'peach' };
+    return { id: entry.id.slice(0, 40), uid: typeof entry.uid === 'string' ? entry.uid.slice(0, 64) : null, name: cleanNickname(entry.name) || '손님', outfit: decodeOutfit(entry.outfit) ? entry.outfit : 'peach' };
   }
   function onPresence(list) {
     const next = list.map(readPresence).filter(Boolean);
@@ -130,6 +131,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     senderLimits.set(message.id, senderLimit);
     if (senderLimit.check()) return; senderLimit.hit();
     const remote = remotes.get(message.id);
+    if (remote && group && remote.uid && !group.members.has(remote.uid)) return;
     append({ kind: 'them', name: remote?.name || message.name, text: message.text, ts: message.ts });
     if (remote) say(remote.label, message.text);
   }
@@ -139,11 +141,12 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     const raw = cleanText(ui.input.value);
     if (!raw) return;
     if (status !== 'online') { note('아직 연결되지 않았어요. 잠시 뒤에 다시 보내 주세요.'); return; }
+    if (!group) { note('다른 손님을 눌러 대화를 신청하고, 수락받으면 이야기할 수 있어요 💬'); return; }
     const wait = limit.check(); if (wait) { note(`조금만 천천히 말해 주세요 (${Math.ceil(wait / 1000)}초)`); return; }
     const { text, flagged } = maskProfanity(raw);
     limit.hit(); ui.input.value = '';
     const message = { id, name: nickname, text, mid: newId(), room: getLocal().room };
-    link.send('chat', message);
+    group.channel.send('msg', message);
     append({ kind: 'me', name: nickname, text, ts: Date.now() });
     say(selfLabel, text); onLocalBubble?.(text);
     note(flagged ? '고운 말로 바꿔서 보냈어요 ♨' : '');
@@ -230,14 +233,83 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     if (!['hello', 'accept'].includes(payload.type)) return;
     onGreet?.({ type: payload.type, from: payload.from, name: remotes.get(payload.from).name, gid: String(payload.gid || '').slice(0, 40) });
   }
+  // ---------- Request-based group chat (server rules: supabase/migrations/20261031_groups.sql) ----------
+  // Asking someone: the server records the request and enforces the limits; a broadcast
+  // only nudges the other visitor to look it up. Accepting puts both in one group (≤ 6),
+  // whose messages travel on a members-only private channel.
+  let group = null, outgoing = null, incoming = null;
+  const ui2 = { card: $('#chatreq-card'), name: $('#chatreq-name'), left: $('#chatreq-left'), accept: $('#chatreq-accept'), decline: $('#chatreq-decline'), leave: $('#chat-leave') };
+  const NO_ANSWER = '응답이 없어요';
+  const RESULT = { sent: null, pending: '이미 신청했어요. 답을 기다려요', rate_limited: '조금 뒤에 다시 신청해요 (1분에 3번까지)', group_full: '그룹이 꽉 찼어요 (최대 6명)', cooling_down: NO_ANSWER, unavailable: NO_ANSWER, invalid: NO_ANSWER };
+  async function requestChat(remoteId) {
+    const remote = remotes.get(remoteId), api = link?.groups;
+    if (!remote || !api || status !== 'online') { notify('연결된 뒤에 대화를 신청할 수 있어요'); return; }
+    if (!remote.uid) { notify(NO_ANSWER); return; }
+    if (group?.members.has(remote.uid)) { notify(`${remote.name}님과 이미 같은 그룹이에요`); return; }
+    let result; try { result = await api.requestChat(remote.uid); } catch { result = 'invalid'; }
+    if (result !== 'sent') { notify(RESULT[result] || NO_ANSWER); return; }
+    link.send('chatreq', { from: id, to: remoteId });
+    clearTimeout(outgoing?.timer);
+    outgoing = { to: remoteId, timer: setTimeout(() => { outgoing = null; notify(NO_ANSWER); }, 61000) };
+    notify(`${remote.name}님에게 대화를 신청했어요 💬`);
+  }
+  function closeIncoming() { clearInterval(incoming?.timer); incoming = null; ui2.card.hidden = true; }
+  async function onChatSignal(event, payload) {
+    if (!payload || payload.to !== id || typeof payload.from !== 'string' || !remotes.has(payload.from)) return;
+    const remote = remotes.get(payload.from), api = link?.groups; if (!api || !remote.uid) return;
+    if (event === 'chatreq') {
+      let request = null; try { request = await api.pendingFrom(remote.uid); } catch { /* not verified, ignore */ }
+      if (!request || incoming) return;
+      const left = () => Math.max(0, Math.ceil(60 - (Date.now() - new Date(request.created_at).getTime()) / 1000));
+      incoming = { from: payload.from, request, timer: setInterval(() => { ui2.left.textContent = `${left()}초`; if (!left()) closeIncoming(); }, 500) };
+      ui2.name.textContent = `${remote.name}님이 대화를 신청했어요`; ui2.left.textContent = `${left()}초`; ui2.card.hidden = false;
+    } else if (outgoing?.to === payload.from) {
+      clearTimeout(outgoing.timer); outgoing = null;
+      // Trust only the server: am I really in that group now?
+      const mine = payload.group ? await api.myGroup().catch(() => null) : null;
+      if (mine && mine === payload.group) { await joinGroup(mine); notify(`${remote.name}님과 대화가 시작됐어요 💬`); }
+      else notify(NO_ANSWER);
+    }
+  }
+  async function answer(accept) {
+    if (!incoming) return; const { from, request } = incoming, remote = remotes.get(from), api = link.groups; closeIncoming();
+    let gid = null; try { gid = await api.answer(request.id, accept, nickname, remote?.name || '손님'); } catch { gid = null; }
+    link.send('chatans', { from: id, to: from, group: gid });
+    if (gid) { await joinGroup(gid); notify(`${remote?.name || '손님'}님과 대화가 시작됐어요 💬`); }
+  }
+  ui2.accept.addEventListener('click', () => answer(true));
+  ui2.decline.addEventListener('click', () => answer(false));
+  async function refreshMembers() {
+    if (!group) return;
+    const list = await link.groups.members(group.id).catch(() => []);
+    group.members = new Set(list.map(m => m.user_id));
+    if (!group.members.has(link.groups.uid)) { dropGroup(); return; }
+    ui.count.textContent = `우리 그룹 ${list.length}명`; ui2.leave.hidden = false;
+    viewport.dataset.group = String(list.length);
+  }
+  async function joinGroup(gid) {
+    if (group?.id === gid) { await refreshMembers(); group.channel.send('member', { id }); return; }
+    if (group) dropGroup();
+    group = { id: gid, members: new Set(), channel: link.groups.joinGroup(gid, (event, payload) => event === 'msg' ? onChat(payload) : refreshMembers()) };
+    await refreshMembers(); group.channel.send('member', { id });
+    system('그룹 대화가 시작됐어요. 말풍선은 우리 그룹에게만 보여요');
+  }
+  function dropGroup() { group?.channel.leave(); group = null; ui2.leave.hidden = true; ui.count.textContent = ''; viewport.dataset.group = '0'; }
+  async function restoreGroup() { const gid = await link?.groups?.myGroup().catch(() => null); if (gid) await joinGroup(gid); }
+  ui2.leave.addEventListener('click', async () => {
+    if (!group) return; const channel = group.channel; channel.send('member', { id });
+    dropGroup(); await link.groups.leave().catch(() => {}); channel.send?.('member', { id }); system('그룹에서 나왔어요'); notify('그룹에서 나왔어요');
+  });
+
   const pickHits = [];
-  function presencePayload() { return { id, name: nickname, outfit: getLocal().outfit }; }
+  function presencePayload() { return { id, uid: link?.groups?.uid || null, name: nickname, outfit: getLocal().outfit }; }
   async function start() {
     status = 'connecting'; renderStatus();
     try {
-      link = await connect({ id, presence: presencePayload(), onPresence, onStatus: next => { status = next; renderStatus(); if (next === 'online') lastSent = 0; }, onMessage: (event, payload) => event === 'state' ? onState(payload) : event === 'chat' ? onChat(payload) : event === 'trade' ? readTrade(payload) : event === 'greet' ? readGreet(payload) : null });
-      selfLabel.hidden = false;
-      if (!ui.log.children.length) system(`${nickname}님, 찜질방에 오신 걸 환영해요!`);
+      link = await connect({ id, presence: presencePayload(), onPresence, onStatus: next => { status = next; renderStatus(); if (next === 'online') lastSent = 0; }, onMessage: (event, payload) => event === 'state' ? onState(payload) : event === 'chatreq' || event === 'chatans' ? onChatSignal(event, payload) : event === 'trade' ? readTrade(payload) : event === 'greet' ? readGreet(payload) : null });
+      selfLabel.hidden = false; link.track(presencePayload());
+      if (!ui.log.children.length) system(`${nickname}님, 찜질방에 오신 걸 환영해요! 다른 손님을 눌러 대화를 신청해 보세요`);
+      restoreGroup();
     } catch { status = 'offline'; renderStatus(); }
   }
   async function reconnect() { if (link) { await link.leave(); link = null; } for (const remoteId of [...remotes.keys()]) removeRemote(remoteId); presence = []; start(); }
@@ -245,7 +317,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     const count = presence.length + 1;
     ui.online.dataset.status = status;
     ui.onlineText.textContent = status === 'online' ? `${count}명 접속 중` : status === 'connecting' ? '연결 중…' : status === 'offline' ? '다시 연결' : '함께하기';
-    ui.count.textContent = status === 'online' ? `${count}명` : '';
+    if (!group) ui.count.textContent = '';
     viewport.dataset.online = status === 'online' ? String(count) : status;
   }
   addEventListener('pagehide', () => { link?.leave(); });
@@ -265,6 +337,8 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
       }
       return best;
     },
+    requestChat,
+    get group() { return group ? { id: group.id, size: group.members.size } : null; },
     sendGreet(to, type, gid) { if (link && status === 'online') link.send('greet', { from: id, to, type, gid }); },
     sendTrade(to, type, towel = null, tid = '') { if (link && status === 'online') link.send('trade', { from: id, to, type, towel, tid }); },
     outfitChanged() { if (link && status === 'online') { link.track(presencePayload()); lastSent = 0; } },
