@@ -43,8 +43,8 @@ Codex는 **보조 개발자**입니다. 맡기는 일은 두 가지뿐입니다.
 | --- | --- | --- |
 | `20261031_groups.sql` | 신청제 그룹 채팅 테이블·RLS·함수 | ✅ 적용 |
 | `20261031b_lock_functions.sql` | 채팅 함수 anon 실행 차단 | ✅ 적용 |
-| `20261031c_invites.sql` | 초대 링크 일회용 토큰(`create_invite`, `redeem_invite`) | ⏳ 요청 필요 |
-| `20261101_transfer.sql` | 다른 기기에서 이어하기 코드(`create_transfer_code`, `claim_transfer_code`) | ⏳ 요청 필요 |
+| `20261031c_invites.sql` | 초대 링크 일회용 토큰(`create_invite`, `redeem_invite`) | ✅ 적용(Codex 보고) |
+| `20261101_transfer.sql` | 다른 기기에서 이어하기 코드(`create_transfer_code`, `claim_transfer_code`) | ✅ 적용(사용자가 SQL Editor에서 직접 실행) |
 
 **지금 보낼 것 (두 개 한 번에):**
 
