@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     await context.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), block: () => social.block([...social.remotes.keys()][0]), invite: () => social.createInviteToken(), group: () => social.group, teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
+      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), block: () => social.block([...social.remotes.keys()][0]), invite: () => social.createInviteToken(), openCard: () => { const r = [...social.remotes.values()].find(x => x.name === "율무"); if (r) openPerson(r); return !!r; }, group: () => social.group, teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
     });
     await context.addInitScript(() => localStorage.setItem('jjimjiljung-wallet-v1', JSON.stringify({ points: 50, bag: { egg: 5, drink: 5 }, free: { egg: '', drink: '' } })));
     const errors = [];
@@ -164,12 +164,34 @@ const server = http.createServer((req, res) => {
     await guest.waitForFunction(() => window.__mp.group()?.size >= 2, null, { timeout: 60000 });
     assert.equal(new URL(guest.url()).searchParams.has('join'), false, 'The token leaves the address bar');
     await guest.close();
+    // Report sheet: a reason chip, an optional note, then the report is filed.
+    await a.waitForFunction(() => window.__mp.openCard(), null, { timeout: 30000 });
+    await a.locator('#person-card [data-report]').click();
+    await a.locator('#report-dialog[open]').waitFor();
+    await a.locator('.report-reasons label', { hasText: '괴롭힘' }).click();
+    await a.locator('#report-detail').fill('계속 따라와요');
+    await a.locator('#report-send').click();
+    await a.waitForFunction(() => /신고가 접수/.test(document.querySelector('#toast span').textContent));
+    assert.match(await a.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('jjimjiljung-local-server')).reports)), /괴롭힘·스토킹: 계속 따라와요/);
+    // 이어하기: a code made on one device restores the data on another.
+    await a.evaluate(() => localStorage.setItem('jjimjiljung-key', '77'));
+    await a.locator('#places-open').click(); await a.locator('#transfer-open').click();
+    await a.locator('#transfer-make').click();
+    const code = (await a.locator('#transfer-code').textContent()).trim();
+    assert.match(code, /^[A-Z0-9]{6}$/, 'A 6-character code is shown');
+    await a.locator('#transfer-close').click();
+    await b.evaluate(() => localStorage.setItem('jjimjiljung-key', '5'));
+    await b.locator('#places-open').click(); await b.locator('#transfer-open').click();
+    await b.locator('#transfer-input').fill(code);
+    await Promise.all([b.waitForEvent('load', { timeout: 120000 }), b.locator('#transfer-form button').click()]);
+    assert.equal(await b.evaluate(() => localStorage.getItem('jjimjiljung-key')), '77', 'Data arrives on the other device');
+    await b.waitForSelector('#viewport[data-ready="true"]', { timeout: 120000 });
     // 5. Leaving updates the other visitor.
     await b.close();
     await a.waitForFunction(() => { const s = window.__mp.state(); return s.count === 1 && s.remotes.length === 0; }, null, { timeout: 30000 });
     assert.match(await a.locator('#online-text').textContent(), /1명 접속 중/);
     assert(await a.locator('#chat-log li.system', { hasText: '율무님이 나갔어요' }).count() >= 1, 'Leave notice appears');
     assert.deepEqual(errors, [], 'No JS errors');
-    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, greeting with auto target, high-five, 온기 and cooldown, chat request → accept → group chat both ways with bubbles and unread badge (no public chat), blocking, invite-link group join, panel-less composer (bubble/subtitle modes, history, outside tap), rate limit, profanity masking, length cap, typing does not walk, leave handling.');
+    console.log('PASS (local transport): nickname suggestion/reroll/validation, two visitors see each other with name tags and count, movement/pose/outfit/snack sync, greeting with auto target, high-five, 온기 and cooldown, chat request → accept → group chat both ways with bubbles and unread badge (no public chat), blocking, invite-link group join, report sheet, device transfer code, panel-less composer (bubble/subtitle modes, history, outside tap), rate limit, profanity masking, length cap, typing does not walk, leave handling.');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

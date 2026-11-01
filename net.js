@@ -3,7 +3,7 @@
 //   connect({ id, presence, onPresence, onMessage, onStatus }) → { track, send, leave }
 // onPresence receives an array of presence payloads (one per visitor).
 // onStatus receives 'connecting' | 'online' | 'offline'.
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-29';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-30';
 
 const EVENTS = ['state', 'chat', 'trade', 'greet', 'chatreq', 'chatans'];
 
@@ -53,6 +53,8 @@ export async function connectSupabase({ id, presence, onPresence, onMessage, onS
     myGroup: async () => (await one(client.from('group_members').select('group_id').eq('user_id', uid).limit(1)))[0]?.group_id || null,
     members: group => one(client.from('group_members').select('user_id,nickname').eq('group_id', group)),
     leave: () => one(client.rpc('leave_group')),
+    createTransfer: payload => one(client.rpc('create_transfer_code', { payload })),
+    claimTransfer: code => one(client.rpc('claim_transfer_code', { transfer_code: code })),
     createInvite: name => one(client.rpc('create_invite', { my_name: name })),
     redeemInvite: (token, name) => one(client.rpc('redeem_invite', { invite_token: token, my_name: name })),
     block: target => one(client.from('blocks').upsert({ user_id: uid, blocked: target })),
@@ -111,6 +113,13 @@ function localGroups(uid) {
     async myGroup() { return groupOf(read(), uid); },
     async members(group) { return read().members.filter(m => m.group === group).map(m => ({ user_id: m.user, nickname: m.nickname })); },
     async leave() { const db = read(); db.members = db.members.filter(m => m.user !== uid); write(db); },
+    async createTransfer(payload) {
+      const db = read(), code = Math.random().toString(36).slice(2, 8).toUpperCase(); (db.transfers ||= []).push({ code, owner: uid, data: payload, at: Date.now() }); write(db); return code;
+    },
+    async claimTransfer(code) {
+      const db = read(), t = (db.transfers || []).find(x => x.code === String(code).toUpperCase() && !x.used && Date.now() - x.at < 600000);
+      if (!t || t.owner === uid) return null; t.used = uid; write(db); return t.data;
+    },
     async createInvite(name) {
       const db = read(); let group = groupOf(db, uid);
       if (!group) { group = 'g' + Math.random().toString(36).slice(2); db.members.push({ group, user: uid, nickname: name }); }

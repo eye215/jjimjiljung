@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-29';
-import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-29';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-29';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-29';
+import { connect } from './net.js?v=rpg-30';
+import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-30';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-30';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-30';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -374,6 +374,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
       return best;
     },
     requestChat, block, report, createInviteToken,
+    get api() { return status === 'online' ? link?.groups || null : null; },
     joinWith(token) { pendingJoin = token; if (link && status === 'online') redeem(); },
     isBlocked: remoteId => blockedIds.has(remotes.get(remoteId)?.uid),
     get group() { return group ? { id: group.id, size: group.members.size } : null; },
