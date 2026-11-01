@@ -1,19 +1,19 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-32';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-32';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-32';
-import { createTowelGame } from './towel.js?v=rpg-32';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-32';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-32';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-32';
-import { buildWorld } from './environment.js?v=rpg-32';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-32';
-import { createTvAds } from './ads.js?v=rpg-32';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-32';
-import { createSocial } from './social.js?v=rpg-32';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-32';
-import { createShop } from './shop.js?v=rpg-32';
-import { createInvite } from './invite.js?v=rpg-32';
+import { planPath, stepMovement } from './navigation.js?v=rpg-33';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-33';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-33';
+import { createTowelGame } from './towel.js?v=rpg-33';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-33';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-33';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-33';
+import { buildWorld } from './environment.js?v=rpg-33';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-33';
+import { createTvAds } from './ads.js?v=rpg-33';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-33';
+import { createSocial } from './social.js?v=rpg-33';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-33';
+import { createShop } from './shop.js?v=rpg-33';
+import { createInvite } from './invite.js?v=rpg-33';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -35,12 +35,12 @@ try {
   clearTimeout(window.roomLoadTimer);
   throw error;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, coarsePointer ? 1.5 : 1.75));
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.1;
 viewport.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#2e1d14');
@@ -69,7 +69,7 @@ function contactShadow() { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.15
 
 const ACTOR_SCALE = .62, WALK_SPEED = 2.5;
 let outfit = loadOutfit();
-const player = kit.createCharacter(outfitColors(outfit)); player.setTowel(capOn(outfit));
+const player = kit.createCharacter(outfitColors(outfit)); player.setTowel(capOn(outfit)); player.setCastShadow?.(true);
 const { root: hero, arms, legs, faceMaterial } = player;
 scene.add(hero); hero.scale.setScalar(ACTOR_SCALE); hero.position.set(SPAWN.x, 0, SPAWN.z);
 const shadow = contactShadow();

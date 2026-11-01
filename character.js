@@ -546,7 +546,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     }
     return faceSets.get(skin);
   };
-  const unitPlane = new THREE.PlaneGeometry(1, 1);
+  const blankTexture = new THREE.DataTexture(new Uint8Array(4), 1, 1); blankTexture.needsUpdate = true;
   const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3(), q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion(), q3 = new THREE.Quaternion(), e1 = new THREE.Euler();
   // Turn `bone` so that its world rotation gains `worldDelta`.
   function rotateBoneWorld(bone, worldDelta) {
@@ -557,7 +557,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
   function makeBody(gltf, profile, frame, uniforms) {
     const model = cloneSkinned(gltf.scene); model.scale.setScalar(MODEL_SCALE); frame.add(model);
     let skinned = null; model.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
-    skinned.castShadow = true; skinned.receiveShadow = false; skinned.frustumCulled = false;
+    skinned.castShadow = false; skinned.receiveShadow = false; skinned.frustumCulled = false; // see setCastShadow
     const bone = name => model.getObjectByName('mixamorig' + name);
     const headBone = bone('Head'), neck = bone('Neck'), spine2 = bone('Spine2'), spine1 = bone('Spine1');
     const upperArms = [bone('LeftArm'), bone('RightArm')], foreArms = [bone('LeftForeArm'), bone('RightForeArm')], hands = [bone('LeftHand'), bone('RightHand')], upLegs = [bone('LeftUpLeg'), bone('RightUpLeg')], feet = [bone('LeftFoot'), bone('RightFoot')];
@@ -566,18 +566,41 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     const bindPose = skinned.skeleton.bones.map(b => [b, b.quaternion.clone(), b.position.clone()]);
     // Fabric dye: low-saturation light texels take the outfit colour (top/bottom split at HEM);
     // above `hat` the white terry is the sheep towel and takes the towel colour.
-    const material = new THREE.MeshPhysicalMaterial({ map: skinned.material.map, roughness: 1, metalness: 0, sheen: .3, sheenRoughness: .9, sheenColor: new THREE.Color('#fff3ea') });
+    // Sharp on phones: full mipmaps (from the loader) plus anisotropic filtering at grazing angles.
+    const map = skinned.material.map; if (map && map.anisotropy < 8) { map.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); map.needsUpdate = true; }
+    const material = new THREE.MeshPhysicalMaterial({ map, roughness: 1, metalness: 0, sheen: .3, sheenRoughness: .9, sheenColor: new THREE.Color('#fff3ea') });
     material.onBeforeCompile = shader => {
       Object.assign(shader.uniforms, uniforms);
-      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying float vRestY;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRestY = position.y;');
+      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vRest;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRest = position;');
       shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>
 #define CLOTH_TOP ${CLOTH_TOP.toFixed(3)}
 #define HEM ${HEM.toFixed(3)}
 #define HAT ${profile.hat.toFixed(3)}
-varying float vRestY;
+#define EYE vec3(${profile.eyes.x.toFixed(3)}, ${profile.eyes.y.toFixed(3)}, ${(profile.eyes.z - .02).toFixed(3)})
+#define MOUTH vec3(${profile.mouth.x.toFixed(3)}, ${(profile.mouth.y - .012).toFixed(3)}, ${(profile.mouth.z - .02).toFixed(3)})
+varying vec3 vRest;
 uniform vec3 uTop;
 uniform vec3 uBottom;
-uniform vec3 uTowel;`).replace('#include <map_fragment>', `#include <map_fragment>
+uniform vec3 uTowel;
+uniform sampler2D uEyeTex;
+uniform sampler2D uMouthTex;
+uniform float uEyeOn;
+uniform float uMouthOn;
+// Expression decals are painted on the face itself (same surface, same light): the bind-pose
+// position is projected onto a small square facing out from the face at each feature.
+vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
+  vec3 d = vRest - centre; vec3 n = vec3(sin(turn), 0., cos(turn)), t = vec3(cos(turn), 0., -sin(turn));
+  vec2 uv = vec2(dot(d, t), d.y) / size + .5;
+  if (uv.x < 0. || uv.y < 0. || uv.x > 1. || uv.y > 1. || abs(dot(d, n)) > .09) return vec4(0.);
+  return texture2D(tex, uv);
+}`).replace('#include <map_fragment>', `#include <map_fragment>
+        float vRestY = vRest.y;
+        if (uEyeOn > .5) {
+          vec4 e = faceDecal(uEyeTex, EYE, .4, vec2(.13));
+          vec4 e2 = faceDecal(uEyeTex, EYE * vec3(-1., 1., 1.), -.4, vec2(.13));
+          diffuseColor.rgb = mix(diffuseColor.rgb, e.rgb, e.a); diffuseColor.rgb = mix(diffuseColor.rgb, e2.rgb, e2.a);
+        }
+        if (uMouthOn > .5) { vec4 m = faceDecal(uMouthTex, MOUTH, 0., vec2(.15, .12)); diffuseColor.rgb = mix(diffuseColor.rgb, m.rgb, m.a); }
         {
           vec3 c = diffuseColor.rgb; float hi = max(c.r, max(c.g, c.b)), lo = min(c.r, min(c.g, c.b));
           float lum = dot(c, vec3(.2126, .7152, .0722));
@@ -589,7 +612,7 @@ uniform vec3 uTowel;`).replace('#include <map_fragment>', `#include <map_fragmen
           diffuseColor.rgb = mix(diffuseColor.rgb, uTowel * clamp(lum / .78, .4, 1.08), hat);
         }`);
     };
-    material.customProgramCacheKey = () => 'plush-dye-v5-' + profile.hat;
+    material.customProgramCacheKey = () => 'plush-dye-v6-' + profile.hat;
     skinned.material = material;
     // Rigid things follow a bone; they are placed in the bind pose, in model units.
     function attach(boneObject, object, point) {
@@ -600,19 +623,10 @@ uniform vec3 uTowel;`).replace('#include <map_fragment>', `#include <map_fragmen
       boneObject.add(object); return object;
     }
     const faces = faceSet(profile.skin);
-    const patchMaterial = () => new THREE.MeshStandardMaterial({ transparent: true, roughness: 1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
-    const eyes = [-1, 1].map(side => {
-      const m = new THREE.Mesh(unitPlane, patchMaterial()); m.scale.setScalar(.13);
-      attach(headBone, m, new THREE.Vector3(side * profile.eyes.x, profile.eyes.y, profile.eyes.z));
-      m.quaternion.multiply(q1.setFromAxisAngle(v1.set(0, 1, 0), side * .4)); m.visible = false; m.renderOrder = 2; return m;
-    });
-    const mouth = new THREE.Mesh(unitPlane, patchMaterial()); mouth.scale.set(.15, .12, 1);
-    attach(headBone, mouth, new THREE.Vector3(profile.mouth.x, profile.mouth.y - .012, profile.mouth.z + .012)); mouth.visible = false; mouth.renderOrder = 2;
-    const showPatch = (m, texture) => { m.visible = !!texture; if (texture && m.material.map !== texture) { m.material.map = texture; m.material.needsUpdate = true; } };
     const setFace = name => {
       const [eye, lips] = FACES[name] || FACES.normal;
-      for (const m of eyes) showPatch(m, eye && faces.eyes[eye]);
-      showPatch(mouth, lips && faces.mouths[lips]);
+      uniforms.uEyeOn.value = eye ? 1 : 0; if (eye) uniforms.uEyeTex.value = faces.eyes[eye];
+      uniforms.uMouthOn.value = lips ? 1 : 0; if (lips) uniforms.uMouthTex.value = faces.mouths[lips];
     };
     const headAnchor = attach(headBone, new THREE.Object3D(), new THREE.Vector3(0, HEAD_ANCHOR_Y, 0));
     // Reach targets that move with the pose: just in front of the mouth, and in front of the chest.
@@ -623,17 +637,23 @@ uniform vec3 uTowel;`).replace('#include <map_fragment>', `#include <map_fragmen
     const hold = attach(hands[1], new THREE.Object3D(), v3.add(v2.set(0, .02, .07)));
     const mixer = new THREE.AnimationMixer(model), actions = {}, weights = {};
     for (const name of Object.values(CLIPS)) { const a = mixer.clipAction(gltf.animations.find(c => c.name === name)); a.play(); a.setEffectiveWeight(0); a.enabled = false; actions[name] = a; weights[name] = 0; }
-    return { model, skinned, material, profile, headBone, neck, spine1, spine2, upperArms, foreArms, hands, upLegs, feet, rest, bindPose, eyes, mouth, setFace, headAnchor, mouthTarget, chestTarget, headBall, hold, mixer, actions, weights,
-      dispose() { material.dispose(); eyes.forEach(m => m.material.dispose()); mouth.material.dispose(); mixer.stopAllAction(); mixer.uncacheRoot(model); frame.remove(model); } };
+    return { model, skinned, material, profile, headBone, neck, spine1, spine2, upperArms, foreArms, hands, upLegs, feet, rest, bindPose, setFace, headAnchor, mouthTarget, chestTarget, headBall, hold, mixer, actions, weights,
+      dispose() { material.dispose(); mixer.stopAllAction(); mixer.uncacheRoot(model); frame.remove(model); } };
   }
   function createPlush(colors = PALETTES.peach) {
     // `frame` holds the model; the actor scale (.62) and MODEL_SCALE make it a 1.35 m plush.
     const root = new THREE.Group(), rig = new THREE.Group(), body = new THREE.Group(), frame = new THREE.Group();
     frame.scale.setScalar(PLUSH_SCALE); root.add(rig); rig.add(body); body.add(frame);
-    const uniforms = { uTop: { value: new THREE.Color(colors[0]) }, uBottom: { value: new THREE.Color(colors[1]) }, uTowel: { value: new THREE.Color(colors[3]) } };
-    // The bare-haired body always exists; the sheep-cap body is built the first time the cap goes on.
-    const bodies = { plain: makeBody(plushModel, PROFILES.plain, frame, uniforms), cap: null };
-    let active = bodies.plain, wearing = false;
+    const uniforms = { uTop: { value: new THREE.Color(colors[0]) }, uBottom: { value: new THREE.Color(colors[1]) }, uTowel: { value: new THREE.Color(colors[3]) }, uEyeTex: { value: blankTexture }, uMouthTex: { value: blankTexture }, uEyeOn: { value: 0 }, uMouthOn: { value: 0 } };
+    // Each body is built the first time it is needed (most residents only ever wear the cap).
+    const bodies = { plain: null, cap: null };
+    // Only the player casts a real shadow (skinned shadows are costly on phones); everyone
+    // else stands on the soft contact shadow the scene puts under them.
+    let castShadow = false;
+    const build = (gltf, profile) => { const b = makeBody(gltf, profile, frame, uniforms); b.skinned.castShadow = castShadow; return b; };
+    const bodyFor = on => on ? bodies.cap ||= build(plushModel.userData.capModel, PROFILES.cap) : bodies.plain ||= build(plushModel, PROFILES.plain);
+    const startCap = !!plushModel.userData.capModel;
+    let active = bodyFor(startCap), wearing = startCap;
     const character = { snack: null };
     const snacks = attachSnacks(character, rig);
     const { snackRoot, snackPose, updateBursts, celebrateBurst } = snacks;
@@ -647,12 +667,12 @@ uniform vec3 uTowel;`).replace('#include <map_fragment>', `#include <map_fragmen
     Object.defineProperty(character, 'mixer', { get: () => active.mixer });
     character.setColors = next => { uniforms.uTop.value.set(next[0]); uniforms.uBottom.value.set(next[1]); uniforms.uTowel.value.set(next[3]); };
     character.setShoulder = () => {};
+    character.setCastShadow = on => { castShadow = !!on; for (const b of Object.values(bodies)) if (b) b.skinned.castShadow = castShadow; };
     let expression = 'normal';
     character.setTowel = on => {
       on = !!on && !!plushModel.userData.capModel;
       if (on === wearing) return; wearing = on;
-      if (on && !bodies.cap) bodies.cap = makeBody(plushModel.userData.capModel, PROFILES.cap, frame, uniforms);
-      const next = on ? bodies.cap : bodies.plain;
+      const next = bodyFor(on);
       // The new body takes over the current clip mix so the swap does not pop.
       for (const name of Object.values(CLIPS)) { next.weights[name] = active.weights[name]; next.actions[name].time = active.actions[name].time; }
       active.model.visible = false; next.model.visible = true; active = next;
@@ -663,7 +683,7 @@ uniform vec3 uTowel;`).replace('#include <map_fragment>', `#include <map_fragmen
     character.expression = () => expression;
     let cheer = 0;
     character.celebrate = () => { cheer = 1.6; celebrateBurst(); };
-    character.dispose = () => { bodies.plain.dispose(); bodies.cap?.dispose(); };
+    character.dispose = () => { bodies.plain?.dispose(); bodies.cap?.dispose(); };
     const forward = new THREE.Vector3(), up = new THREE.Vector3(), side = new THREE.Vector3(), reachPoint = new THREE.Vector3();
     // Body axes in world space (the actor may be turned): forward, up, and the character's right.
     function axes() { root.getWorldQuaternion(q1); forward.set(0, 0, 1).applyQuaternion(q1); up.set(0, 1, 0).applyQuaternion(q1); side.set(-1, 0, 0).applyQuaternion(q1); }
