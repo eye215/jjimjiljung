@@ -82,8 +82,8 @@ export function random() { randomSeed = (randomSeed * 1664525 + 1013904223) >>> 
 // `plain` (bare hair) and `cap` (the same chibi wearing the rolled sheep towel). Putting the
 // sheep cap on swaps the body. Clips: Walking, Running, Sit (on the floor), Cheer (arms up).
 // Standing, lying, eating and waving have no clip; they are posed in code.
-export const PLUSH_URL = new URL('./assets/chibi2-mobile.glb?v=3', import.meta.url).href;
-export const PLUSH_CAP_URL = new URL('./assets/chibi2-cap-mobile.glb?v=3', import.meta.url).href;
+export const PLUSH_URL = new URL('./assets/chibi2-mobile.glb?v=4', import.meta.url).href;
+export const PLUSH_CAP_URL = new URL('./assets/chibi2-cap-mobile.glb?v=4', import.meta.url).href;
 export const CLIPS = { walk: 'Walking', run: 'Running', sit: 'Sit', cheer: 'Cheer' };
 // Both models are 1.7 units tall; this makes them 1.35 m in the room like the other actors.
 const MODEL_SCALE = 1.35 / 1.7;
@@ -500,11 +500,8 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
   // Expression patches drawn over the baked eyes and mouth, on a patch of the model's own
   // face colour that fades out at the rim. Eyes: closed (sleep), relaxed (gently closed),
   // happy (^ ^), dizzy (spirals). Mouths: open smile, munching ω, sipping o, big bite O, wavy.
-  const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${a})`; };
-  const patch = (c, w, h, skin) => { const g = c.createRadialGradient(w / 2, h / 2, 4, w / 2, h / 2, w / 2); g.addColorStop(0, skin); g.addColorStop(.62, skin); g.addColorStop(1, rgba(skin, 0)); c.fillStyle = g; c.fillRect(0, 0, w, h); };
   const INK = '#3a2620', LIP = '#7a3a34', TONGUE = '#f08f8f';
   const eyeTexture = (kind, skin) => canvasTexture((c, w, h) => {
-    patch(c, w, h, skin);
     c.strokeStyle = INK; c.lineWidth = 9; c.lineCap = 'round'; c.beginPath();
     if (kind === 'sleep') { c.moveTo(w * .26, h * .48); c.quadraticCurveTo(w / 2, h * .7, w * .74, h * .48); }
     else if (kind === 'relax') { c.lineWidth = 8; c.moveTo(w * .27, h * .54); c.quadraticCurveTo(w / 2, h * .64, w * .73, h * .54); }
@@ -513,7 +510,6 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     c.stroke();
   }, 128, 128);
   const mouthTexture = (kind, skin) => canvasTexture((c, w, h) => {
-    patch(c, w, h, skin);
     c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = LIP; c.fillStyle = LIP; c.lineWidth = 7;
     if (kind === 'open') {
       // A wide open smile with a little tongue.
@@ -569,6 +565,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     // Sharp on phones: full mipmaps (from the loader) plus anisotropic filtering at grazing angles.
     const map = skinned.material.map; if (map && map.anisotropy < 8) { map.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); map.needsUpdate = true; }
     const material = new THREE.MeshPhysicalMaterial({ map, roughness: 1, metalness: 0, sheen: .3, sheenRoughness: .9, sheenColor: new THREE.Color('#fff3ea') });
+    const skinLinear = new THREE.Color(profile.skin).toArray().map(v => v.toFixed(4)).join(', ');
     material.onBeforeCompile = shader => {
       Object.assign(shader.uniforms, uniforms);
       shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vRest;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRest = position;');
@@ -582,12 +579,23 @@ varying vec3 vRest;
 uniform vec3 uTop;
 uniform vec3 uBottom;
 uniform vec3 uTowel;
+#define SKIN vec3(${skinLinear})
 uniform sampler2D uEyeTex;
 uniform sampler2D uMouthTex;
 uniform float uEyeOn;
 uniform float uMouthOn;
 // Expression decals are painted on the face itself (same surface, same light): the bind-pose
 // position is projected onto a small square facing out from the face at each feature.
+// Inside a small ellipse around a baked feature, its dark (eye) or red (mouth) texels are
+// painted over with the face colour, so only the drawn expression shows; blush stays.
+vec3 hideFeature(vec3 c, vec3 centre, float turn, vec2 radius) {
+  vec3 d = vRest - centre; vec3 n = vec3(sin(turn), 0., cos(turn)), t = vec3(cos(turn), 0., -sin(turn));
+  vec2 q = vec2(dot(d, t), d.y) / radius; float r = dot(q, q);
+  if (r > 1. || abs(dot(d, n)) > .09) return c;
+  float lum = dot(c, vec3(.2126, .7152, .0722)), skinLum = dot(SKIN, vec3(.2126, .7152, .0722));
+  float feature = smoothstep(.12, .03, lum / max(skinLum, .001) - .55) + smoothstep(.0, .25, (c.r - c.g * 1.25) / max(c.r, .001)) * step(lum, skinLum * .8);
+  return mix(c, SKIN, clamp(feature, 0., 1.) * smoothstep(1., .7, r));
+}
 vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
   vec3 d = vRest - centre; vec3 n = vec3(sin(turn), 0., cos(turn)), t = vec3(cos(turn), 0., -sin(turn));
   vec2 uv = vec2(dot(d, t), d.y) / size + .5;
@@ -596,23 +604,29 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
 }`).replace('#include <map_fragment>', `#include <map_fragment>
         float vRestY = vRest.y;
         if (uEyeOn > .5) {
+          diffuseColor.rgb = hideFeature(diffuseColor.rgb, EYE, .4, vec2(.05, .055));
+          diffuseColor.rgb = hideFeature(diffuseColor.rgb, EYE * vec3(-1., 1., 1.), -.4, vec2(.05, .055));
           vec4 e = faceDecal(uEyeTex, EYE, .4, vec2(.13));
           vec4 e2 = faceDecal(uEyeTex, EYE * vec3(-1., 1., 1.), -.4, vec2(.13));
           diffuseColor.rgb = mix(diffuseColor.rgb, e.rgb, e.a); diffuseColor.rgb = mix(diffuseColor.rgb, e2.rgb, e2.a);
         }
-        if (uMouthOn > .5) { vec4 m = faceDecal(uMouthTex, MOUTH, 0., vec2(.15, .12)); diffuseColor.rgb = mix(diffuseColor.rgb, m.rgb, m.a); }
+        if (uMouthOn > .5) { diffuseColor.rgb = hideFeature(diffuseColor.rgb, MOUTH, 0., vec2(.05, .03)); vec4 m = faceDecal(uMouthTex, MOUTH, 0., vec2(.15, .12)); diffuseColor.rgb = mix(diffuseColor.rgb, m.rgb, m.a); }
         {
           vec3 c = diffuseColor.rgb; float hi = max(c.r, max(c.g, c.b)), lo = min(c.r, min(c.g, c.b));
           float lum = dot(c, vec3(.2126, .7152, .0722));
-          float white = (1. - smoothstep(.07, .16, (hi - lo) / max(hi, .001))) * smoothstep(.12, .3, lum);
+          // Cloth is everything light that is not skin (skin is clearly warmer: red well above blue);
+          // that also takes the cloth's baked grey-blue folds, which used to stay white in patches.
+          float warm = (c.r - c.b) / max(c.r, .001);
+          float white = (1. - smoothstep(.1, .17, warm)) * (1. - smoothstep(.2, .3, (hi - lo) / max(hi, .001)) * step(.0, warm)) * smoothstep(.12, .3, lum);
           float cloth = white * (1. - smoothstep(CLOTH_TOP - .03, CLOTH_TOP + .01, vRestY));
           float hat = white * smoothstep(HAT - .02, HAT + .02, vRestY);
           vec3 tint = mix(uBottom, uTop, smoothstep(HEM - .012, HEM + .012, vRestY));
-          diffuseColor.rgb = mix(c, tint * clamp(lum / .7, .35, 1.12), cloth);
+          // Soft, even felt: the baked folds shade the dye only gently (no ragged blotches).
+          diffuseColor.rgb = mix(c, tint * clamp(mix(.95, lum / .72, .25), .6, 1.05), cloth);
           diffuseColor.rgb = mix(diffuseColor.rgb, uTowel * clamp(lum / .78, .4, 1.08), hat);
         }`);
     };
-    material.customProgramCacheKey = () => 'plush-dye-v6-' + profile.hat;
+    material.customProgramCacheKey = () => 'plush-dye-v8-' + profile.hat;
     skinned.material = material;
     // Rigid things follow a bone; they are placed in the bind pose, in model units.
     function attach(boneObject, object, point) {
