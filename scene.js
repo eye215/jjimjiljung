@@ -1,19 +1,19 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-29';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-29';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-29';
-import { createTowelGame } from './towel.js?v=rpg-29';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-29';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-29';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-29';
-import { buildWorld } from './environment.js?v=rpg-29';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-29';
-import { createTvAds } from './ads.js?v=rpg-29';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-29';
-import { createSocial } from './social.js?v=rpg-29';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-29';
-import { createShop } from './shop.js?v=rpg-29';
-import { createInvite } from './invite.js?v=rpg-29';
+import { planPath, stepMovement } from './navigation.js?v=rpg-30';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-30';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-30';
+import { createTowelGame } from './towel.js?v=rpg-30';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-30';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-30';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-30';
+import { buildWorld } from './environment.js?v=rpg-30';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-30';
+import { createTvAds } from './ads.js?v=rpg-30';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-30';
+import { createSocial } from './social.js?v=rpg-30';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-30';
+import { createShop } from './shop.js?v=rpg-30';
+import { createInvite } from './invite.js?v=rpg-30';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -620,6 +620,8 @@ let personId = null, outgoing = null, incoming = null;
 const swatch = (el, color) => { el.style.setProperty('--towel', color || 'transparent'); el.classList.toggle('none', !color); };
 const towelOf = remote => { const parts = (remote.outfit || '').split('.'); return parts.length === 4 && +parts[3] & 1 ? '#' + parts[2] : null; };
 function openPerson(remote) {
+  // The chat composer/history sits above the card; put it away first.
+  if (social?.isChatOpen()) document.querySelector('#chat-close').click();
   personId = remote.id; personCard.hidden = false;
   personCard.querySelector('[data-name]').textContent = remote.name;
   const theirs = towelOf(remote); swatch(personCard.querySelector('.towel-swatch'), theirs);
@@ -631,9 +633,41 @@ function closePerson() { personCard.hidden = true; personId = null; }
 personCard.querySelector('[data-close]').addEventListener('click', closePerson);
 personCard.querySelector('[data-block]').addEventListener('click', () => { const target = personId; closePerson(); if (target) social.block(target); });
 personCard.querySelector('[data-report]').addEventListener('click', () => {
-  const target = personId; closePerson(); if (!target) return;
-  const reason = prompt('신고 이유를 짧게 적어 주세요 (선택)', '') ; if (reason === null) return;
-  social.report(target, reason);
+  const target = personId, remote = social.remotes.get(target); closePerson(); if (!remote) return;
+  reportDialog.dataset.target = target; reportDialog.querySelector('#report-title').textContent = `${remote.name}님 신고하기`;
+  reportDialog.querySelector('#report-detail').value = ''; reportDialog.showModal();
+});
+// 신고: a reason chip plus an optional note, sent to the reports table.
+const reportDialog = document.querySelector('#report-dialog');
+const closeReport = () => reportDialog.close();
+reportDialog.querySelector('#report-close').addEventListener('click', closeReport);
+reportDialog.querySelector('#report-cancel').addEventListener('click', closeReport);
+reportDialog.querySelector('#report-send').addEventListener('click', () => {
+  const reason = reportDialog.querySelector('[name=report-reason]:checked').value, detail = reportDialog.querySelector('#report-detail').value.trim();
+  social.report(reportDialog.dataset.target, detail ? `${reason}: ${detail}` : reason); closeReport();
+});
+// ---------- 다른 기기에서 이어하기: a 6-character code carries this device's game data ----------
+const TRANSFER_KEYS = ['jjimjiljung-nickname', 'jjimjiljung-outfit-v2', 'jjimjiljung-wallet-v1', 'jjimjiljung-key', 'jjimjiljung-greet-v1', 'jjimjiljung-chat-mode', 'jjimjiljung-sleep-music'];
+const transferDialog = document.querySelector('#transfer-dialog'), transferCode = document.querySelector('#transfer-code');
+document.querySelector('#transfer-open').addEventListener('click', () => { placesDialog.close(); transferCode.hidden = true; transferDialog.showModal(); });
+document.querySelector('#transfer-close').addEventListener('click', () => transferDialog.close());
+document.querySelector('#transfer-make').addEventListener('click', async () => {
+  const api = social?.api; if (!api) { toast('먼저 [함께하기]로 연결해 주세요'); return; }
+  const data = {}; for (const k of TRANSFER_KEYS) { try { const v = localStorage.getItem(k); if (v !== null) data[k] = v; } catch { /* storage may be unavailable */ } }
+  const code = await api.createTransfer(data).catch(() => null);
+  if (!code) { toast('지금은 코드를 만들 수 없어요. 잠시 뒤에 다시 해 주세요'); return; }
+  transferCode.textContent = code; transferCode.hidden = false;
+});
+document.querySelector('#transfer-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const code = document.querySelector('#transfer-input').value.trim().toUpperCase(), api = social?.api;
+  if (!/^[A-Z0-9]{6}$/.test(code)) { toast('6자리 코드를 입력해 주세요'); return; }
+  if (!api) { toast('먼저 [함께하기]로 연결해 주세요'); return; }
+  const data = await api.claimTransfer(code).catch(() => null);
+  if (!data || typeof data !== 'object') { toast('코드가 맞지 않거나 시간이 지났어요'); return; }
+  // Only known keys, only strings; then reload into the restored state.
+  for (const k of TRANSFER_KEYS) if (typeof data[k] === 'string' && data[k].length < 20000) { try { localStorage.setItem(k, data[k]); } catch { /* storage may be unavailable */ } }
+  toast('기록을 옮겨 왔어요! 다시 들어가요 ♨'); setTimeout(() => location.reload(), 900);
 });
 personCard.querySelector('[data-chat]').addEventListener('click', () => { const target = personId; closePerson(); if (target) social.requestChat(target); });
 personCard.querySelector('[data-wave]').addEventListener('click', () => {
