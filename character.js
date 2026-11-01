@@ -1,7 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
 import { GLTFLoader } from './vendor/three-addons/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/three-addons/SkeletonUtils.js';
-import { towelMesh, setTowelColor } from './props.js?v=rpg-31';
 
 // Reference-inspired plush silhouette: deep towel cap, tiny dot eyes,
 // barely visible neck, soft mittens and short legs. No bag or shoulder strap.
@@ -77,46 +76,58 @@ const HEAD_Y = 1.6, HEAD_SCALE = 1.15;
 let randomSeed = 137;
 export function random() { randomSeed = (randomSeed * 1664525 + 1013904223) >>> 0; return randomSeed / 4294967296; }
 
-// ---------- The plush model (Meshy GLB, Mixamo skeleton) ----------
-// assets/chibi2-mobile.glb is the round chibi (no sheep hat) reduced for phones:
-// 18k vertices, 1024 WebP texture, skin weights unified per position, smooth normals.
-// Clips: Walking, Running, Sit (on the floor), Cheer (arms up). Lying, eating and
-// waving have no clip; they are posed in code from the bind pose.
+// ---------- The plush models (the user's Meshy GLBs, Mixamo skeleton) ----------
+// Two round chibis by the user, reduced for phones by tools/prep-character.mjs (46k/40k
+// vertices, 2048 WebP, unified skin weights, shirt torso freed from the arm bones):
+// `plain` (bare hair) and `cap` (the same chibi wearing the rolled sheep towel). Putting the
+// sheep cap on swaps the body. Clips: Walking, Running, Sit (on the floor), Cheer (arms up).
+// Standing, lying, eating and waving have no clip; they are posed in code.
 export const PLUSH_URL = new URL('./assets/chibi2-mobile.glb', import.meta.url).href;
+export const PLUSH_CAP_URL = new URL('./assets/chibi2-cap-mobile.glb', import.meta.url).href;
 export const CLIPS = { walk: 'Walking', run: 'Running', sit: 'Sit', cheer: 'Cheer' };
-// The model is 1.7 units tall; this makes it 1.35 m in the room like the other actors.
+// Both models are 1.7 units tall; this makes them 1.35 m in the room like the other actors.
 const MODEL_SCALE = 1.35 / 1.7;
-// Measured lowest skin point of each clip (model units): lift by this so feet and
-// the seat rest on the floor instead of sinking into it.
-const CLIP_LIFT = { Walking: .045, Running: .037, Sit: .085, Cheer: .026 };
-// Lying on the back: the head is the deepest part (model units, back of the hair).
-const LIE_LIFT = .4, HIP_Y = .362;
 // The scene scales every actor by .62; with MODEL_SCALE the plush is 1.35 m tall in the room.
 const PLUSH_SCALE = 1 / .62;
-// Points on the model (model units, bind pose) for props that follow a bone.
-const EYES = { x: .194, y: .94, z: .37, size: .13, turn: .4 };
+// Per-model points (model units, bind pose), measured on the GLBs:
+// lift = lowest skin point of each clip (so feet and seat rest on the floor),
+// eyes / mouth = the baked features the expression patches cover, skin = the face colour there,
+// hat = the height above which white terry is the sheep towel (dyed in the towel colour).
+const PROFILES = {
+  plain: { hipY: .362, lift: { Walking: .04, Running: .03, Sit: .12, Cheer: .025 }, eyes: { x: .19, y: .942, z: .372 }, mouth: { x: -.012, y: .888, z: .42 }, skin: '#fad9cb', hat: 9 },
+  cap: { hipY: .388, lift: { Walking: .01, Running: .006, Sit: .1, Cheer: .007 }, eyes: { x: .174, y: .926, z: .393 }, mouth: { x: .006, y: .872, z: .438 }, skin: '#fcd6c4', hat: .82 }
+};
+// Lying on the back: the back of the head rests on the floor (model units).
+const LIE_LIFT = .44;
+// Sitting like a plush toy: legs straight out in front, the seat this high (model units).
+const SEAT_Y = .15;
 const HEAD_ANCHOR_Y = 1.25;
+// Hands stay outside this sphere around the big head (model units, follows the head bone).
+const HEAD_BALL = { y: 1.2, z: .02, r: .56 };
 // Dye bands (model units): the white 찜질복 is dyed below CLOTH_TOP; the shorts below HEM.
 const CLOTH_TOP = .8, HEM = .37;
-// Towel prop fits on the plush (model units). Tuned in design QA.
-const HAIR_FIT = { length: .85, y: .975, z: .006, capWide: 1, capDeep: .86, capTall: .76 };
-// Bind-pose height of the sheep cap's lower rim: hair above it is hidden under the cap.
-const CAP_RIM = 1.15;
-const CAP_FIT = { length: 1.62, y: 1.32, z: .02, tall: .992 };
-const SHOULDER_FIT = { length: .44, y: .45, z: .02, depth: 1.45 };
 const PILLOW_FIT = { length: .56, z: -.6 };
-// Load once; on any failure the room falls back to the procedural character.
-export async function loadPlushModel(url = PLUSH_URL) {
+// Clips walk in place: drop horizontal hip drift but keep each pose's offset.
+function prepareClips(gltf) {
+  for (const clip of gltf.animations) for (const track of clip.tracks) {
+    if (!/Hips\.position$/.test(track.name)) continue;
+    const v = track.values, x0 = v[0], z0 = v[2];
+    for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; }
+  }
+}
+async function loadModel(url) {
+  const gltf = await new GLTFLoader().loadAsync(url);
+  let skinned = null; gltf.scene.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
+  if (!skinned || !Object.values(CLIPS).every(name => gltf.animations.some(c => c.name === name))) throw new Error('Unexpected plush model');
+  prepareClips(gltf); skinned.geometry.computeBoundingSphere();
+  return gltf;
+}
+// Load once; on any failure the room falls back to the procedural character. The sheep-cap
+// model rides along on the plain one (`userData.capModel`); without it the cap stays off.
+export async function loadPlushModel(url = PLUSH_URL, capUrl = PLUSH_CAP_URL) {
   try {
-    const gltf = await new GLTFLoader().loadAsync(url);
-    let skinned = null; gltf.scene.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
-    if (!skinned || !Object.values(CLIPS).every(name => gltf.animations.some(c => c.name === name))) throw new Error('Unexpected plush model');
-    // Clips walk in place: drop horizontal hip drift but keep each pose's offset.
-    for (const clip of gltf.animations) for (const track of clip.tracks) {
-      if (!/Hips\.position$/.test(track.name)) continue;
-      const v = track.values, x0 = v[0], z0 = v[2];
-      for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; }
-    }
+    const [gltf, cap] = await Promise.all([loadModel(url), loadModel(capUrl).catch(error => { console.warn('Sheep-cap plush unavailable.', error); return null; })]);
+    gltf.userData.capModel = cap;
     return gltf;
   } catch (error) { console.warn('Plush model unavailable, using the built-in character.', error); return null; }
 }
@@ -184,18 +195,6 @@ export function smoothTexture(texture, edit = null, threshold = 26, passes = 2, 
   return out;
 }
 export function createCharacterKit(renderer, plushModel = null, towels = {}) {
-  // Shared plush geometry is edited once: short-hair GLB → tuck the bob; otherwise trim it.
-  if (plushModel && !plushModel.userData.hairDone) {
-    let skinned = null; plushModel.scene.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
-    // The texture is clean already: fill the atlas gaps (no seam lines) and soften specks lightly.
-    skinned.material.map = smoothTexture(skinned.material.map, null, 18, 1, skinned.geometry);
-    weldNormals(skinned.geometry);
-    skinned.geometry.computeBoundingBox(); skinned.geometry.computeBoundingSphere(); plushModel.userData.hairDone = true;
-  }
-  // Calmer terry and hair: soften the baked fuzz on the worn props too (once each).
-  for (const proto of [towels.cap, towels.hair, towels.pillow]) if (proto && !proto.smoothed) { proto.map = smoothTexture(proto.map, null, 30, 2, proto.geometry); proto.smoothed = true; }
-  if (towels.hair && !towels.hair.welded) { weldNormals(towels.hair.geometry); towels.hair.welded = true; }
-  const hairMaterial = towels.hair ? new THREE.MeshPhysicalMaterial({ map: towels.hair.map, roughness: .85, metalness: 0, side: THREE.DoubleSide, sheen: .5, sheenRoughness: .6, sheenColor: new THREE.Color('#a07a62') }) : null;
   function canvasTexture(draw, width = 512, height = 512) {
     const c = document.createElement('canvas'); c.width = width; c.height = height; draw(c.getContext('2d'), width, height);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy()); return t;
@@ -364,16 +363,18 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
         const bites = [2.0, 3.4, 4.8];
         bites.forEach((at, i) => { const m = bump(t, at, .35, .45, .35); mouth = Math.max(mouth, m); if (t > at + .5) { peeled.scale.setScalar(1 - (i + 1) * .26); yolk.visible = true; } });
         if (t > bites[2] + .5) peeled.visible = false;
-        face = mouth > .6 ? 'chew' : t < crackAt ? 'normal' : 'happy';
+        // Open wide for each bite, then munch with happy eyes.
+        const munching = bites.some(at => t > at + .4 && t < at + 1.25);
+        face = mouth > .6 ? 'bite' : munching ? 'chew' : t < crackAt ? 'normal' : 'happy';
         end = 6.6;
       } else {
         if (s.style === 'oneshot') {
-          mouth = s.hold ? 1 : 0; face = s.frozen ? 'dizzy' : s.hold ? 'chew' : 'happy';
+          mouth = s.hold ? 1 : 0; face = s.frozen ? 'dizzy' : s.hold ? 'sip' : 'happy';
           if (s.finished) { mouth = 0; face = s.frozen ? 'dizzy' : 'happy'; }
         } else {
           const sips = [1.0, 2.2, 3.4, 4.6];
           sips.forEach(at => { const m = bump(t, at, .3, .45, .25); mouth = Math.max(mouth, m); if (m > .9) s.level = Math.max(0, s.level - dt / (.45 * sips.length)); });
-          face = mouth > .6 ? 'chew' : 'happy'; end = 6.4;
+          face = mouth > .6 ? 'sip' : 'happy'; end = 6.4;
         }
         liquid.position.y = -.16 + .31 * s.level; liquid.visible = s.level > .02;
       }
@@ -459,7 +460,8 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       dyeTowel(next[3]); materials.seam.color.set(next[4]);
     };
     character.setTowel = on => { cap.visible = !!on; bangs.visible = !on; };
-    character.setExpression = expression => { if (faceMaterial.map !== faces[expression]) { faceMaterial.map = faces[expression]; faceMaterial.needsUpdate = true; } };
+    // The built-in face has fewer expressions: close ones stand in.
+    character.setExpression = expression => { const map = faces[expression] || faces[{ bite: 'chew', sip: 'chew', relax: 'sleep' }[expression]] || faces.normal; if (faceMaterial.map !== map) { faceMaterial.map = map; faceMaterial.needsUpdate = true; } };
     character.expression = () => Object.entries(faces).find(([, texture]) => texture === faceMaterial.map)?.[0];
     let cheer = 0;
     character.celebrate = () => { cheer = 1.6; celebrateBurst(); };
@@ -495,68 +497,101 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     return character;
   }
   // ---------- Plush model characters ----------
-  // Closed, happy and dizzy eyes drawn over the baked eyes on a skin-coloured patch.
-  const eyeTexture = kind => canvasTexture((c, w, h) => {
-    const g = c.createRadialGradient(w / 2, h / 2, 6, w / 2, h / 2, w / 2); g.addColorStop(0, '#f9dccb'); g.addColorStop(.7, '#f9dccb'); g.addColorStop(1, 'rgba(249,220,203,0)');
-    c.fillStyle = g; c.fillRect(0, 0, w, h);
-    c.strokeStyle = '#3a2820'; c.lineWidth = 9; c.lineCap = 'round'; c.beginPath();
-    if (kind === 'sleep') { c.moveTo(w * .28, h * .48); c.quadraticCurveTo(w / 2, h * .72, w * .72, h * .48); }
-    else if (kind === 'happy') { c.moveTo(w * .28, h * .6); c.quadraticCurveTo(w / 2, h * .3, w * .72, h * .6); }
+  // Expression patches drawn over the baked eyes and mouth, on a patch of the model's own
+  // face colour that fades out at the rim. Eyes: closed (sleep), relaxed (gently closed),
+  // happy (^ ^), dizzy (spirals). Mouths: open smile, munching ω, sipping o, big bite O, wavy.
+  const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${a})`; };
+  const patch = (c, w, h, skin) => { const g = c.createRadialGradient(w / 2, h / 2, 4, w / 2, h / 2, w / 2); g.addColorStop(0, skin); g.addColorStop(.62, skin); g.addColorStop(1, rgba(skin, 0)); c.fillStyle = g; c.fillRect(0, 0, w, h); };
+  const INK = '#3a2620', LIP = '#7a3a34', TONGUE = '#f08f8f';
+  const eyeTexture = (kind, skin) => canvasTexture((c, w, h) => {
+    patch(c, w, h, skin);
+    c.strokeStyle = INK; c.lineWidth = 9; c.lineCap = 'round'; c.beginPath();
+    if (kind === 'sleep') { c.moveTo(w * .26, h * .48); c.quadraticCurveTo(w / 2, h * .7, w * .74, h * .48); }
+    else if (kind === 'relax') { c.lineWidth = 8; c.moveTo(w * .27, h * .54); c.quadraticCurveTo(w / 2, h * .64, w * .73, h * .54); }
+    else if (kind === 'happy') { c.moveTo(w * .26, h * .62); c.quadraticCurveTo(w / 2, h * .28, w * .74, h * .62); }
     else { c.lineWidth = 6; for (let a = 0; a < 12; a += .3) c.lineTo(w / 2 + Math.cos(a) * a * 2.6, h / 2 + Math.sin(a) * a * 2.6); }
     c.stroke();
   }, 128, 128);
-  const eyeTextures = { sleep: eyeTexture('sleep'), happy: eyeTexture('happy'), dizzy: eyeTexture('dizzy') };
-  const eyeGeometry = new THREE.PlaneGeometry(1, 1);
-  const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion(), q3 = new THREE.Quaternion(), e1 = new THREE.Euler();
+  const mouthTexture = (kind, skin) => canvasTexture((c, w, h) => {
+    patch(c, w, h, skin);
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = LIP; c.fillStyle = LIP; c.lineWidth = 7;
+    if (kind === 'open') {
+      // A wide open smile with a little tongue.
+      c.beginPath(); c.moveTo(w * .3, h * .42); c.quadraticCurveTo(w / 2, h * .48, w * .7, h * .42); c.quadraticCurveTo(w * .66, h * .76, w / 2, h * .76); c.quadraticCurveTo(w * .34, h * .76, w * .3, h * .42); c.fill();
+      c.fillStyle = TONGUE; c.beginPath(); c.ellipse(w / 2, h * .66, w * .1, h * .07, 0, 0, Math.PI * 2); c.fill();
+    } else if (kind === 'chew') {
+      // ω: cheeks full, munching.
+      c.beginPath(); c.moveTo(w * .3, h * .46); c.quadraticCurveTo(w * .4, h * .66, w / 2, h * .5); c.quadraticCurveTo(w * .6, h * .66, w * .7, h * .46); c.stroke();
+    } else if (kind === 'sip') {
+      // Small pursed o around the straw.
+      c.beginPath(); c.ellipse(w / 2, h * .52, w * .07, h * .08, 0, 0, Math.PI * 2); c.lineWidth = 6; c.stroke();
+    } else if (kind === 'bite') {
+      c.beginPath(); c.ellipse(w / 2, h * .54, w * .13, h * .15, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = TONGUE; c.beginPath(); c.ellipse(w / 2, h * .62, w * .08, h * .05, 0, 0, Math.PI * 2); c.fill();
+    } else {
+      c.beginPath(); c.lineWidth = 6; for (let i = 0; i <= 16; i++) { const x = w * (.28 + .44 * i / 16), y = h * (.52 + Math.sin(i / 16 * Math.PI * 3) * .06); i ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke();
+    }
+  }, 128, 128);
+  // Expression → [eyes, mouth] patches (null = the baked feature shows).
+  const FACES = {
+    normal: [null, null], sleep: ['sleep', null], relax: ['relax', null], happy: ['happy', 'open'],
+    chew: ['happy', 'chew'], bite: [null, 'bite'], sip: ['relax', 'sip'], dizzy: ['dizzy', 'wavy']
+  };
+  const faceSets = new Map();
+  const faceSet = skin => {
+    if (!faceSets.has(skin)) {
+      const eyesT = Object.fromEntries(['sleep', 'relax', 'happy', 'dizzy'].map(k => [k, eyeTexture(k, skin)]));
+      const mouthsT = Object.fromEntries(['open', 'chew', 'sip', 'bite', 'wavy'].map(k => [k, mouthTexture(k, skin)]));
+      faceSets.set(skin, { eyes: eyesT, mouths: mouthsT });
+    }
+    return faceSets.get(skin);
+  };
+  const unitPlane = new THREE.PlaneGeometry(1, 1);
+  const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3(), q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion(), q3 = new THREE.Quaternion(), e1 = new THREE.Euler();
   // Turn `bone` so that its world rotation gains `worldDelta`.
   function rotateBoneWorld(bone, worldDelta) {
     bone.parent.getWorldQuaternion(q2); bone.getWorldQuaternion(q3);
     bone.quaternion.copy(q2.invert().multiply(worldDelta.clone().multiply(q3))); bone.updateMatrixWorld(true);
   }
-  function createPlush(colors = PALETTES.peach) {
-    // `frame` is in model metres; the actor scale (.62) turns it into a 1.35 m plush.
-    const model = cloneSkinned(plushModel.scene);
-    const root = new THREE.Group(), rig = new THREE.Group(), body = new THREE.Group(), frame = new THREE.Group();
-    frame.scale.setScalar(PLUSH_SCALE); root.add(rig); rig.add(body); body.add(frame); frame.add(model); model.scale.setScalar(MODEL_SCALE);
+  // One posable body built from a GLB: skeleton, dyed material, face patches, anchors, clips.
+  function makeBody(gltf, profile, frame, uniforms) {
+    const model = cloneSkinned(gltf.scene); model.scale.setScalar(MODEL_SCALE); frame.add(model);
     let skinned = null; model.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
     skinned.castShadow = true; skinned.receiveShadow = false; skinned.frustumCulled = false;
     const bone = name => model.getObjectByName('mixamorig' + name);
     const headBone = bone('Head'), neck = bone('Neck'), spine2 = bone('Spine2'), spine1 = bone('Spine1');
-    const upperArms = [bone('LeftArm'), bone('RightArm')], foreArms = [bone('LeftForeArm'), bone('RightForeArm')], hands = [bone('LeftHand'), bone('RightHand')], upLegs = [bone('LeftUpLeg'), bone('RightUpLeg')];
+    const upperArms = [bone('LeftArm'), bone('RightArm')], foreArms = [bone('LeftForeArm'), bone('RightForeArm')], hands = [bone('LeftHand'), bone('RightHand')], upLegs = [bone('LeftUpLeg'), bone('RightUpLeg')], feet = [bone('LeftFoot'), bone('RightFoot')];
     const rest = new Map([headBone, neck, spine2, spine1, ...upperArms, ...upLegs].map(b => [b, b.quaternion.clone()]));
-    // Every bone's bind pose: restored before each frame so pose tweaks never accumulate
-    // (with no clip playing, the mixer leaves the bones untouched).
+    // Every bone's bind pose: restored before each frame so pose tweaks never accumulate.
     const bindPose = skinned.skeleton.bones.map(b => [b, b.quaternion.clone(), b.position.clone()]);
-    // Fabric dye: low-saturation light texels (the white 찜질복 and its gray logo)
-    // take the outfit colour; the top/bottom split is the bind-pose hem height.
-    const base = skinned.material;
-    const uniforms = { uTop: { value: new THREE.Color(colors[0]) }, uBottom: { value: new THREE.Color(colors[1]) }, uHideHair: { value: towels.hair ? 1 : 0 }, uCapOn: { value: 0 } };
-    const material = new THREE.MeshPhysicalMaterial({ map: base.map, roughness: 1, metalness: 0, side: towels.hair ? THREE.DoubleSide : THREE.FrontSide, sheen: .3, sheenRoughness: .9, sheenColor: new THREE.Color('#fff3ea') });
+    // Fabric dye: low-saturation light texels take the outfit colour (top/bottom split at HEM);
+    // above `hat` the white terry is the sheep towel and takes the towel colour.
+    const material = new THREE.MeshPhysicalMaterial({ map: skinned.material.map, roughness: 1, metalness: 0, sheen: .3, sheenRoughness: .9, sheenColor: new THREE.Color('#fff3ea') });
     material.onBeforeCompile = shader => {
       Object.assign(shader.uniforms, uniforms);
-      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying float vRestY;\nvarying vec3 vRest;\nattribute float hairMask;\nvarying float vHair;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRestY = position.y; vRest = position; vHair = hairMask;');
-      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\n#define CAP_RIM ' + CAP_RIM.toFixed(3) + '\n#define CLOTH_TOP ' + CLOTH_TOP.toFixed(3) + '\n#define HEM ' + HEM.toFixed(3) + '\nvarying float vRestY;\nvarying vec3 vRest;\nvarying float vHair;\nuniform vec3 uTop;\nuniform vec3 uBottom;\nuniform float uHideHair;\nuniform float uCapOn;').replace('#include <map_fragment>', `#include <map_fragment>
+      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying float vRestY;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRestY = position.y;');
+      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>
+#define CLOTH_TOP ${CLOTH_TOP.toFixed(3)}
+#define HEM ${HEM.toFixed(3)}
+#define HAT ${profile.hat.toFixed(3)}
+varying float vRestY;
+uniform vec3 uTop;
+uniform vec3 uBottom;
+uniform vec3 uTowel;`).replace('#include <map_fragment>', `#include <map_fragment>
         {
           vec3 c = diffuseColor.rgb; float hi = max(c.r, max(c.g, c.b)), lo = min(c.r, min(c.g, c.b));
-          // The baked bob gives way to the short-hair GLB: dark hair texels on the head are not drawn
-          // (the eyes on the face front stay). The material is double-sided then, so the skin's
-          // inner side closes the nape where the bob used to be the only surface.
-          if (uHideHair > .5 && vHair > .5) discard;
-          // Under the sheep cap, hair above the cap's rim would poke through it: skip it there.
-          if (uCapOn > .5 && vRest.y > CAP_RIM && hi < .3) discard;
           float lum = dot(c, vec3(.2126, .7152, .0722));
-          float cloth = (1. - smoothstep(.07, .16, (hi - lo) / max(hi, .001))) * smoothstep(.12, .3, lum) * (1. - smoothstep(CLOTH_TOP - .03, CLOTH_TOP + .01, vRestY));
+          float white = (1. - smoothstep(.07, .16, (hi - lo) / max(hi, .001))) * smoothstep(.12, .3, lum);
+          float cloth = white * (1. - smoothstep(CLOTH_TOP - .03, CLOTH_TOP + .01, vRestY));
+          float hat = white * smoothstep(HAT - .02, HAT + .02, vRestY);
           vec3 tint = mix(uBottom, uTop, smoothstep(HEM - .012, HEM + .012, vRestY));
           diffuseColor.rgb = mix(c, tint * clamp(lum / .7, .35, 1.12), cloth);
+          diffuseColor.rgb = mix(diffuseColor.rgb, uTowel * clamp(lum / .78, .4, 1.08), hat);
         }`);
     };
-    material.customProgramCacheKey = () => 'plush-dye-v4';
+    material.customProgramCacheKey = () => 'plush-dye-v5-' + profile.hat;
     skinned.material = material;
-    // Sheep cap towel material (the built-in cap and the seam).
-    const towel = baseTowel.clone(), seam = mat(colors[4], { roughness: 1 });
-    const dyeTowel = color => { towel.color.set(color); towel.sheenColor.set(color).offsetHSL(0, 0, .1); };
-    dyeTowel(colors[3]);
-    // Rigid props follow a bone. They are placed in the bind pose, in model metres.
+    // Rigid things follow a bone; they are placed in the bind pose, in model units.
     function attach(boneObject, object, point) {
       model.updateMatrixWorld(true);
       const p = model.localToWorld(point.clone()); boneObject.worldToLocal(p); object.position.copy(p);
@@ -564,161 +599,185 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       boneObject.getWorldScale(v1); model.getWorldScale(v2); object.scale.multiplyScalar(v2.x / v1.x);
       boneObject.add(object); return object;
     }
-    // Short hair from its own GLB, following the head bone.
-    let hairMesh = null;
-    if (towels.hair) {
-      hairMesh = new THREE.Group(); const m = new THREE.Mesh(towels.hair.geometry, hairMaterial);
-      m.scale.setScalar(HAIR_FIT.length / Math.max(towels.hair.size.x, towels.hair.size.z)); m.castShadow = true; hairMesh.add(m);
-      attach(headBone, hairMesh, new THREE.Vector3(0, HAIR_FIT.y, HAIR_FIT.z)); hairMesh.userData.scale = hairMesh.scale.x;
-    }
-    let cap;
-    if (towels.cap) {
-      const capMesh = towelMesh(towels.cap, { length: CAP_FIT.length, color: colors[3], centred: true });
-      capMesh.scale.y = CAP_FIT.tall; // a taller dome keeps the cowlick tucked in
-      cap = attach(headBone, capMesh, new THREE.Vector3(0, CAP_FIT.y, CAP_FIT.z));
-    } else {
-      // Built-in cap fitted over the plush hair.
-      const capHolder = new THREE.Group(); capHolder.scale.setScalar(.9); attach(headBone, capHolder, new THREE.Vector3(0, CAP_FIT.y - .1, 0)); capHolder.scale.setScalar(.9);
-      cap = new THREE.Group(); cap.scale.set(1.07, 1.08, 1.07); cap.position.y = .015; capHolder.add(cap);
-      buildCap(cap, towel, seam); compact(cap);
-    }
-    cap.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
-    // 어깨 수건, worn over the shoulders and following the upper spine.
-    const shoulderMesh = towels.shoulder ? towelMesh(towels.shoulder, { length: SHOULDER_FIT.length, color: '#f6efe2', centred: true }) : null;
-    // Deeper than the GLB's proportions so it drapes over the chubby chest instead of cutting into it.
-    shoulderMesh?.scale.set(1, 1, SHOULDER_FIT.depth);
-    const shoulder = shoulderMesh ? attach(spine2, shoulderMesh, new THREE.Vector3(0, SHOULDER_FIT.y, SHOULDER_FIT.z)) : null;
-    if (shoulder) shoulder.visible = false;
-    // A rolled towel pillow under the sleeping head, only when a pillow prop is passed in (the room does not, by choice).
-    const pillow = towels.pillow ? towelMesh(towels.pillow, { length: PILLOW_FIT.length, color: colors[3] }) : new THREE.Group();
-    pillow.position.set(0, 0, PILLOW_FIT.z); pillow.visible = false; frame.add(pillow);
-    // Expression patches over the baked eyes.
+    const faces = faceSet(profile.skin);
+    const patchMaterial = () => new THREE.MeshStandardMaterial({ transparent: true, roughness: 1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
     const eyes = [-1, 1].map(side => {
-      const m = new THREE.Mesh(eyeGeometry, new THREE.MeshStandardMaterial({ map: eyeTextures.sleep, transparent: true, roughness: 1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
-      m.scale.setScalar(EYES.size); attach(headBone, m, new THREE.Vector3(side * EYES.x, EYES.y, EYES.z));
-      m.quaternion.multiply(q1.setFromAxisAngle(v1.set(0, 1, 0), side * EYES.turn)); m.visible = false; m.renderOrder = 2; return m;
+      const m = new THREE.Mesh(unitPlane, patchMaterial()); m.scale.setScalar(.13);
+      attach(headBone, m, new THREE.Vector3(side * profile.eyes.x, profile.eyes.y, profile.eyes.z));
+      m.quaternion.multiply(q1.setFromAxisAngle(v1.set(0, 1, 0), side * .4)); m.visible = false; m.renderOrder = 2; return m;
     });
+    const mouth = new THREE.Mesh(unitPlane, patchMaterial()); mouth.scale.set(.15, .12, 1);
+    attach(headBone, mouth, new THREE.Vector3(profile.mouth.x, profile.mouth.y - .012, profile.mouth.z + .012)); mouth.visible = false; mouth.renderOrder = 2;
+    const showPatch = (m, texture) => { m.visible = !!texture; if (texture && m.material.map !== texture) { m.material.map = texture; m.material.needsUpdate = true; } };
+    const setFace = name => {
+      const [eye, lips] = FACES[name] || FACES.normal;
+      for (const m of eyes) showPatch(m, eye && faces.eyes[eye]);
+      showPatch(mouth, lips && faces.mouths[lips]);
+    };
     const headAnchor = attach(headBone, new THREE.Object3D(), new THREE.Vector3(0, HEAD_ANCHOR_Y, 0));
+    // Reach targets that move with the pose: just in front of the mouth, and in front of the chest.
+    const mouthTarget = attach(headBone, new THREE.Object3D(), new THREE.Vector3(profile.mouth.x - .04, profile.mouth.y - .04, profile.mouth.z + .2));
+    const chestTarget = attach(spine2, new THREE.Object3D(), new THREE.Vector3(-.12, .6, .5));
+    const headBall = attach(headBone, new THREE.Object3D(), new THREE.Vector3(0, HEAD_BALL.y, HEAD_BALL.z));
+    model.updateMatrixWorld(true); hands[1].getWorldPosition(v3); model.worldToLocal(v3);
+    const hold = attach(hands[1], new THREE.Object3D(), v3.add(v2.set(0, .02, .07)));
+    const mixer = new THREE.AnimationMixer(model), actions = {}, weights = {};
+    for (const name of Object.values(CLIPS)) { const a = mixer.clipAction(gltf.animations.find(c => c.name === name)); a.play(); a.setEffectiveWeight(0); a.enabled = false; actions[name] = a; weights[name] = 0; }
+    return { model, skinned, material, profile, headBone, neck, spine1, spine2, upperArms, foreArms, hands, upLegs, feet, rest, bindPose, eyes, mouth, setFace, headAnchor, mouthTarget, chestTarget, headBall, hold, mixer, actions, weights,
+      dispose() { material.dispose(); eyes.forEach(m => m.material.dispose()); mouth.material.dispose(); mixer.stopAllAction(); mixer.uncacheRoot(model); frame.remove(model); } };
+  }
+  function createPlush(colors = PALETTES.peach) {
+    // `frame` holds the model; the actor scale (.62) and MODEL_SCALE make it a 1.35 m plush.
+    const root = new THREE.Group(), rig = new THREE.Group(), body = new THREE.Group(), frame = new THREE.Group();
+    frame.scale.setScalar(PLUSH_SCALE); root.add(rig); rig.add(body); body.add(frame);
+    const uniforms = { uTop: { value: new THREE.Color(colors[0]) }, uBottom: { value: new THREE.Color(colors[1]) }, uTowel: { value: new THREE.Color(colors[3]) } };
+    // The bare-haired body always exists; the sheep-cap body is built the first time the cap goes on.
+    const bodies = { plain: makeBody(plushModel, PROFILES.plain, frame, uniforms), cap: null };
+    let active = bodies.plain, wearing = false;
     const character = { snack: null };
     const snacks = attachSnacks(character, rig);
     const { snackRoot, snackPose, updateBursts, celebrateBurst } = snacks;
-    // Props sit in the right palm.
-    snackRoot.scale.setScalar(.7); model.updateMatrixWorld(true); hands[1].getWorldPosition(v3); model.worldToLocal(v3); attach(hands[1], snackRoot, v3.add(v2.set(0, .02, .07)));
-    // Animation: one action per clip, cross-faded by hand-tuned weights.
-    const mixer = new THREE.AnimationMixer(model);
-    const actions = {}, weights = {};
-    for (const name of Object.values(CLIPS)) { const a = mixer.clipAction(plushModel.animations.find(c => c.name === name)); a.play(); a.setEffectiveWeight(0); a.enabled = false; actions[name] = a; weights[name] = 0; }
+    snackRoot.scale.setScalar(.7); active.hold.add(snackRoot);
+    // Kept for callers that look for a cap or pillow; the cap is part of the sheep body now.
+    const cap = new THREE.Group(), pillow = new THREE.Group(); pillow.position.set(0, 0, PILLOW_FIT.z); pillow.visible = false; frame.add(pillow);
     const armProxy = () => ({ rotation: { x: 0, y: 0, z: 0 } });
     const arms = [armProxy(), armProxy()], legs = [armProxy(), armProxy()];
-    Object.assign(character, { root, rig, head: headAnchor, cap, arms, legs, materials: { towel, seam, cloth: material }, pillow, snackRoot, elapsed: random() * 10, blinkOffset: random() * 4, mixer });
+    Object.assign(character, { root, rig, cap, arms, legs, materials: { cloth: active.material }, pillow, snackRoot, elapsed: random() * 10, blinkOffset: random() * 4 });
+    Object.defineProperty(character, 'head', { get: () => active.headAnchor });
+    Object.defineProperty(character, 'mixer', { get: () => active.mixer });
+    character.setColors = next => { uniforms.uTop.value.set(next[0]); uniforms.uBottom.value.set(next[1]); uniforms.uTowel.value.set(next[3]); };
+    character.setShoulder = () => {};
     let expression = 'normal';
-    const recolor = (object, color) => object.traverse(o => { if (o.isMesh) setTowelColor(o, color); });
-    character.setColors = next => {
-      uniforms.uTop.value.set(next[0]); uniforms.uBottom.value.set(next[1]); dyeTowel(next[3]); seam.color.set(next[4]);
-      recolor(cap, next[3]); recolor(pillow, next[3]);
-    };
-    character.setShoulder = (on, color) => { if (!shoulder) return; shoulder.visible = !!on; if (color) recolor(shoulder, color); };
-    // Under the sheep cap the hair is drawn in a little so none of it pokes through.
-    // Under the sheep cap the hair is pressed down (bottom edge kept) so the crown stays inside the cap.
     character.setTowel = on => {
-      cap.visible = !!on; uniforms.uCapOn.value = on ? 1 : 0; if (!hairMesh) return;
-      const m = hairMesh.children[0], base = HAIR_FIT.length / Math.max(towels.hair.size.x, towels.hair.size.z), height = towels.hair.size.y * base;
-      m.scale.set(base * (on ? HAIR_FIT.capWide : 1), base * (on ? HAIR_FIT.capTall : 1), base * (on ? HAIR_FIT.capDeep : 1));
-      m.position.y = on ? -height * (1 - HAIR_FIT.capTall) / 2 : 0;
+      on = !!on && !!plushModel.userData.capModel;
+      if (on === wearing) return; wearing = on;
+      if (on && !bodies.cap) bodies.cap = makeBody(plushModel.userData.capModel, PROFILES.cap, frame, uniforms);
+      const next = on ? bodies.cap : bodies.plain;
+      // The new body takes over the current clip mix so the swap does not pop.
+      for (const name of Object.values(CLIPS)) { next.weights[name] = active.weights[name]; next.actions[name].time = active.actions[name].time; }
+      active.model.visible = false; next.model.visible = true; active = next;
+      active.hold.add(snackRoot); character.materials.cloth = active.material;
+      const shown = expression; expression = ''; character.setExpression(shown);
     };
-    character.setExpression = next => {
-      if (next === expression) return; expression = next;
-      const texture = eyeTextures[next === 'chew' ? 'happy' : next];
-      for (const eye of eyes) { eye.visible = !!texture; if (texture && eye.material.map !== texture) { eye.material.map = texture; eye.material.needsUpdate = true; } }
-    };
+    character.setExpression = next => { if (next === expression) return; expression = next; active.setFace(next); };
     character.expression = () => expression;
     let cheer = 0;
     character.celebrate = () => { cheer = 1.6; celebrateBurst(); };
-    character.dispose = () => {
-      material.dispose(); towel.dispose(); seam.dispose(); eyes.forEach(eye => eye.material.dispose());
-      // GLB prop geometry is shared by every character; the built-in cap's is not.
-      const shared = new Set(Object.values(towels).filter(Boolean).map(t => t.geometry));
-      for (const group of [cap, shoulder, pillow]) group?.traverse(o => { if (o.isMesh) { if (o.material !== towel && o.material !== seam) o.material.dispose(); if (!shared.has(o.geometry)) o.geometry.dispose(); } });
-      mixer.stopAllAction(); mixer.uncacheRoot(model);
-    };
-    const forward = new THREE.Vector3();
+    character.dispose = () => { bodies.plain.dispose(); bodies.cap?.dispose(); };
+    const forward = new THREE.Vector3(), up = new THREE.Vector3(), side = new THREE.Vector3(), reachPoint = new THREE.Vector3();
+    // Body axes in world space (the actor may be turned): forward, up, and the character's right.
+    function axes() { root.getWorldQuaternion(q1); forward.set(0, 0, 1).applyQuaternion(q1); up.set(0, 1, 0).applyQuaternion(q1); side.set(-1, 0, 0).applyQuaternion(q1); }
     // The sit clip bows the head; straighten it so the face stays visible.
-    function liftHead(amount) {
-      if (amount <= 0) return;
-      for (const b of [spine1, spine2, neck, headBone]) b.quaternion.slerp(rest.get(b), amount);
-    }
+    function liftHead(b, amount) { if (amount > 0) for (const x of [b.spine1, b.spine2, b.neck, b.headBone]) x.quaternion.slerp(b.rest.get(x), amount); }
     // No idle clip: the bind pose with the arms lowered a little and a slow breath.
-    function lowerArms(amount) {
+    function lowerArms(b, amount) {
       if (amount <= 0) return;
-      root.getWorldQuaternion(q1); forward.set(0, 0, 1).applyQuaternion(q1);
-      model.updateMatrixWorld(true);
-      rotateBoneWorld(upperArms[0], q1.setFromAxisAngle(forward, -.4 * amount));
-      rotateBoneWorld(upperArms[1], q1.setFromAxisAngle(forward, .4 * amount));
+      b.model.updateMatrixWorld(true);
+      rotateBoneWorld(b.upperArms[0], q1.setFromAxisAngle(forward, -.4 * amount));
+      rotateBoneWorld(b.upperArms[1], q1.setFromAxisAngle(forward, .4 * amount));
     }
-    // Point an arm (shoulder → hand) at a spot given in model units, by `amount`.
-    const reachPoint = new THREE.Vector3();
-    function reach(i, point, amount, bend = 0) {
+    // Point arm `i` (shoulder → hand) at a world point by `amount`, then fold the forearm
+    // in by `bend` (around the body's up axis, towards the centre line).
+    function reach(b, i, point, amount, bend = 0) {
       if (amount <= 0) return;
-      model.updateMatrixWorld(true);
-      upperArms[i].getWorldPosition(v3); hands[i].getWorldPosition(v1);
-      model.localToWorld(reachPoint.copy(point));
-      const from = v1.sub(v3).normalize(), to = reachPoint.sub(v3).normalize();
-      rotateBoneWorld(upperArms[i], q1.setFromUnitVectors(from, to).slerp(q2.identity(), 1 - amount));
-      if (bend) {
-        // Fold the forearm in towards the body's centre line (around the body's up axis).
-        root.getWorldQuaternion(q3); v2.set(0, 1, 0).applyQuaternion(q3);
-        rotateBoneWorld(foreArms[i], q1.setFromAxisAngle(v2, (i ? -1 : 1) * bend * amount));
+      b.model.updateMatrixWorld(true);
+      b.upperArms[i].getWorldPosition(v3); b.hands[i].getWorldPosition(v1);
+      const from = v1.sub(v3).normalize(), to = v4.copy(point).sub(v3).normalize();
+      rotateBoneWorld(b.upperArms[i], q1.setFromUnitVectors(from, to).slerp(q2.identity(), 1 - amount));
+      if (bend) rotateBoneWorld(b.foreArms[i], q1.setFromAxisAngle(up, (i ? -1 : 1) * bend * amount));
+    }
+    // A point beside the head, out to the character's side `s` (-1 left, 1 right), given in
+    // the body frame (out, height above the shoulder, forward) relative to that shoulder.
+    function besideHead(b, i, out, high, fwd) {
+      b.upperArms[i].getWorldPosition(reachPoint);
+      const k = MODEL_SCALE * PLUSH_SCALE * root.getWorldScale(v2).x;
+      return reachPoint.addScaledVector(side, (i ? 1 : -1) * out * k).addScaledVector(up, high * k).addScaledVector(forward, fwd * k);
+    }
+    // Keep both hands (and forearms) outside the ball around the big head.
+    function handsOffHead(b) {
+      b.model.updateMatrixWorld(true);
+      b.headBall.getWorldPosition(v4); const radius = HEAD_BALL.r * MODEL_SCALE * PLUSH_SCALE * root.getWorldScale(v2).x;
+      for (let i = 0; i < 2; i++) for (const tip of [b.hands[i], b.foreArms[i]]) {
+        tip.getWorldPosition(v1); const d = v1.distanceTo(v4); if (d >= radius || d < 1e-5) continue;
+        b.upperArms[i].getWorldPosition(v3);
+        const from = v1.clone().sub(v3).normalize(), to = v4.clone().addScaledVector(v1.clone().sub(v4).normalize(), radius).sub(v3).normalize();
+        rotateBoneWorld(b.upperArms[i], q1.setFromUnitVectors(from, to)); b.model.updateMatrixWorld(true);
       }
     }
-    const MOUTH = new THREE.Vector3(-.05, .84, .62), CHEST = new THREE.Vector3(-.14, .58, .5);
-    let lie = 0;
-    const proxy = (target, b) => { q1.copy(rest.get(b)).invert().multiply(b.quaternion); e1.setFromQuaternion(q1); target.rotation.x = e1.x; target.rotation.y = e1.y; target.rotation.z = e1.z; };
+    // Seated: both legs swing forward from the hips (a little apart), feet resting on the floor.
+    function seatLegs(b, amount) {
+      if (amount <= 0) return;
+      for (let i = 0; i < 2; i++) {
+        b.model.updateMatrixWorld(true);
+        b.upLegs[i].getWorldPosition(v3); b.feet[i].getWorldPosition(v1);
+        const from = v1.sub(v3).normalize(), to = v4.copy(forward).multiplyScalar(.97).addScaledVector(up, -.12).addScaledVector(side, (i ? 1 : -1) * .2).normalize();
+        rotateBoneWorld(b.upLegs[i], q1.setFromUnitVectors(from, to).slerp(q2.identity(), 1 - amount));
+      }
+    }
+    let lie = 0, wave = 0, sat = 0, seat = 0;
+    const proxy = (b, target, x) => { q1.copy(b.rest.get(x)).invert().multiply(x.quaternion); e1.setFromQuaternion(q1); target.rotation.x = e1.x; target.rotation.y = e1.y; target.rotation.z = e1.z; };
     character.animate = (action, walking, dt, reducedMotion, speed = 1) => {
       character.elapsed += dt;
       if (action === 'egg' || action === 'drink') action = 'stand';
-      const elapsed = character.elapsed, sleep = action === 'lie', sitting = action === 'sit';
+      const b = active, elapsed = character.elapsed, sleep = action === 'lie', sitting = action === 'sit';
       const eating = sleep ? null : snackPose(dt);
       cheer = Math.max(0, cheer - dt); const cheering = cheer > 0 && !eating && !sleep;
       if (sleep && character.snack) character.stopSnack();
       updateBursts(dt);
       lie = THREE.MathUtils.damp(lie, sleep ? 1 : 0, 7, dt);
+      sat = sitting ? sat + dt : 0;
+      const waving = !eating && !sleep && !walking && action === 'wave';
+      wave = THREE.MathUtils.damp(wave, waving ? 1 : 0, 10, dt);
       pillow.visible = lie > .5;
-      const goal = sleep ? null : sitting ? CLIPS.sit : walking ? (speed >= 1.8 ? CLIPS.run : CLIPS.walk) : !eating && (cheering || action === 'wave') ? CLIPS.cheer : null;
+      // Standing cheer uses the Cheer clip; a seated cheer and a wave are posed below.
+      seat = THREE.MathUtils.damp(seat, sitting && !sleep ? 1 : 0, 9, dt);
+      const goal = sleep || sitting ? null : walking ? (speed >= 1.8 ? CLIPS.run : CLIPS.walk) : cheering ? CLIPS.cheer : null;
       let total = 0, lift = 0;
       for (const name of Object.values(CLIPS)) {
-        const w = weights[name] = THREE.MathUtils.damp(weights[name], name === goal ? 1 : 0, 9, dt);
-        const a = actions[name]; a.enabled = w > .002; a.setEffectiveWeight(w); total += w; lift += w * CLIP_LIFT[name];
+        const w = b.weights[name] = THREE.MathUtils.damp(b.weights[name], name === goal ? 1 : 0, 9, dt);
+        const a = b.actions[name]; a.enabled = w > .002; a.setEffectiveWeight(w); total += w; lift += w * b.profile.lift[name];
       }
-      actions[CLIPS.walk].timeScale = Math.max(.6, speed * .95); actions[CLIPS.run].timeScale = 1;
-      for (const [b, q, p] of bindPose) { b.quaternion.copy(q); b.position.copy(p); }
-      mixer.update(dt);
-      liftHead(.6 * weights[CLIPS.sit]);
-      model.updateMatrixWorld(true);
-      lowerArms(Math.max(0, 1 - total));
-      // Eating: the right hand holds the snack in front of the chest and brings it to the mouth.
-      if (eating) { reachPoint.lerpVectors(CHEST, MOUTH, Math.min(1, eating.mouth)); reach(1, v2.copy(reachPoint), 1, .5 + .5 * Math.min(1, eating.mouth)); }
-      // Seated cheer: stay put and throw both hands up once, then lower them.
+      b.actions[CLIPS.walk].timeScale = Math.max(.6, speed * .95); b.actions[CLIPS.run].timeScale = 1;
+      for (const [x, q, p] of b.bindPose) { x.quaternion.copy(q); x.position.copy(p); }
+      b.mixer.update(dt);
+      b.model.updateMatrixWorld(true); axes();
+      lowerArms(b, Math.max(0, 1 - total));
+      seatLegs(b, seat);
+      // Eating: the right hand holds the snack in front of the chest and lifts it to the mouth.
+      if (eating) {
+        const m = Math.min(1, eating.mouth);
+        b.chestTarget.getWorldPosition(v1); b.mouthTarget.getWorldPosition(v2);
+        reach(b, 1, reachPoint.lerpVectors(v1, v2, m), 1, .45 + .55 * m);
+      }
+      // Wave: the right arm out beside the head (not over it: the arms are short for the
+      // big head), the forearm swinging.
+      if (wave > .01 && !reducedMotion) {
+        const swing = Math.sin(elapsed * 11) * .5;
+        reach(b, 1, besideHead(b, 1, .62, .24, .16), wave);
+        rotateBoneWorld(b.foreArms[1], q1.setFromAxisAngle(forward, (-.7 + swing) * wave));
+      } else if (wave > .01) reach(b, 1, besideHead(b, 1, .62, .2, .16), wave);
+      // Seated cheer: both hands go up beside the head twice, then come down.
       if (cheering && sitting && !reducedMotion) {
-        const up = Math.sin(Math.PI * Math.min(1, (1.6 - cheer) / 1.2));
-        root.getWorldQuaternion(q1); forward.set(0, 0, 1).applyQuaternion(q1);
-        model.updateMatrixWorld(true);
-        rotateBoneWorld(upperArms[0], q1.setFromAxisAngle(forward, 2.2 * up));
-        rotateBoneWorld(upperArms[1], q1.setFromAxisAngle(forward, -2.2 * up));
+        const t = (1.6 - cheer) / 1.6, upAmount = Math.sin(Math.PI * Math.min(1, t * 1.15)) * (.75 + .25 * Math.abs(Math.sin(t * Math.PI * 4)));
+        reach(b, 0, besideHead(b, 0, .5, .48, .1), upAmount); reach(b, 1, besideHead(b, 1, .5, .48, .1), upAmount);
       }
-      model.updateMatrixWorld(true);
+      handsOffHead(b);
       // Lying on the back, head towards -z: the whole body turns over at the feet and
       // slides so the hips stay over the spot; the big head rests on the floor.
+      const unit = MODEL_SCALE * PLUSH_SCALE;
       body.rotation.x = -Math.PI / 2 * lie;
-      body.position.z = HIP_Y * MODEL_SCALE * PLUSH_SCALE * lie;
-      body.position.y = (lift * (1 - lie) + LIE_LIFT * lie) * MODEL_SCALE * PLUSH_SCALE;
+      body.position.z = b.profile.hipY * unit * lie;
+      body.position.y = (lift * (1 - lie) - (b.profile.hipY - SEAT_Y) * seat * (1 - lie) + LIE_LIFT * lie) * unit;
       const breath = reducedMotion ? 0 : Math.sin(elapsed * 2) * .008 * Math.max(0, 1 - total);
       body.scale.set(1 - breath * .5, 1 + breath, 1 - breath * .5);
       rig.position.y = THREE.MathUtils.damp(rig.position.y, cheering && !sitting && !reducedMotion ? Math.abs(Math.sin(cheer * 9)) * .12 : 0, 18, dt);
-      proxy(arms[0], upperArms[0]); proxy(arms[1], upperArms[1]); proxy(legs[0], upLegs[0]); proxy(legs[1], upLegs[1]);
+      proxy(b, arms[0], b.upperArms[0]); proxy(b, arms[1], b.upperArms[1]); proxy(b, legs[0], b.upLegs[0]); proxy(b, legs[1], b.upLegs[1]);
       const blink = !reducedMotion && (elapsed + character.blinkOffset) % 4.7 > 4.52;
-      character.setExpression(sleep || (blink && !eating) ? 'sleep' : eating ? eating.face : action === 'wave' || cheering ? 'happy' : 'normal');
+      // Seated (after a moment) the face settles into a relaxed, eyes-closed smile.
+      const face = sleep ? 'sleep' : eating ? eating.face : waving || cheering ? 'happy' : sitting && sat > 1.5 ? 'relax' : blink ? 'sleep' : 'normal';
+      character.setExpression(face);
     };
-    character.setExpression('normal'); eyes.forEach(eye => { eye.visible = false; });
+    character.setExpression('normal');
     // Every plush starts wearing its cap (residents keep it); the scene sets the player's own state.
     character.setTowel(true);
     return character;
