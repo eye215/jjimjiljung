@@ -1,6 +1,6 @@
 // Reduces a Meshy character GLB for phones (dev tool, not loaded by the game).
 // npm i @gltf-transform/core@4 @gltf-transform/extensions@4 @gltf-transform/functions@4 meshoptimizer sharp
-// node tools/prep-character.mjs <source.glb> assets/chibi2-mobile.glb 0.4 0.002 0.63   (ratio, error, torso top)
+// RL=.21 node tools/prep-character.mjs <source.glb> assets/chibi2-mobile.glb 0.4 0.002
 import {NodeIO} from '@gltf-transform/core';import {ALL_EXTENSIONS} from '@gltf-transform/extensions';
 import {weld, simplify, normals, prune, dedup, resample, textureCompress} from '@gltf-transform/functions';
 import {MeshoptSimplifier} from 'meshoptimizer'; import sharp from 'sharp';
@@ -17,11 +17,28 @@ for(const g of groups.values()){const top=[...g.m].sort((x,y)=>y[1]-x[1]).slice(
 {const tex=d.getRoot().listMaterials()[0].getBaseColorTexture();const {data,info}=await sharp(Buffer.from(tex.getImage())).raw().toBuffer({resolveWithObject:true});
  const UV=p.getAttribute('TEXCOORD_0'),skin=d.getRoot().listSkins()[0],names=skin.listJoints().map(n=>n.getName());
  const armSet=new Set();const walk=n=>{armSet.add(n);n.listChildren().forEach(walk)};skin.listJoints().filter(n=>/Shoulder$/.test(n.getName())).forEach(walk);const armish=skin.listJoints().map(n=>armSet.has(n));const spine=names.indexOf('mixamorig:Spine1');let fixed=0;const u=[];
- for(let i=0;i<n;i++){pos.getElement(i,a);if(a[1]>+(process.argv[6]||.56)||a[1]<.3)continue;UV.getElement(i,u);const x=Math.min(info.width-1,Math.floor(u[0]*info.width)),y=Math.min(info.height-1,Math.floor(u[1]*info.height)),k=(y*info.width+x)*info.channels;
-  const r=data[k]/255,g=data[k+1]/255,b=data[k+2]/255,hi=Math.max(r,g,b),lo=Math.min(r,g,b);if(!((hi-lo)/Math.max(hi,.001)<.14&&hi>.35))continue;
-  J.getElement(i,j);W.getElement(i,w);let arm=0;for(let c=0;c<4;c++)if(armish[j[c]]){arm+=w[c];w[c]=0;}if(!arm)continue;fixed++;
-  const t=w.reduce((s,v)=>s+v,0);if(t<1e-4){j[0]=spine;w[0]=1;w[1]=w[2]=w[3]=0;}else for(let c=0;c<4;c++)w[c]/=t;J.setElement(i,j);W.setElement(i,w);}
+ // Arm capsules (bind pose): shoulder→elbow→wrist→hand tip. A vertex outside every capsule
+ // (the back, the sides, the chest, the shirt) must not follow the arm bones.
+ const wp=nd=>{const m=nd.getWorldMatrix();return [m[12],m[13],m[14]]};const byName=nm=>skin.listJoints().find(x=>x.getName()===nm);
+ const caps=[];for(const sd of ['Left','Right']){const A=wp(byName('mixamorig:'+sd+'Arm')),F=wp(byName('mixamorig:'+sd+'ForeArm')),H=wp(byName('mixamorig:'+sd+'Hand'));
+  let T=H,td=0;const walkT=nd=>{for(const c of nd.listChildren()){const p=wp(c),d=Math.hypot(p[0]-H[0],p[1]-H[1],p[2]-H[2]);if(d>td){td=d;T=p;}walkT(c);}};walkT(byName('mixamorig:'+sd+'Hand'));
+  if(td<.06){const d=[H[0]-F[0],H[1]-F[1],H[2]-F[2]],l=Math.hypot(...d);T=[H[0]+d[0]/l*.1,H[1]+d[1]/l*.1,H[2]+d[2]/l*.1];}
+  caps.push([A,F,+(process.env.RA||.1)],[F,H,+(process.env.RF||.095)],[H,T,+(process.env.RH||.1)]);}
+ const segD=(p,A,B)=>{const ab=[B[0]-A[0],B[1]-A[1],B[2]-A[2]],ap=[p[0]-A[0],p[1]-A[1],p[2]-A[2]];const t=Math.max(0,Math.min(1,(ab[0]*ap[0]+ab[1]*ap[1]+ab[2]*ap[2])/(ab[0]**2+ab[1]**2+ab[2]**2)));return Math.hypot(ap[0]-ab[0]*t,ap[1]-ab[1]*t,ap[2]-ab[2]*t)};
+ const spine2=names.indexOf('mixamorig:Spine2');
+ for(let i=0;i<n;i++){pos.getElement(i,a);if(caps.some(([A,B,r])=>segD(a,A,B)<r))continue;
+  J.getElement(i,j);W.getElement(i,w);let arm=0;for(let c=0;c<4;c++)if(armish[j[c]]&&w[c]>0){arm+=w[c];w[c]=0;}if(!arm)continue;fixed++;
+  const t=w.reduce((s,v)=>s+v,0);if(t<1e-4){j[0]=a[1]>.55?spine2:spine;w[0]=1;w[1]=w[2]=w[3]=0;}else for(let c=0;c<4;c++)w[c]/=t;J.setElement(i,j);W.setElement(i,w);}
  console.log('torso verts fixed',fixed);
+ // Same for the legs: shirt hems and the back must not swing with the thighs.
+ const legSet=new Set();const walkL=nd=>{legSet.add(nd);nd.listChildren().forEach(walkL)};skin.listJoints().filter(x=>/UpLeg$/.test(x.getName())).forEach(walkL);
+ const legish=skin.listJoints().map(x=>legSet.has(x));const hipsI=names.indexOf('mixamorig:Hips');const lcaps=[];
+ for(const sd of ['Left','Right']){const U=wp(byName('mixamorig:'+sd+'UpLeg')),L=wp(byName('mixamorig:'+sd+'Leg')),F=wp(byName('mixamorig:'+sd+'Foot')),T=wp(byName('mixamorig:'+sd+'ToeBase'));lcaps.push([U,L,+(process.env.RL||.15)],[L,F,.13],[F,T,.12]);}
+ let lfixed=0;
+ for(let i=0;i<n;i++){pos.getElement(i,a);if(lcaps.some(([A,B,r])=>segD(a,A,B)<r))continue;
+  J.getElement(i,j);W.getElement(i,w);let lw=0;for(let c=0;c<4;c++)if(legish[j[c]]&&w[c]>0){lw+=w[c];w[c]=0;}if(!lw)continue;lfixed++;
+  const t=w.reduce((s,v)=>s+v,0);if(t<1e-4){j[0]=hipsI;w[0]=1;w[1]=w[2]=w[3]=0;}else for(let c=0;c<4;c++)w[c]/=t;J.setElement(i,j);W.setElement(i,w);}
+ console.log('leg verts fixed',lfixed);
  const hips=names.indexOf('mixamorig:Hips');let crotch=0;if(process.env.CROTCH==='1')
  for(let i=0;i<n;i++){pos.getElement(i,a);const ax=Math.abs(a[0]);if(a[1]>.42||a[1]<.16||ax>.13)continue;UV.getElement(i,u);const x=Math.min(info.width-1,Math.floor(u[0]*info.width)),y=Math.min(info.height-1,Math.floor(u[1]*info.height)),k=(y*info.width+x)*info.channels;const r=data[k]/255,g=data[k+1]/255,b=data[k+2]/255,hi=Math.max(r,g,b),lo=Math.min(r,g,b);if(!((hi-lo)/Math.max(hi,.001)<.14&&hi>.35))continue;
   const f=Math.min(1,Math.max(0,(.13-ax)/.07));J.getElement(i,j);W.getElement(i,w);for(let c=0;c<4;c++)w[c]*=1-f;let hc=j.indexOf(hips);if(hc<0||w[hc]===undefined){hc=w.indexOf(Math.min(...w));j[hc]=hips;}w[hc]+=f;const t=w.reduce((s,v)=>s+v,0);for(let c=0;c<4;c++)w[c]/=t;J.setElement(i,j);W.setElement(i,w);crotch++;}

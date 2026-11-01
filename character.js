@@ -82,8 +82,8 @@ export function random() { randomSeed = (randomSeed * 1664525 + 1013904223) >>> 
 // `plain` (bare hair) and `cap` (the same chibi wearing the rolled sheep towel). Putting the
 // sheep cap on swaps the body. Clips: Walking, Running, Sit (on the floor), Cheer (arms up).
 // Standing, lying, eating and waving have no clip; they are posed in code.
-export const PLUSH_URL = new URL('./assets/chibi2-mobile.glb', import.meta.url).href;
-export const PLUSH_CAP_URL = new URL('./assets/chibi2-cap-mobile.glb', import.meta.url).href;
+export const PLUSH_URL = new URL('./assets/chibi2-mobile.glb?v=3', import.meta.url).href;
+export const PLUSH_CAP_URL = new URL('./assets/chibi2-cap-mobile.glb?v=3', import.meta.url).href;
 export const CLIPS = { walk: 'Walking', run: 'Running', sit: 'Sit', cheer: 'Cheer' };
 // Both models are 1.7 units tall; this makes them 1.35 m in the room like the other actors.
 const MODEL_SCALE = 1.35 / 1.7;
