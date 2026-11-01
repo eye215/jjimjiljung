@@ -194,6 +194,25 @@ export function smoothTexture(texture, edit = null, threshold = 26, passes = 2, 
   const out = new THREE.CanvasTexture(c); out.flipY = texture.flipY; out.colorSpace = texture.colorSpace; out.wrapS = texture.wrapS; out.wrapT = texture.wrapT; out.anisotropy = texture.anisotropy;
   return out;
 }
+// Smooth plush surfaces (user's settings): colour comes only from the map; no normal,
+// bump or displacement map may dent the face; full mipmaps and anisotropic filtering.
+export function setupCharacterMaterials(model, renderer) {
+  model.traverse(child => {
+    if (!child.isMesh || !child.material) return;
+    const mat = child.material;
+    if (mat.normalMap) mat.normalScale.set(.2, .2);
+    mat.displacementMap = null; mat.bumpMap = null;
+    if (mat.map) {
+      mat.map.generateMipmaps = true; mat.map.minFilter = THREE.LinearMipmapLinearFilter; mat.map.magFilter = THREE.LinearFilter;
+      mat.map.anisotropy = renderer.capabilities.getMaxAnisotropy(); mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.needsUpdate = true;
+    }
+    mat.roughness = .85; mat.metalness = 0; mat.needsUpdate = true;
+  });
+}
+// Expression textures replace colour only (they are sampled into the face's map colour).
+export function prepareFaceTexture(texture) {
+  texture.colorSpace = THREE.SRGBColorSpace; texture.generateMipmaps = true; texture.minFilter = THREE.LinearMipmapLinearFilter; return texture;
+}
 export function createCharacterKit(renderer, plushModel = null, towels = {}) {
   function canvasTexture(draw, width = 512, height = 512) {
     const c = document.createElement('canvas'); c.width = width; c.height = height; draw(c.getContext('2d'), width, height);
@@ -536,8 +555,8 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
   const faceSets = new Map();
   const faceSet = skin => {
     if (!faceSets.has(skin)) {
-      const eyesT = Object.fromEntries(['sleep', 'relax', 'happy', 'dizzy'].map(k => [k, eyeTexture(k, skin)]));
-      const mouthsT = Object.fromEntries(['open', 'chew', 'sip', 'bite', 'wavy'].map(k => [k, mouthTexture(k, skin)]));
+      const eyesT = Object.fromEntries(['sleep', 'relax', 'happy', 'dizzy'].map(k => [k, prepareFaceTexture(eyeTexture(k, skin))]));
+      const mouthsT = Object.fromEntries(['open', 'chew', 'sip', 'bite', 'wavy'].map(k => [k, prepareFaceTexture(mouthTexture(k, skin))]));
       faceSets.set(skin, { eyes: eyesT, mouths: mouthsT });
     }
     return faceSets.get(skin);
@@ -628,6 +647,7 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
     };
     material.customProgramCacheKey = () => 'plush-dye-v8-' + profile.hat;
     skinned.material = material;
+    setupCharacterMaterials(model, renderer);
     // Rigid things follow a bone; they are placed in the bind pose, in model units.
     function attach(boneObject, object, point) {
       model.updateMatrixWorld(true);

@@ -1,4 +1,4 @@
-import { SNACKS, REST_SECONDS, scoreEggCrack, scoreOneShot } from './economy.js?v=rpg-34';
+import { SNACKS, REST_SECONDS, scoreEggCrack, scoreOneShot } from './economy.js?v=rpg-35';
 
 // 매점 sheet, wallet chip, empty-bag prompt and the two snack mini-games.
 // scene.js owns the character; this module only calls back into it.
