@@ -189,3 +189,34 @@ export function stepMovement(position, dx, dz) {
   }
   return from;
 }
+
+// Soft dynamic visitor avoidance on top of the existing static furniture collision.
+// No spawn teleport: an initial overlap is permitted until the user walks away.
+// Obstacles are not server-authoritative; this is comfort steering, not a lock.
+export function avoidVisitors(from, desired, visitors, radius = .74) {
+  if (!Number.isFinite(from?.x) || !Number.isFinite(from?.z) || !Number.isFinite(desired?.x) || !Number.isFinite(desired?.z)) return from;
+  const moveX = desired.x - from.x, moveZ = desired.z - from.z, length = Math.hypot(moveX, moveZ);
+  if (length < .00001 || !Array.isArray(visitors) || !visitors.length) return desired;
+  const blocked = candidate => visitors.some(p => {
+    const before = Math.hypot(from.x - p.x, from.z - p.z);
+    const after = Math.hypot(candidate.x - p.x, candidate.z - p.z);
+    // Allow stepping out of a collision already present at login/teleport.
+    return after < radius && after < before - .0001;
+  });
+  if (!blocked(desired)) return desired;
+  const closest = visitors.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.z))
+    .sort((a,b)=>Math.hypot(from.x-a.x,from.z-a.z)-Math.hypot(from.x-b.x,from.z-b.z))[0];
+  if (!closest) return from;
+  const awayX = from.x - closest.x, awayZ = from.z - closest.z;
+  const d = Math.hypot(awayX,awayZ);
+  const nx = d > .001 ? awayX/d : -moveZ/length, nz = d > .001 ? awayZ/d : moveX/length;
+  // Prefer the side that best preserves the visitor's intended direction.
+  const tx = -nz, tz = nx, side = (tx*moveX + tz*moveZ >= 0) ? 1 : -1;
+  for (const [a,b] of [[.7,.7],[.4,.9],[.92,.3],[1,0]]) {
+    const dx = nx*a + tx*side*b, dz = nz*a + tz*side*b;
+    const norm = Math.hypot(dx,dz);
+    const candidate = {x:from.x+dx*length/norm,z:from.z+dz*length/norm};
+    if (!blocked(candidate) && segmentClear(from,candidate)) return candidate;
+  }
+  return from;
+}
