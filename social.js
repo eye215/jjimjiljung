@@ -299,9 +299,14 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   }
   async function answer(accept) {
     if (!incoming) return; const { from, request } = incoming, remote = remotes.get(from), api = link.groups; closeIncoming();
+    if (accept) notify('대화 연결을 확인하고 있어요…');
     let gid = null; try { gid = await api.answer(request.id, accept, nickname, remote?.name || '손님'); } catch { gid = null; }
     link.send('chatans', { from: id, to: from, group: gid });
-    if (gid) { if (await joinGroup(gid)) notify(`${remote?.name || '손님'}님과 대화가 시작됐어요 💬`); }
+    if (gid) {
+      if (await joinGroup(gid)) notify(`${remote?.name || '손님'}님과 대화가 시작됐어요 💬`);
+    } else if (accept) {
+      notify('대화 수락을 완료하지 못했어요. 상대방에게 다시 신청해 달라고 해주세요.');
+    }
   }
   ui2.accept.addEventListener('click', () => answer(true));
   ui2.decline.addEventListener('click', () => answer(false));
