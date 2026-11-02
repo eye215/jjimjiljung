@@ -56,7 +56,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     if (!remote) {
       const character = kit.createCharacter(); dress(character, info.outfit);
       character.root.scale.setScalar(actorScale); character.root.visible = false; scene.add(character.root);
-      remote = { id: info.id, character, outfit: info.outfit, name: info.name, label: makeLabel(info.name), shadow: makeShadow(), target: { x: 0, z: 0, f: 0 }, action: 'stand', walking: false, placed: false };
+      remote = { id: info.id, character, outfit: info.outfit, name: info.name, label: makeLabel(info.name), shadow: makeShadow(), target: { x: 0, y: 0, z: 0, f: 0 }, action: 'stand', walking: false, placed: false };
       remote.shadow.visible = false; remotes.set(info.id, remote);
     }
     if (info.uid) remote.uid = info.uid;
@@ -91,6 +91,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     const remote = remotes.get(payload.id);
     remote.target.x = THREE.MathUtils.clamp(finite(payload.x), NAV_BOUNDS.minX, NAV_BOUNDS.maxX);
     remote.target.z = THREE.MathUtils.clamp(finite(payload.z), NAV_BOUNDS.minZ, NAV_BOUNDS.maxZ);
+    remote.target.y = THREE.MathUtils.clamp(finite(payload.y), 0, .6);
     remote.target.f = finite(payload.f);
     remote.action = ACTIONS.includes(payload.a) ? payload.a : 'stand';
     remote.walking = payload.w === true; remote.room = typeof payload.r === 'string' ? payload.r.slice(0, 12) : remote.room;
@@ -105,7 +106,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     if (typeof payload.o === 'string' && payload.o !== remote.outfit && decodeOutfit(payload.o)) { remote.outfit = payload.o; dress(remote.character, payload.o); }
     if (!remote.placed) {
       remote.placed = true; remote.character.root.visible = true; remote.shadow.visible = true;
-      remote.character.root.position.set(remote.target.x, 0, remote.target.z); remote.character.root.rotation.y = remote.target.f;
+      remote.character.root.position.set(remote.target.x, remote.target.y, remote.target.z); remote.character.root.rotation.y = remote.target.f;
     }
   }
 
@@ -471,7 +472,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
         const due = now - lastSent > (local.walking ? MOVE_INTERVAL : IDLE_INTERVAL) || signature !== lastSignature;
         if (due && now - lastSent > 120) {
           lastSent = now; lastSignature = signature;
-          link.send('state', { id, x: +local.x.toFixed(2), z: +local.z.toFixed(2), f: +local.facing.toFixed(2), a: local.action, s: local.snack, w: local.walking, o: local.outfit, r: local.room });
+          link.send('state', { id, x: +local.x.toFixed(2), y: +local.y.toFixed(2), z: +local.z.toFixed(2), f: +local.facing.toFixed(2), a: local.action, s: local.snack, w: local.walking, o: local.outfit, r: local.room });
         }
       }
       place(selfLabel, local, local.visible && !selfLabel.hidden);
@@ -480,8 +481,8 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
         if (remote.placed) {
           const dx = remote.target.x - root.position.x, dz = remote.target.z - root.position.z, gap = Math.hypot(dx, dz);
           // Smoothly follow the latest network position; jump if far behind.
-          if (gap > 5) root.position.set(remote.target.x, 0, remote.target.z);
-          else { root.position.x = THREE.MathUtils.damp(root.position.x, remote.target.x, 7, dt); root.position.z = THREE.MathUtils.damp(root.position.z, remote.target.z, 7, dt); }
+          if (gap > 5) root.position.set(remote.target.x, remote.target.y, remote.target.z);
+          else { root.position.x = THREE.MathUtils.damp(root.position.x, remote.target.x, 7, dt); root.position.y = THREE.MathUtils.damp(root.position.y, remote.target.y, 9, dt); root.position.z = THREE.MathUtils.damp(root.position.z, remote.target.z, 7, dt); }
           let turn = remote.target.f - root.rotation.y; turn = Math.atan2(Math.sin(turn), Math.cos(turn)); root.rotation.y += turn * Math.min(1, dt * 10);
           remote.shadow.position.set(root.position.x, .012, root.position.z);
           remote.character.animate(remote.action, remote.walking || gap > .05, dt, reducedMotion, 1.3);
