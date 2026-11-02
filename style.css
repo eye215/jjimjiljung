@@ -461,3 +461,150 @@ body.sleeping #spot-action,body.playing #spot-action,body.towel-playing #spot-ac
 @media(min-height:501px){#tour{bottom:calc(var(--safe-bottom) + 232px)}}
 body:has(#spot-action:not([hidden])) #tour{bottom:calc(var(--safe-bottom) + 292px)}
 body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #tour{display:none}
+
+/* ==========================================================================
+   Calm iOS-inspired liquid glass · November 2026
+   One material hierarchy: translucent HUD, stronger sheets, one accent.
+   Movement, on-screen game controls and existing modals keep their positions.
+   ========================================================================== */
+:root{
+  --ios-ink:#493a32;
+  --ios-muted:#78685d;
+  --ios-edge:rgba(255,255,255,.76);
+  --ios-surface:linear-gradient(155deg,rgba(255,255,255,.75),rgba(249,245,239,.48) 65%,rgba(244,234,224,.52));
+  --ios-panel:linear-gradient(150deg,rgba(255,255,255,.88),rgba(250,246,240,.73));
+  --ios-raised:linear-gradient(145deg,rgba(255,255,255,.84),rgba(255,252,246,.64));
+  --ios-glow:inset 0 1px 0 rgba(255,255,255,.92),inset 0 0 0 .75px rgba(255,255,255,.62),0 5px 20px rgba(60,40,26,.10);
+  --ios-pop:inset 0 1px 0 rgba(255,255,255,.92),inset 0 0 0 1px rgba(255,255,255,.73),0 18px 46px rgba(54,33,18,.20);
+  --ios-frost:blur(24px) saturate(170%);
+  --ios-bright-frost:blur(36px) saturate(165%);
+  --lg-fill:var(--ios-surface);
+  --lg-thick:var(--ios-panel);
+  --lg-blur:var(--ios-frost);
+  --glass:var(--ios-surface);
+  --glass-ring:var(--ios-glow);
+  --lg-shadow:var(--ios-glow);
+  --ink:var(--ios-ink);
+  --ink-soft:var(--ios-muted);
+}
+/* Lightweight top HUD, no heavy opaque overlapping capsules. */
+.brand,.quiet-button,.room-badge,#wallet,.online-pill,#joystick,#chat-open,
+.controls,.scene-hint,.glass-round,#cap-toggle,#towel-open,#towel-nudge,
+#tour,#shop-open,#spot-action,#sleep-bar{
+  background:var(--ios-surface);
+  border:1px solid var(--ios-edge);
+  -webkit-backdrop-filter:var(--ios-frost);
+  backdrop-filter:var(--ios-frost);
+  box-shadow:var(--ios-glow);
+  color:var(--ios-ink);
+  text-shadow:none;
+}
+.brand{font-weight:790;letter-spacing:-.035em}
+.brand-icon{box-shadow:inset 0 1px 0 rgba(255,255,255,.84),0 3px 9px rgba(215,117,76,.19)}
+.quiet-button.icon-button{box-shadow:var(--ios-glow)}
+.quiet-button:active,.glass-round:active{filter:brightness(1.06)}
+.room-badge{gap:6px;font-weight:730}
+.room-badge span{color:var(--ios-muted)}
+#wallet{gap:11px;font-variant-numeric:tabular-nums;transition:box-shadow .24s,background .24s}
+#wallet.warmth-earned{background:linear-gradient(150deg,rgba(255,253,224,.96),rgba(255,233,184,.76));box-shadow:inset 0 0 0 1px rgba(255,244,197,.9),0 0 0 4px rgba(255,226,152,.18),0 8px 22px rgba(197,138,60,.24)}
+.online-pill{opacity:.94}
+#invite{background:linear-gradient(160deg,rgba(255,230,143,.9),rgba(255,195,94,.81));border:1px solid rgba(255,255,255,.72);box-shadow:var(--ios-glow);color:#66441f}
+.controls{border-radius:30px;padding:5px;background:var(--ios-surface)}
+.actions>button{border-radius:24px;color:var(--ios-ink);transition:background .16s,transform .16s}
+.actions>button:active{transform:scale(.96)}
+.actions>button.selected{background:var(--ios-raised);box-shadow:inset 0 0 0 1px rgba(255,255,255,.9),0 3px 12px rgba(97,65,43,.10);color:#c56143}
+.actions>button b{font-weight:690}
+#joystick{border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.7),rgba(246,239,228,.42) 72%)}
+#joystick-knob{border:1px solid rgba(255,255,255,.97);background:linear-gradient(160deg,rgba(255,255,255,.95),rgba(239,227,209,.82))}
+#chat-open{color:var(--ios-ink)}
+/* Reuse the existing hint to show the warmth countdown; never spawn a banner. */
+.scene-hint{
+  z-index:5;
+  max-width:min(372px,calc(100vw - 26px));
+  padding:7px 13px;
+  white-space:normal;
+  word-break:keep-all;
+  text-align:center;
+  font-size:11.8px;
+  line-height:1.4;
+  font-weight:700;
+  color:var(--ios-ink);
+  background:var(--ios-surface);
+  pointer-events:none;
+}
+/* Short lived one-at-a-time messages. Avoid the wallet and room name rows. */
+#toast{
+  top:calc(var(--safe-top) + 155px);
+  left:50%;right:auto;
+  width:max-content;
+  max-width:min(370px,calc(100vw - 28px));
+  padding:10px 13px;
+  border:1px solid var(--ios-edge);
+  border-radius:20px;
+  background:var(--ios-panel);
+  box-shadow:var(--ios-pop);
+  -webkit-backdrop-filter:var(--ios-bright-frost);
+  backdrop-filter:var(--ios-bright-frost);
+  font-size:12.5px;
+  line-height:1.4;
+  font-weight:700;
+  color:var(--ios-ink);
+  text-align:center;
+  z-index:11;
+}
+#toast[data-actionable=true]{text-align:left}
+#toast button{min-height:36px;border-radius:999px;box-shadow:none}
+#towel-nudge,#tour{min-height:48px;height:auto;max-width:calc(100vw - 28px);padding:6px 7px 6px 14px;white-space:normal;word-break:keep-all;background:var(--ios-panel)}
+#tour span{font-weight:710;line-height:1.33}
+#tour [data-tour-go],#towel-nudge button{flex-shrink:0}
+#spot-action,#towel-open{background:var(--ios-panel);border:1px solid var(--ios-edge)}
+/* Primary sheets are more opaque to keep labels readable over 3D objects. */
+#shop-dialog,#places-dialog,#join-dialog,#fortune-dialog,#transfer-dialog,#report-dialog,
+#towel-game,#game,.glass-card,#person-card,#chatreq-card,#trade-card{
+  color:var(--ios-ink);
+  background:var(--ios-panel);
+  border:1px solid var(--ios-edge);
+  -webkit-backdrop-filter:var(--ios-bright-frost);
+  backdrop-filter:var(--ios-bright-frost);
+  box-shadow:var(--ios-pop);
+}
+#shop-dialog,#places-dialog,#join-dialog,#fortune-dialog,#transfer-dialog,#report-dialog{border-radius:30px}
+#shop-dialog::backdrop,#places-dialog::backdrop,#join-dialog::backdrop,#fortune-dialog::backdrop,
+#transfer-dialog::backdrop,#report-dialog::backdrop{background:rgba(28,22,18,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.places-heading h2{color:var(--ios-ink)}
+.places-list button,.shop-items article,.shop-games button,.transfer-box,
+#fortune-result,.fortune-entry,.glass-sheet .towel-primary{
+  border:1px solid rgba(255,255,255,.72);
+  background:var(--ios-raised);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.78),0 4px 12px rgba(77,51,30,.06);
+}
+.places-list button:active,.shop-games button:active{transform:scale(.985)}
+.fortune-entry small,.places-list small,.shop-items p{color:var(--ios-muted)}
+#chat-form{border:1px solid var(--ios-edge);background:var(--ios-panel);box-shadow:var(--ios-pop);-webkit-backdrop-filter:var(--ios-bright-frost);backdrop-filter:var(--ios-bright-frost)}
+#chat.history #chat-log{background:rgba(31,25,22,.25);border:1px solid rgba(255,255,255,.35);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+#chat-note{background:var(--ios-panel);color:var(--ios-ink);border:1px solid var(--ios-edge)}
+#tv-ad{background:var(--ios-panel);border:1px solid var(--ios-edge);-webkit-backdrop-filter:var(--ios-frost);backdrop-filter:var(--ios-frost);box-shadow:var(--ios-glow)}
+/* Material safety: readable fallback on older iOS browsers or reduced transparency. */
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+  .brand,.quiet-button,.room-badge,#wallet,.online-pill,#joystick,#chat-open,.controls,
+  .scene-hint,#toast,#tour,#towel-nudge,.glass-round,#shop-dialog,#places-dialog,
+  #join-dialog,#fortune-dialog,#transfer-dialog,#report-dialog,#game,#towel-game,
+  .glass-card,#spot-action,#towel-open,#chat-form{background:rgba(255,250,243,.94)}
+}
+@media(prefers-reduced-transparency:reduce){
+  .brand,.quiet-button,.room-badge,#wallet,.online-pill,#joystick,#chat-open,.controls,
+  .scene-hint,#toast,#tour,.glass-round,#shop-dialog,#places-dialog,#join-dialog,
+  #fortune-dialog,#transfer-dialog,#report-dialog,#game,#towel-game,.glass-card,
+  #spot-action,#towel-open,#chat-form{background:rgba(255,250,243,.95);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
+@media(max-width:760px){
+  #toast{top:calc(var(--safe-top) + 150px);font-size:12px}
+  .controls{border-radius:28px}
+  .scene-hint{max-width:calc(100vw - 24px);font-size:11px;padding:7px 11px}
+  #tour{font-size:12.5px}
+  .room-badge span{display:none}
+}
+@media(max-height:500px) and (orientation:landscape){
+  .scene-hint{display:none}
+  #toast{top:calc(var(--safe-top) + 55px);max-width:calc(100vw - 36px)}
+}
