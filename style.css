@@ -647,3 +647,7 @@ body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #
 :root{--ios-edge:rgba(255,255,255,.30);--ios-glow:inset 0 0 0 .5px rgba(255,255,255,.30)}
 #hud button,#hud .glass,#hud .pill,#hud .chip,#hud .badge,#tour,#towel-nudge,#actions,#action-bar,#controls button,#joystick,#chat-open,#online-chip,#spot-action,#towel-open{border-width:.5px!important;outline-width:.5px;}
 #tour{border:.5px solid rgba(255,255,255,.30)!important;box-shadow:0 2px 8px rgba(55,35,22,.08)!important;}
+
+/* Tour copy: show at most two readable lines on mobile. */
+#tour{height:auto;min-height:44px;max-height:64px;padding-top:6px;padding-bottom:6px;}
+#tour span{display:-webkit-box!important;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;white-space:normal!important;overflow:hidden;text-overflow:ellipsis;line-height:1.3;max-height:2.6em;overflow-wrap:anywhere;}
