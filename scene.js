@@ -718,7 +718,7 @@ placeTowelDecor(scene, TOWEL_DECOR).then(placed => { towelDecor = placed; viewpo
 document.querySelector('#chat-input').addEventListener('focus', () => { keys.clear(); stopJoystick(); });
 social = createSocial({
   scene, camera, kit, viewport, actorScale: ACTOR_SCALE, makeShadow: contactShadow,
-  getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action: waveTimer && action === 'sit' ? 'sitwave' : waveTimer && action === 'lie' ? 'liewave' : action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
+  getLocal: () => ({ x: hero.position.x, y: hero.position.y, z: hero.position.z, facing: hero.rotation.y, action: waveTimer && action === 'sit' ? 'sitwave' : waveTimer && action === 'lie' ? 'liewave' : action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
   onTrade: payload => onTrade(payload),
   onGreet: payload => onGreet(payload),
   notify: text => toast(text)
