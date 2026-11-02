@@ -85,6 +85,12 @@ export async function connectSupabase({ id, presence, onPresence, onMessage, onS
   };
   return {
     groups,
+    // Counts are computed in Postgres. Never expose individual visitor IDs to
+    // browser clients; duplicate reloads/tabs record at most once per KST day.
+    stats: uid ? {
+      record: () => one(client.rpc('record_visit')),
+      read: () => one(client.rpc('get_visit_stats'))
+    } : null,
     track(next) { current = next; return channel.track(next).catch(() => {}); },
     send(event, payload) { return channel.send({ type: 'broadcast', event, payload }).catch(() => {}); },
     async leave() { await channel.untrack().catch(() => {}); await client.removeChannel(channel).catch(() => {}); }
