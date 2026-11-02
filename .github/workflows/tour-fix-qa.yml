@@ -20,7 +20,7 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npm run check
-      - run: node tests/module-cache.cjs && node tests/tour.cjs && node tests/seat-layout.cjs
+      - run: node tests/module-cache.cjs && node tests/warmth-guide.cjs && node tests/tour.cjs && node tests/seat-layout.cjs
       - run: node tests/wing.cjs
       - run: node tests/tour-browser.cjs
       - run: node tests/tv.cjs

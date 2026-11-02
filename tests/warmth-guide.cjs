@@ -1,0 +1,27 @@
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+(async () => {
+  const { warmthHint, DAILY_EARN_CAP, REST_SECONDS, SNACKS } = await import(pathToFileURL(path.join(__dirname, '..', 'economy.js')).href);
+  const rest = (roomId, t=0, earnedToday=0) => warmthHint({ roomId, action:'sit', restTimer:t, earnedToday });
+  assert.equal(rest('lobby').headline, '♨ 30초 뒤 온기 +1');
+  assert.equal(rest('lobby',15).headline, '♨ 15초 뒤 온기 +1');
+  assert.equal(rest('lobby',REST_SECONDS-.1).headline, '♨ 1초 뒤 온기 +1');
+  assert.equal(rest('salt',12).headline, '♨ 18초 뒤 온기 +2');
+  assert.equal(rest('hot',12).headline, '♨ 18초 뒤 온기 +2');
+  assert.equal(rest('bath',12).headline, '♨ 18초 뒤 온기 +2');
+  assert.match(rest('lobby').detail,/식혜·계란/);
+  assert.match(rest('lobby').detail,new RegExp(`각 ${SNACKS.drink.price}♨`));
+  assert.equal(warmthHint({ roomId:'lobby', action:'stand' }),null,'Do not clutter general navigation');
+  assert.match(warmthHint({roomId:'hot',action:'stand'}).headline,/앉거나 누우면 30초마다/);
+  assert.equal(warmthHint({roomId:'bath',action:'sit',restTimer:12,soak:{kind:'hotpool',seconds:5.4,done:false}}).headline,'♨ 6초 뒤 온기 +2');
+  assert.equal(warmthHint({roomId:'bath',action:'sit',restTimer:12,soak:{kind:'coldpool',seconds:2.1,done:false}}).headline,'♨ 3초 뒤 온기 +2');
+  assert.equal(warmthHint({roomId:'bath',action:'sit',restTimer:12,soak:{kind:'hotpool',seconds:0,done:true}}).headline,'♨ 18초 뒤 온기 +2');
+  assert.equal(warmthHint({roomId:'bath',action:'stand',showerSeconds:2.1}).headline,'♨ 3초 뒤 온기 +1');
+  assert.equal(warmthHint({roomId:'scrub',action:'lie',scrubSeconds:5.1}).headline,'♨ 6초 뒤 온기 +2');
+  assert.equal(warmthHint({roomId:'bath',action:'stand',nearbySpot:'hotpool'}).headline,'♨ 이용하면 8초 뒤 온기 +2');
+  assert.equal(warmthHint({roomId:'lobby',action:'stand',adReady:true}).headline,'📺 광고를 끝까지 보면 온기 +3♨');
+  assert.equal(rest('salt',12,DAILY_EARN_CAP-1).headline,'♨ 18초 뒤 온기 +1','Cannot promise more than daily cap permits');
+  assert.match(rest('salt',12,DAILY_EARN_CAP).headline,/활동 온기 한도에 도달했어요/,'No fake countdown after hitting daily cap');
+  console.log('PASS contextual warmth guide: rest, hot/salt 2x, baths, scrub, TV, spending tip, cap, no resets');
+})().catch(error => { console.error(error); process.exitCode = 1; });

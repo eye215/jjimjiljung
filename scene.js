@@ -1,20 +1,20 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-38';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-38';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-38';
-import { createTowelGame } from './towel.js?v=rpg-38';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-38';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-38';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-38';
-import { buildWorld } from './environment.js?v=rpg-38';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, roomAt } from './world.js?v=rpg-38';
-import { createTvAds } from './ads.js?v=rpg-38';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-38';
-import { createSocial } from './social.js?v=rpg-38';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-38';
-import { createShop } from './shop.js?v=rpg-38';
-import { createInvite } from './invite.js?v=rpg-38';
-import { createTour, loadTour } from './tour.js?v=rpg-38';
+import { planPath, stepMovement } from './navigation.js?v=rpg-39';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-39';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-39';
+import { createTowelGame } from './towel.js?v=rpg-39';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-39';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-39';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-39';
+import { buildWorld } from './environment.js?v=rpg-39';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, roomAt } from './world.js?v=rpg-39';
+import { createTvAds } from './ads.js?v=rpg-39';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-39';
+import { createSocial } from './social.js?v=rpg-39';
+import { createWallet, REST_SECONDS, warmthHint } from './economy.js?v=rpg-39';
+import { createShop } from './shop.js?v=rpg-39';
+import { createInvite } from './invite.js?v=rpg-39';
+import { createTour, loadTour } from './tour.js?v=rpg-39';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -107,6 +107,30 @@ const motes = new THREE.Points(motesGeometry, new THREE.PointsMaterial({ color: 
 // Soaking in a bath (scene-wide so posture changes can climb out at once).
 let soak = null;
 let social = null, localWalking = false, snackSig = '', snackSerial = 0, restTimer = 0;
+const warmthGuideEl = document.querySelector('#warmth-guide');
+const warmthHeadline = warmthGuideEl.querySelector('strong'), warmthDetail = warmthGuideEl.querySelector('small');
+let warmthTick = 0;
+function updateWarmthGuide(dt) {
+  warmthTick += dt;
+  if (warmthTick < .2) return;
+  warmthTick = 0;
+  let nearbySpot = spot?.id || '';
+  // Don't advertise a cooldown activity as if the next reward were available.
+  if ((nearbySpot === 'scrub' && Date.now() < scrubReady) ||
+      (['hotpool', 'coldpool', 'shower'].includes(nearbySpot) && Date.now() < (bathReady[nearbySpot] || 0))) nearbySpot = '';
+  const guide = warmthHint({
+    roomId: currentRoom?.id, action, restTimer,
+    earnedToday: wallet.snapshot().earnedToday,
+    soak: soak && { kind: soak.kind, done: soak.done, seconds: soak.t },
+    showerSeconds: shower, scrubSeconds: scrubbing,
+    nearbySpot, adReady: nearTv() && tvAds.state === 'ready'
+  });
+  warmthGuideEl.hidden = !guide;
+  if (guide) {
+    if (warmthHeadline.textContent !== guide.headline) warmthHeadline.textContent = guide.headline;
+    if (warmthDetail.textContent !== guide.detail) warmthDetail.textContent = guide.detail;
+  }
+}
 let action = 'stand', facing = 0, elapsed = 0, contextLost = false, raf = 0, lastTime = 0;
 const target = new THREE.Vector3(START.x, 0, START.z);
 const route = [];
@@ -568,7 +592,11 @@ function frame(now) {
   if (contextLost || document.hidden || adPlaying) return;
   // A queued RAF timestamp can precede initialization after shader compilation.
   // Negative dt makes exponential damping diverge and spins the limbs wildly.
-  const dt = THREE.MathUtils.clamp((now - lastTime) / 1000, 0, .05); lastTime = now; elapsed += dt;
+  // Gameplay timers use elapsed wall time, not the animation delta capped at 50ms.
+  // On slower mobiles a 30-second warmth reward must still take ~30 real seconds.
+  const elapsedSeconds = Math.max(0, (now - lastTime) / 1000);
+  const timerDt = Math.min(2, elapsedSeconds);
+  const dt = Math.min(.05, timerDt); lastTime = now; elapsed += dt;
   let walking = false;
   let inputX = joystickInput.x + (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
   let inputZ = joystickInput.z + (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0);
@@ -608,11 +636,11 @@ function frame(now) {
   updateTv(dt);
   // Resting earns 온기: every 30 s sitting or lying (double in 불가마 and 소금방).
   if ((action === 'sit' || action === 'lie') && !shop.playing) {
-    restTimer += dt;
+    restTimer += timerDt;
     if (restTimer >= REST_SECONDS) { restTimer = 0; const got = wallet.earn(['hot', 'salt', 'bath'].includes(currentRoom.id) ? 2 : 1); if (got) toast(`쉬는 동안 온기가 모였어요 +${got}♨`); }
   } else restTimer = Math.min(restTimer, REST_SECONDS * .5);
   shop.setNearShop(currentRoom.id === 'shop' && !nearTowels());
-  updateTowelShelf(); updateSpots(dt);
+  updateTowelShelf(); updateSpots(dt, timerDt); updateWarmthGuide(timerDt);
   motes.visible = !reducedMotion; if (!reducedMotion) { motes.position.set(view.focus.x, 0, view.focus.z); motes.rotation.y = elapsed * .02; }
   renderer.render(scene, camera); raf = requestAnimationFrame(frame);
 }
@@ -871,7 +899,7 @@ function keepSeatClear(dt) {
     toast('세신대가 만석이에요. 잠시 후 다시 이용해 주세요.');
   }
 }
-function updateSpots(dt) {
+function updateSpots(dt, timerDt = dt) {
   const near = SPOTS.filter(s => s.room === currentRoom.id && Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < s.r)
     .sort((a, b) => Math.hypot(hero.position.x - a.x, hero.position.z - a.z) - Math.hypot(hero.position.x - b.x, hero.position.z - b.z))[0] || null;
   const show = near && !towelGame.isOpen && !shop.playing && !scrubbing && !soak && !shower && !document.querySelector('dialog[open]');
@@ -881,15 +909,15 @@ function updateSpots(dt) {
   deskWave = Math.max(0, deskWave - dt);
   keepSeatClear(dt);
   if (soak && tour?.step === 'bath') tour.done('bath');
-  if (soak && !soak.done && (soak.t -= dt) <= 0) { soak.done = true; bathReward(soak.kind); }
+  if (soak && !soak.done && (soak.t -= timerDt) <= 0) { soak.done = true; bathReward(soak.kind); }
   if (shower > 0) {
     if (action !== 'stand' || Math.hypot(hero.position.x - spot?.x, hero.position.z - spot?.z) > 1.2 || localWalking) shower = 0;
-    else if ((shower -= dt) <= 0) { shower = 0; bathReward('shower'); }
+    else if ((shower -= timerDt) <= 0) { shower = 0; bathReward('shower'); }
   }
   if (scrubbing > 0) {
     // Getting up (any other pose or walking away) stops the scrub without a reward.
     if (action !== 'lie') { scrubbing = 0; return; }
-    scrubbing -= dt;
+    scrubbing -= timerDt;
     if (scrubbing <= 0) {
       scrubbing = 0; scrubReady = Date.now() + SCRUB_GAP;
       const got = wallet.earn(SCRUB_REWARD); player.celebrate(); tour?.done('scrub');

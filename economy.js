@@ -80,3 +80,48 @@ export function scoreOneShot({ finished, frozen, peak }) {
   if (frozen || !finished) return { grade: 'miss', points: 0 };
   return peak < .7 ? { grade: 'perfect', points: 3 } : { grade: 'good', points: 2 };
 }
+
+/**
+ * Pure UI guidance for earning and spending warmth. Uses the same countdowns,
+ * daily cap and snack prices as the wallet; never reads or changes saved data.
+ * The caller supplies active timers from the game (not wall-clock guesses).
+ */
+export function warmthHint({
+  roomId = '', action = 'stand', restTimer = 0, earnedToday = 0,
+  soak = null, showerSeconds = 0, scrubSeconds = 0, nearbySpot = '',
+  adReady = false
+} = {}) {
+  const spending = `모은 온기로 매점에서 식혜·계란을 살 수 있어요 (각 ${SNACKS.drink.price}♨)`;
+  const enough = Math.max(0, DAILY_EARN_CAP - earnedToday);
+  let seconds = 0, reward = 0, reason = '', passive = false;
+  if (soak && !soak.done && soak.seconds > 0) {
+    seconds = soak.seconds; reward = 2; reason = soak.kind === 'coldpool' ? '냉탕' : '온탕';
+  } else if (showerSeconds > 0) {
+    seconds = showerSeconds; reward = 1; reason = '샤워';
+  } else if (scrubSeconds > 0) {
+    seconds = scrubSeconds; reward = 2; reason = '세신';
+  } else if (action === 'sit' || action === 'lie') {
+    seconds = REST_SECONDS - Math.max(0, Math.min(REST_SECONDS, restTimer));
+    reward = ['hot', 'salt', 'bath'].includes(roomId) ? 2 : 1;
+    reason = '휴식'; passive = true;
+  } else if (['hot', 'salt'].includes(roomId)) {
+    reward = 2; reason = '안내';
+  } else if (['hotpool', 'coldpool', 'shower', 'scrub'].includes(nearbySpot)) {
+    reason = '안내';
+    seconds = nearbySpot === 'hotpool' ? 8 : nearbySpot === 'coldpool' ? 6 : nearbySpot === 'shower' ? 4 : 6;
+    reward = nearbySpot === 'shower' ? 1 : 2;
+  } else if (adReady) {
+    return { headline: '📺 광고를 끝까지 보면 온기 +3♨', detail: spending };
+  } else return null;
+
+  if (!enough) return { headline: `♨ 오늘의 활동 온기 한도에 도달했어요 (${DAILY_EARN_CAP}/${DAILY_EARN_CAP})`, detail: spending };
+  reward = Math.min(reward, enough);
+  if (reason === '안내') {
+    if (seconds) return { headline: `♨ 이용하면 ${seconds}초 뒤 온기 +${reward}`, detail: spending };
+    return { headline: `♨ 여기서 앉거나 누우면 30초마다 온기 +${reward}`, detail: spending };
+  }
+  return {
+    headline: `♨ ${Math.max(1, Math.ceil(seconds))}초 뒤 온기 +${reward}`,
+    detail: passive ? spending : `${reason}으로 온기를 모으는 중! ${spending}`
+  };
+}
