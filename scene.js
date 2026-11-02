@@ -912,7 +912,7 @@ async function showFortune(birth) {
     const { data, error } = await client.functions.invoke('saju-ai', {
       body: { birth: birth.date, today: todayInKorea(), pillar: f.mine + ' / ' + f.today }
     });
-    if (error || !data?.text) throw Error('AI 운세를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+    if (error || !data?.text) { const reason = data?.error || (error?.context?.json ? (await error.context.json().catch(() => null))?.error : null); throw Error('AI 운세 연결 오류' + (reason ? ' (' + reason + ')' : '') + '. 잠시 후 다시 시도해 주세요.'); }
     const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
     fortuneResult.innerHTML = `<p class="fortune-voice">🔮 사주 선생님이 들려주는 오늘의 이야기</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
     const labels = fortuneResult.querySelectorAll('b');
