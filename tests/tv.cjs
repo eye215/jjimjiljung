@@ -21,10 +21,13 @@ const FAKE_ADS = `(function () {
   const queue = Array.isArray(window.adsbygoogle) ? window.adsbygoogle : [];
   const handle = o => {
     if (!o || o.type !== 'reward') return;
-    const mode = window.__adMode || 'viewed';
+    const availabilityMode = window.__adMode || 'viewed';
     setTimeout(() => {
-      if (mode === 'none') { o.adBreakDone && o.adBreakDone({ breakStatus: 'noAdPreloaded' }); return; }
+      if (availabilityMode === 'none') { o.adBreakDone && o.adBreakDone({ breakStatus: 'noAdPreloaded' }); return; }
       o.beforeReward(() => {
+        // The next ad can be preloaded during the previous dismissal. Its actual
+        // viewed/dismissed outcome is decided on show(), not at preload time.
+        const mode = window.__adMode || 'viewed';
         o.beforeAd && o.beforeAd(); window.__adShowing = true;
         setTimeout(() => {
           window.__adShowing = false;
