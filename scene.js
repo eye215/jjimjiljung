@@ -882,11 +882,50 @@ function onGreet({ type, from, name, gid }) {
 const fortuneDialog = document.querySelector('#fortune-dialog'), fortuneForm = document.querySelector('#fortune-form'), fortuneResult = document.querySelector('#fortune-result');
 const FORTUNE_DAILY_KEY = 'jjimjiljung-fortune-daily-v1';
 function todayInKorea() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
+const fortuneDebug = new URLSearchParams(location.search).has('debug');
+let fortuneLogClient = null;
+const fortuneAttemptId = () => crypto.randomUUID();
+async function recordFortuneStage(attempt, stage, detail = '', elapsed = 0) {
+  try {
+    if (!fortuneLogClient) return;
+    const { data: { session } } = await fortuneLogClient.auth.getSession();
+    if (!session) return;
+    await fortuneLogClient.from('fortune_debug_events').insert({
+      user_id: session.user.id, attempt_id: attempt, stage,
+      detail: String(detail).slice(0, 120),
+      elapsed_ms: Math.min(120000, Math.max(0, Math.round(elapsed)))
+    });
+  } catch { /* diagnostics must never interrupt the fortune */ }
+}
+async function showFortuneDiagnostics() {
+  if (!fortuneLogClient) { alert('아직 인증 정보가 없어요. 운세 보기를 한 번 눌러주세요.'); return; }
+  const { data, error } = await fortuneLogClient.from('fortune_debug_events')
+    .select('created_at,attempt_id,stage,detail,elapsed_ms')
+    .order('created_at', { ascending: false }).limit(40);
+  const modal = document.createElement('dialog');
+  modal.style.cssText = 'width:min(92vw,440px);max-height:70dvh;overflow:auto;padding:22px;border-radius:20px;border:1px solid #ddd;background:#fff;color:#33271f;z-index:9999';
+  const title = document.createElement('h3'); title.textContent = '🔎 내 사주방 진단 로그'; modal.append(title);
+  const pre = document.createElement('pre');
+  pre.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.5';
+  pre.textContent = error ? '조회 실패: ' + error.code : (data?.length ? data.map(x => new Date(x.created_at).toLocaleTimeString('ko-KR') + ' | ' + x.stage + ' | ' + x.detail + ' | ' + x.elapsed_ms + 'ms').join('\\n') : '아직 기록이 없어요.');
+  modal.append(pre);
+  const close = document.createElement('button'); close.textContent = '닫기'; close.onclick = () => modal.close();
+  modal.append(close); document.body.append(modal); modal.addEventListener('close', () => modal.remove()); modal.showModal();
+}
+if (fortuneDebug) {
+  const debugButton = document.createElement('button');
+  debugButton.textContent = '🔎 진단 로그';
+  debugButton.type = 'button';
+  debugButton.style.cssText = 'position:fixed;right:12px;bottom:160px;z-index:100;background:#fff;color:#333;border:1px solid #ccc;border-radius:18px;padding:9px 12px;font-size:12px';
+  debugButton.addEventListener('click', showFortuneDiagnostics);
+  document.body.append(debugButton);
+}
 let fortuneBusy = false;
 async function showFortune(birth) {
   const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
   if (!f || fortuneBusy) return;
   fortuneBusy = true;
+  const attempt = fortuneAttemptId(), started = performance.now();
   fortuneResult.hidden = false;
   fortuneResult.textContent = '🔮 사주 선생님이 오늘의 운세를 확인하고 있어요…';
   try {
@@ -902,6 +941,7 @@ async function showFortune(birth) {
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jjimjiljung-auth' }
     });
+    fortuneLogClient = client;
     let { data: { session } } = await client.auth.getSession();
     if (!session) {
       const signed = await client.auth.signInAnonymously();
@@ -909,6 +949,8 @@ async function showFortune(birth) {
       session = signed.data.session;
     }
     if (!session) throw Error('로그인 정보를 확인할 수 없어요.');
+    await recordFortuneStage(attempt, 'auth', 'session_ok', performance.now() - started);
+    await recordFortuneStage(attempt, 'request', 'saju-ai', performance.now() - started);
     const response = await fetch(SUPABASE_URL + '/functions/v1/saju-ai', {
       method: 'POST',
       headers: {
@@ -919,6 +961,7 @@ async function showFortune(birth) {
       body: JSON.stringify({ birth: birth.date, today: todayInKorea(), pillar: f.mine + ' / ' + f.today })
     });
     const data = await response.json().catch(() => null);
+    await recordFortuneStage(attempt, 'response', 'HTTP_' + response.status + (data?.error ? '_' + data.error : ''), performance.now() - started);
     if (!response.ok || !data?.text) {
       throw Error('AI 서버 응답 ' + response.status + (data?.error ? ' · ' + data.error : ' · 응답 확인 필요'));
     }
@@ -932,7 +975,9 @@ async function showFortune(birth) {
     fortuneResult.querySelector('h3').textContent = data.title || '오늘의 사주 이야기';
     fortuneResult.querySelector('.fortune-text').textContent = data.text;
     fortuneSpeaking = 2.3;
+    await recordFortuneStage(attempt, 'render', 'success', performance.now() - started);
   } catch (error) {
+    await recordFortuneStage(attempt, 'error', String(error?.message || 'unknown').slice(0, 110), performance.now() - started);
     fortuneResult.textContent = '⚠️ ' + (error?.message || '운세를 불러오지 못했어요.');
   } finally { fortuneBusy = false; }
 }
