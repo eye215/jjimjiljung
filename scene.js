@@ -815,6 +815,11 @@ function bathReward(kind) {
 function leaveSoak() { const back = soak.back; soak = null; hero.position.set(back[0], 0, back[1]); target.copy(hero.position); }
 // 입구 카운터: the first visit hands over a locker key (kept on this device) and a fresh 찜질복.
 let lockerKey = 0; try { lockerKey = Number(localStorage.getItem('jjimjiljung-key')) || 0; } catch { /* storage may be unavailable */ }
+// Raw towel issued on arrival is independent of the sheep-cap craft. Preserve older
+// visitors' keys and towels: updates or tour replays must never wipe inventory.
+const ISSUED_TOWEL_KEY = 'jjimjiljung-issued-towel-v1';
+let issuedTowel = !!lockerKey;
+try { issuedTowel = issuedTowel || localStorage.getItem(ISSUED_TOWEL_KEY) === '1'; } catch { /* optional */ }
 const SCRUB_TIME = 6, SCRUB_GAP = 10 * 60 * 1000, SCRUB_REWARD = 2;
 // Users and resident guests share the physical spots; never place visitors on
 // top of one another. Deterministic ties resolve two simultaneous arrivals.
@@ -885,18 +890,32 @@ spotButton.addEventListener('click', () => {
     if (!lockerKey) {
       lockerKey = 1 + Math.floor(Math.random() * 120); try { localStorage.setItem('jjimjiljung-key', String(lockerKey)); } catch { /* storage may be unavailable */ }
       applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom') }); player.celebrate();
-      toast(`${lockerKey}번 열쇠와 새 찜질복을 받았어요! 탈의실 사물함에서 갈아입을 수 있어요 🔑`);
-    } else toast(`어서 오세요! ${lockerKey}번 열쇠는 그대로예요. 푹 쉬다 가세요 ♨`);
+      issuedTowel = true;
+      try { localStorage.setItem(ISSUED_TOWEL_KEY, '1'); } catch { /* optional */ }
+      toast(`${lockerKey}번 열쇠·수건·찜질복을 받았어요! 탈의실에서 갈아입어 봐요 🔑`);
+    } else {
+      issuedTowel = true;
+      try { localStorage.setItem(ISSUED_TOWEL_KEY, '1'); } catch { /* optional */ }
+      toast(`어서 오세요! ${lockerKey}번 열쇠와 수건은 그대로예요. 푹 쉬다 가세요 ♨`);
+    }
   }
   else if (BATH[spot.id]) {
     const kind = spot.id, b = BATH[kind];
-    if (Date.now() < (bathReady[kind] || 0)) { toast(`조금 쉬었다가 다시 해요 (${Math.ceil((bathReady[kind] - Date.now()) / 60000)}분)`); return; }
+    if (Date.now() < (bathReady[kind] || 0)) {
+      // The visitor has already used this bath during the current session.
+      tour?.done('bath');
+      toast(`조금 쉬었다가 다시 해요 (${Math.ceil((bathReady[kind] - Date.now()) / 60000)}분)`);
+      return;
+    }
     if (spot.pool) {
       const seat = freeSeat(POOL_SEATS[kind], [spot.pool[0], spot.pool[1]]);
       if (!seat) { toast('탕이 만석이에요. 빈자리가 생기면 다시 들어와 주세요.'); return; }
       const back = [spot.x, spot.z]; setAction('sit'); hero.position.set(seat[0], 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
       facing = 0; soak = { kind, t: b.time, back, done: false };
     } else { setAction('stand'); facing = Math.PI; shower = b.time; }
+    // Onboarding is about experiencing the bath, not waiting for the reward timer.
+    // The 8-second soak and 5-minute reward cooldown remain unchanged.
+    tour?.done('bath');
     toast(b.enter); spotButton.hidden = true;
   }
   else if (spot.id === 'locker') { outfitButton.click(); tour?.done('locker'); }
@@ -925,11 +944,22 @@ tour = createTour({
   isNew: firstVisit, el: document.querySelector('#tour'), toast,
   blocked: () => !!document.querySelector('dialog[open]') || towelGame.isOpen || shop.playing || !document.body.classList.contains('room-ready'),
   onGo: id => {
-    if (id === 'towel') goToTowel();
+    if (id === 'towel') {
+      // The raw towel is handed out at the entrance; fold it right after changing.
+      // The shop shelf remains available to make more caps later.
+      if (issuedTowel || lockerKey) towelGame.open();
+      else { toast('먼저 입구에서 수건을 받아 주세요 🧺'); goToPlace(DESTINATIONS.entrance); }
+    }
     else if (id === 'tv') goToTv();
     else if (id === 'egg' || id === 'drink') document.querySelector(`[data-action="${id}"]`).click();
     else if (TOUR_PLACE[id]) goToPlace(DESTINATIONS[TOUR_PLACE[id]]);
   }
+});
+document.querySelector('#tour-restart').addEventListener('click', () => {
+  placesDialog.close();
+  tour.restart();
+  goToPlace(DESTINATIONS.entrance);
+  toast('안내를 1단계부터 다시 시작해요. 열쇠·수건·찜질복·온기는 그대로예요 ♨');
 });
 if (lockerKey) tour.done('desk');
 if (outfit.hasTowel) tour.done('towel');
