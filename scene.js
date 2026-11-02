@@ -1,20 +1,20 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-36';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-36';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-36';
-import { createTowelGame } from './towel.js?v=rpg-36';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-36';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-36';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-36';
-import { buildWorld } from './environment.js?v=rpg-36';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-36';
-import { createTvAds } from './ads.js?v=rpg-36';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-36';
-import { createSocial } from './social.js?v=rpg-36';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-36';
-import { createShop } from './shop.js?v=rpg-36';
-import { createInvite } from './invite.js?v=rpg-36';
-import { createTour, loadTour } from './tour.js?v=rpg-36';
+import { planPath, stepMovement } from './navigation.js?v=rpg-37';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-37';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-37';
+import { createTowelGame } from './towel.js?v=rpg-37';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-37';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-37';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-37';
+import { buildWorld } from './environment.js?v=rpg-37';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-37';
+import { createTvAds } from './ads.js?v=rpg-37';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-37';
+import { createSocial } from './social.js?v=rpg-37';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-37';
+import { createShop } from './shop.js?v=rpg-37';
+import { createInvite } from './invite.js?v=rpg-37';
+import { createTour, loadTour } from './tour.js?v=rpg-37';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -159,7 +159,7 @@ function updateTv(dt) {
   if (seated !== tvSeated) {
     tvSeated = seated; tvButton.hidden = !seated;
     // Swing the camera round behind the sitter so the TV fills the view.
-    if (seated) { tvCheck = 0; tvTurn = 1.6; tvAds.prepare(); } else { tvTurn = 0; tvAds.leave(); }
+    if (seated) { tour?.done('tv'); tvCheck = 0; tvTurn = 1.6; tvAds.prepare(); } else { tvTurn = 0; tvAds.leave(); }
   }
   if (tvTurn > 0) {
     tvTurn -= dt; const goal = TV_SEAT.facing + Math.PI + .3;
@@ -244,12 +244,16 @@ function eat(kind, style = 'normal') {
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick(); keys.clear();
   facing = view.yaw; snackSig = `${kind}:${style}:${++snackSerial}`;
   const serial = snackSig;
+  let startedSnack;
   player.startSnack(kind, { style, onDone: finished => {
     if (snackSig === serial) snackSig = '';
     updateActionButtons();
-    if (finished) tour?.done(kind);
+    // The one-shot game finishes externally, then puts its cup away via stopSnack.
+    // Preserve cancellation semantics, but count a genuinely finished game in the tour.
+    if (finished || (kind === 'drink' && style === 'oneshot' && startedSnack?.finished)) tour?.done(kind);
     if (finished) status.textContent = kind === 'egg' ? '냠, 다 먹었다! 고소하고 든든해요.' : '캬~ 속까지 시원해요.';
   } });
+  startedSnack = player.snack;
   status.textContent = kind === 'egg' ? (style === 'forehead' ? '이마로 톡! 계란 깨기 도전…' : '톡톡, 맥반석 계란 까는 중…') : style === 'oneshot' ? '살얼음 식혜 원샷 도전!' : '살얼음 식혜 한 모금…';
   hint.textContent = '걸으면 간식을 내려놓아요';
   updateActionButtons();

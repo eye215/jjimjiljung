@@ -455,5 +455,8 @@ body.sleeping #spot-action,body.playing #spot-action,body.towel-playing #spot-ac
 .report-actions{display:flex;gap:8px;margin-top:12px}.report-actions button{flex:1;min-height:46px;border:0;border-radius:999px;font-weight:800;font-size:15px}
 #report-cancel{background:rgba(107,70,54,.08);color:var(--ink)}
 /* 첫 방문 안내 sits above the context button when both show. */
+/* Keep the tour above the joystick and towel button, using the same safe-area
+   offset as the other floating nudges. Preserve the compact landscape layout. */
+@media(min-height:501px){#tour{bottom:calc(var(--safe-bottom) + 232px)}}
 body:has(#spot-action:not([hidden])) #tour{bottom:calc(var(--safe-bottom) + 292px)}
 body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #tour{display:none}
