@@ -882,29 +882,50 @@ function onGreet({ type, from, name, gid }) {
 const fortuneDialog = document.querySelector('#fortune-dialog'), fortuneForm = document.querySelector('#fortune-form'), fortuneResult = document.querySelector('#fortune-result');
 const FORTUNE_DAILY_KEY = 'jjimjiljung-fortune-daily-v1';
 function todayInKorea() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
-function showFortune(birth) {
-  const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null); if (!f) return;
-  const today = todayInKorea();
-  let saved = null;
-  try { saved = JSON.parse(localStorage.getItem(FORTUNE_DAILY_KEY) || 'null'); } catch { /* private mode */ }
-  // Once generated, the result remains identical for the whole Korean calendar day.
-  // A changed birth date/time must not generate another result on that day.
-  const isCached = saved?.day === today && typeof saved.title === 'string' && typeof saved.text === 'string';
-  const resultTitle = isCached ? saved.title : f.title;
-  const resultText = isCached ? saved.text : f.text;
-  if (!isCached) {
-    try { localStorage.setItem(FORTUNE_DAILY_KEY, JSON.stringify({ day: today, title: resultTitle, text: resultText, pillars: f.mine, scores: f.scores, color: f.color, number: f.number })); } catch { /* storage unavailable */ }
-  }
-  const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
-  fortuneResult.innerHTML = `<p class="fortune-voice"><span aria-hidden="true">🔮</span> 사주 선생님이 들려주는 오늘의 이야기</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
-  const b = fortuneResult.querySelectorAll('b');
-  b[0].textContent = `${f.mine}(${f.element})`; b[1].textContent = `${f.today}(${f.todayElement})`; b[2].textContent = f.color; b[3].textContent = f.number;
-  fortuneResult.querySelector('h3').textContent = resultTitle;
-  fortuneResult.querySelector('.fortune-text').textContent = `“${resultText} 오늘은 ${f.color} 계열이 잘 어울리겠네요. 행운의 숫자는 ${f.number}이에요.”`;
-  // The teacher gestures while reading. The dialog itself is the speech bubble;
-  // no extra modal/toast is placed over an already-crowded 3D screen.
-  fortuneSpeaking = 2.3;
+let fortuneBusy = false;
+async function showFortune(birth) {
+  const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
+  if (!f || fortuneBusy) return;
+  fortuneBusy = true;
   fortuneResult.hidden = false;
+  fortuneResult.textContent = '🔮 사주 선생님이 오늘의 운세를 확인하고 있어요…';
+  try {
+    const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = await import('./config.js?v=rpg-40');
+    if (!window.supabase?.createClient) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = './vendor/supabase.umd.js?v=2.117.3';
+        script.onload = resolve; script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jjimjiljung-auth' }
+    });
+    let { data: { session } } = await client.auth.getSession();
+    if (!session) {
+      const signed = await client.auth.signInAnonymously();
+      if (signed.error) throw signed.error;
+      session = signed.data.session;
+    }
+    if (!session) throw Error('로그인 정보를 확인할 수 없어요.');
+    const { data, error } = await client.functions.invoke('saju-ai', {
+      body: { birth: birth.date, today: todayInKorea(), pillar: f.mine + ' / ' + f.today }
+    });
+    if (error || !data?.text) throw Error('AI 운세를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+    const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+    fortuneResult.innerHTML = `<p class="fortune-voice">🔮 사주 선생님이 들려주는 오늘의 이야기</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
+    const labels = fortuneResult.querySelectorAll('b');
+    labels[0].textContent = f.mine + '(' + f.element + ')';
+    labels[1].textContent = f.today + '(' + f.todayElement + ')';
+    labels[2].textContent = f.color;
+    labels[3].textContent = f.number;
+    fortuneResult.querySelector('h3').textContent = data.title || '오늘의 사주 이야기';
+    fortuneResult.querySelector('.fortune-text').textContent = data.text;
+    fortuneSpeaking = 2.3;
+  } catch (error) {
+    fortuneResult.textContent = '⚠️ ' + (error?.message || '운세를 불러오지 못했어요.');
+  } finally { fortuneBusy = false; }
 }
 document.querySelector('#fortune-open').addEventListener('click', () => {
   tour?.done('fortune');
