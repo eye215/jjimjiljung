@@ -636,3 +636,9 @@ body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #
 @media(max-width:760px){#visitor-stats{top:calc(var(--safe-top,0px) + 140px);left:12px}}
 /* A resting visitor cannot consume food while lying down. Wave stays available. */
 .actions [data-action="egg"]:disabled,.actions [data-action="drink"]:disabled{opacity:.32;filter:grayscale(.45);cursor:not-allowed}
+
+/* Compact single-line tour: reserve room for the label before actions. */
+#tour{width:min(560px,calc(100vw - 24px));max-width:calc(100vw - 24px);box-sizing:border-box;min-width:0;height:44px;min-height:44px;padding:0 7px 0 12px;gap:7px;border-radius:24px;border:.5px solid rgba(255,255,255,.42);box-shadow:0 3px 12px rgba(55,35,22,.10);}
+#tour span{display:block;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap!important;word-break:normal;line-height:1.2;font-size:12px;font-weight:650;}
+#tour [data-tour-go]{flex:0 0 auto;height:30px;min-width:48px;padding:0 10px;font-size:12px;white-space:nowrap;box-shadow:0 2px 6px rgba(242,104,60,.15)}
+#tour .tour-close{flex:0 0 22px;width:22px;height:28px;font-size:12px;}
