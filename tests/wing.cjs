@@ -26,7 +26,7 @@ const server = http.createServer((req, res) => {
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__w = { tp: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); }, room: () => currentRoom.id, action: () => action, points: () => wallet.snapshot().points, pos: () => [hero.position.x, hero.position.z], soak: () => soak && { ...soak }, fast: () => { if (soak) soak.t = .05; if (shower) shower = .05; } };' });
+      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__w = { tp: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); }, room: () => currentRoom.id, action: () => action, points: () => wallet.snapshot().points, pos: () => [hero.position.x, hero.position.z], soak: () => soak && { ...soak }, fast: () => { if (soak) soak.t = .05; if (shower) shower = .05; if (scrubbing > 0) scrubbing = .05; }, scrub: () => scrubbing };' });
     });
     await page.goto(base); await page.waitForSelector('#viewport[data-ready="true"]');
     if (await page.locator('#join-dialog').evaluate(d => d.open)) await page.locator('#join-solo').click();
@@ -61,7 +61,9 @@ const server = http.createServer((req, res) => {
     const points = await page.evaluate(() => window.__w.points());
     await page.locator('#spot-action').click();
     assert.equal(await page.evaluate(() => window.__w.action()), 'lie', 'Lies down on the scrub table');
-    await page.waitForFunction(p => window.__w.points() > p, points, { timeout: 120000 });
+    assert((await page.evaluate(() => window.__w.scrub())) > 0, 'Scrub countdown starts on actual table');
+    await page.evaluate(() => window.__w.fast()); // Verify reward transition without relying on GPU-limited animation FPS.
+    await page.waitForFunction(p => window.__w.points() > p, points, { timeout: 30000 });
     assert.match(await page.locator('#toast span').textContent(), /개운해요/);
     await page.locator('[data-action="stand"]').click();
     await page.locator('#spot-action', { hasText: '세신' }).click();
