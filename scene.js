@@ -11,7 +11,7 @@ import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR,
 import { createTvAds } from './ads.js?v=rpg-38';
 import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-38';
 import { createSocial } from './social.js?v=rpg-38';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-38';
+import { createWallet, REST_SECONDS, DAILY_EARN_CAP } from './economy.js?v=rpg-38';
 import { createShop } from './shop.js?v=rpg-38';
 import { createInvite } from './invite.js?v=rpg-38';
 import { createTour, loadTour } from './tour.js?v=rpg-38';
@@ -117,10 +117,18 @@ const messages = { stand: '어서 와요, 푹 쉬다 가요.', sit: '따끈따�
 // ---------- 매점 wallet, toasts and shop ----------
 const wallet = createWallet();
 const toastBox = document.querySelector('#toast'), toastText = toastBox.querySelector('span'), toastButton = toastBox.querySelector('button');
-let toastTimer2 = 0, toastAction = null;
+let toastTimer2 = 0, toastAction = null, lastToast = '', lastToastAt = 0;
 function toast(text, label = '', onClick = null, ms = 0) {
-  toastText.textContent = text; toastButton.hidden = !label; toastButton.textContent = label; toastAction = onClick;
-  toastBox.hidden = false; clearTimeout(toastTimer2); toastTimer2 = setTimeout(() => { toastBox.hidden = true; }, ms || (label ? 5000 : 2600));
+  // Keep one calm notification at a time. Identical transient notifications should
+  // not keep popping up, but actionable prompts (e.g. accept a greeting) are never deduped.
+  const now = performance.now();
+  if (!label && text === lastToast && now - lastToastAt < 7000) return;
+  lastToast = text; lastToastAt = now;
+  toastText.textContent = text; toastButton.hidden = !label;
+  toastBox.dataset.actionable = String(!!label);
+  toastButton.textContent = label; toastAction = onClick;
+  toastBox.hidden = false; clearTimeout(toastTimer2);
+  toastTimer2 = setTimeout(() => { toastBox.hidden = true; }, ms || (label ? 5000 : 1900));
 }
 toastButton.addEventListener('click', () => { toastBox.hidden = true; toastAction?.(); });
 let tvReady = false;
@@ -282,7 +290,7 @@ outfitButton.addEventListener('click', () => {
 });
 capButton.addEventListener('click', () => {
   applyOutfit({ ...outfit, wear: !outfit.wear });
-  toast(outfit.wear ? '🐑 양머리를 썼어요' : '🐑 양머리를 벗었어요');
+  // The visible towel change and pressed state already confirm this action.
 });
 applyOutfit(outfit);
 
@@ -563,6 +571,34 @@ function updateOcclusion(dt) {
 for (const m of fadeMeshes) if (m.material.transparent) m.material.userData.alwaysTransparent = true;
 
 function damp(object, key, to, dt, speed = 9) { object[key] = THREE.MathUtils.damp(object[key], to, speed, dt); }
+// Reuse the existing bottom hint instead of adding another popup on a crowded phone.
+// This reads the SAME timer and wallet cap as the reward loop; it cannot grant points.
+let restHintOwned = false, restHintLast = '';
+const warmthWallet = document.querySelector('#wallet');
+let warmthPulseTimer = 0;
+function updateRestHint(earning) {
+  if (earning && !shop.playing && !document.body.classList.contains('chat-open')) {
+    const earned = wallet.snapshot().earnedToday;
+    const amount = ['hot', 'salt', 'bath'].includes(currentRoom?.id) ? 2 : 1;
+    const seconds = Math.max(1, Math.ceil(REST_SECONDS - restTimer));
+    const message = earned >= DAILY_EARN_CAP
+      ? '♨ 오늘 모을 수 있는 온기는 다 모았어요 · 매점에서 간식으로 바꿔요'
+      : `♨ ${seconds}초 뒤 온기 +${Math.min(amount, DAILY_EARN_CAP - earned)} · 모아서 식혜·계란을 살 수 있어요`;
+    if (message !== restHintLast) { hint.textContent = message; restHintLast = message; }
+    restHintOwned = true;
+  } else if (restHintOwned) {
+    restHintOwned = false; restHintLast = '';
+    if (!document.body.classList.contains('sleeping'))
+      hint.textContent = action === 'stand' ? walkHint : '다시 걸으려면 바닥을 톡 눌러요 ↗';
+  }
+}
+function pulseWallet() {
+  warmthWallet.classList.remove('warmth-earned');
+  void warmthWallet.offsetWidth;
+  warmthWallet.classList.add('warmth-earned');
+  clearTimeout(warmthPulseTimer);
+  warmthPulseTimer = setTimeout(() => warmthWallet.classList.remove('warmth-earned'), 1400);
+}
 const ambientColor = new THREE.Color(), ambientGoal = new THREE.Color();
 function frame(now) {
   if (contextLost || document.hidden || adPlaying) return;
@@ -606,11 +642,18 @@ function frame(now) {
   updateOcclusion(dt);
   localWalking = walking; social?.update(dt, reducedMotion);
   updateTv(dt);
-  // Resting earns 온기: every 30 s sitting or lying (double in 불가마 and 소금방).
-  if ((action === 'sit' || action === 'lie') && !shop.playing) {
+  // Resting earns 온기 every 30 seconds (doubled in hot, salt and bath rooms).
+  const resting = (action === 'sit' || action === 'lie') && !shop.playing;
+  if (resting) {
     restTimer += dt;
-    if (restTimer >= REST_SECONDS) { restTimer = 0; const got = wallet.earn(['hot', 'salt', 'bath'].includes(currentRoom.id) ? 2 : 1); if (got) toast(`쉬는 동안 온기가 모였어요 +${got}♨`); }
+    if (restTimer >= REST_SECONDS) {
+      restTimer = 0;
+      const got = wallet.earn(['hot', 'salt', 'bath'].includes(currentRoom.id) ? 2 : 1);
+      // The wallet count itself and a gentle glint are enough confirmation; no toast.
+      if (got) pulseWallet();
+    }
   } else restTimer = Math.min(restTimer, REST_SECONDS * .5);
+  updateRestHint(resting);
   shop.setNearShop(currentRoom.id === 'shop' && !nearTowels());
   updateTowelShelf(); updateSpots(dt);
   motes.visible = !reducedMotion; if (!reducedMotion) { motes.position.set(view.focus.x, 0, view.focus.z); motes.rotation.y = elapsed * .02; }
