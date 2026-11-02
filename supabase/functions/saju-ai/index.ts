@@ -40,21 +40,22 @@ Deno.serve(async (request) => {
   const pillar = String(input.pillar || "");
   if (!pillar || pillar.length > 80)
     return respond({ error: "Invalid fortune data" }, 400);
-  const prompt = "오락용 오늘의 운세를 한국어로 2~3문장, 80자 이내로 작성하세요. 짧고 따뜻하게 답하고 건강·재물에 대한 단정은 피하세요. 운세 본문만 출력하세요.";
+  const prompt = "오락용 오늘의 운세를 한국어 한두 문장, 60자 이내로 작성하세요. 따뜻하고 구체적으로, 건강·재물에 대한 단정은 피하고 운세 본문만 출력하세요.";
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), 65000);
   try {
     const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",
       signal: controller.signal,
-      headers: { authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+      headers: { authorization: "Bearer " + apiKey, "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({
         model: "mistralai/mistral-large-4-1t-a52b",
         messages: [{ role: "system", content: prompt }, { role: "user", content: JSON.stringify({ pillar, day }) }],
-        max_tokens: 120,
+        max_tokens: 512,
         temperature: 0.2,
         top_p: 1,
-        reasoning_effort: "low",
+        reasoning_effort: "high",
+        stream: false,
       }),
     });
     if (!response.ok) {
@@ -68,7 +69,7 @@ Deno.serve(async (request) => {
         : "NVIDIA request rejected";
       return respond({ error: guidance, upstream_status: status }, 502);
     }
-    const result = await response.json();
+    const result = await response.json().catch(() => null);
     const text = String(result?.choices?.[0]?.message?.content || "").trim().slice(0, 600);
     if (!text) return respond({ error: "Empty AI response" }, 502);
     const title = "오늘의 사주 이야기";
