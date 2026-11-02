@@ -17,7 +17,6 @@ export const EXPLORE = Object.freeze([
   { id: 'drink', text: '🥤 계란 먹고 살얼음 식혜 마시기' },
   { id: 'ice', text: '🧊 얼음방에서 열 식히기' },
   { id: 'salt', text: '🧂 소금방에 누워 보기' },
-  { id: 'fortune', text: '🔮 사주방에서 오늘의 운세 보기' },
   { id: 'scrub', text: '🧽 세신실에서 세신 받기' },
   { id: 'sleep', text: '😴 수면실에서 한숨 자기' }
 ]);
