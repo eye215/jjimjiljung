@@ -49,15 +49,15 @@ Deno.serve(async (request) => {
       signal: controller.signal,
       headers: { authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "meta/llama-3.1-8b-instruct",
+        model: "microsoft/phi-4-mini-instruct",
         messages: [{ role: "system", content: prompt }, { role: "user", content: JSON.stringify({ pillar, day }) }],
         max_tokens: 100,
-        temperature: 0.5,
+        temperature: 0.2,
       }),
     });
     if (!response.ok) {
       const status = response.status;
-      console.error("NVIDIA completion failed", { upstream_status: status, model: "openai/gpt-oss-20b" });
+      console.error("NVIDIA completion failed", { upstream_status: status, model: "microsoft/phi-4-mini-instruct" });
       const guidance = status === 401 || status === 403 ? "NVIDIA API key or access denied"
         : status === 402 ? "NVIDIA credits unavailable"
         : status === 404 ? "NVIDIA model unavailable"
