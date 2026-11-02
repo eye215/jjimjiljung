@@ -461,3 +461,13 @@ body.sleeping #spot-action,body.playing #spot-action,body.towel-playing #spot-ac
 @media(min-height:501px){#tour{bottom:calc(var(--safe-bottom) + 232px)}}
 body:has(#spot-action:not([hidden])) #tour{bottom:calc(var(--safe-bottom) + 292px)}
 body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #tour{display:none}
+
+/* Earnable warmth: a compact, read-only countdown above the tour/action area. */
+#warmth-guide{position:absolute;z-index:4;bottom:calc(var(--safe-bottom) + 300px);left:50%;transform:translateX(-50%);display:flex;align-items:center;flex-direction:column;gap:3px;width:max-content;max-width:calc(100% - 32px);padding:10px 16px;border:1px solid rgba(255,255,255,.8);border-radius:20px;background:rgba(255,249,231,.92);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 8px 24px rgba(78,48,30,.16);color:#71472d;text-align:center;pointer-events:none}
+#warmth-guide strong{font-size:14px;line-height:1.4;font-weight:850;letter-spacing:-.2px}
+#warmth-guide small{font-size:11px;line-height:1.35;color:#8a6750;word-break:keep-all}
+body:has(#tour:not([hidden])) #warmth-guide{bottom:calc(var(--safe-bottom) + 306px)}
+body:has(#tour:not([hidden])):has(#spot-action:not([hidden])) #warmth-guide{bottom:calc(var(--safe-bottom) + 366px)}
+body.playing #warmth-guide,body.towel-playing #warmth-guide,body.chat-open #warmth-guide,body.dreaming #warmth-guide,body:has(dialog[open]) #warmth-guide,body:not(.room-ready) #warmth-guide{display:none}
+@media(max-width:760px){#warmth-guide{max-width:calc(100vw - 38px);padding:9px 13px;border-radius:18px}#warmth-guide strong{font-size:13px}#warmth-guide small{font-size:10px}}
+@media(max-height:500px) and (orientation:landscape){#warmth-guide{left:auto;right:12px;transform:none;bottom:100px;width:280px;max-width:44vw}body:has(#tour:not([hidden])) #warmth-guide,body:has(#tour:not([hidden])):has(#spot-action:not([hidden])) #warmth-guide{bottom:100px}}
