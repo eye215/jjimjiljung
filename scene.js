@@ -173,7 +173,7 @@ function goToTv() {
 const nearTv = () => currentRoom?.id === 'lobby' &&
   TV_SEATS.some(s => Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < .9);
 const tvPoint = new THREE.Vector3();
-function updateTv(dt) {
+function updateTv(dt, clockDt = dt) {
   const seated = action === 'sit' && nearTv();
   if (seated !== tvSeated) {
     tvSeated = seated; tvButton.hidden = !seated;
@@ -188,7 +188,7 @@ function updateTv(dt) {
   world.tv.setMode(seated && tvAds.state === 'ready' ? 'ad' : 'channel');
   if (!seated) return;
   // Re-check each second (cooldowns end, midnight resets); retry "no ad" every 30 s.
-  tvCheck += dt;
+  tvCheck += clockDt;
   if (tvCheck > 1 && ['idle', 'cooldown', 'done'].includes(tvAds.state)) { tvCheck = 0; tvAds.prepare(); }
   else if (tvCheck > 30 && tvAds.state === 'none') { tvCheck = 0; tvAds.retry(); }
   // Pin the button to the TV screen.
@@ -686,7 +686,7 @@ function frame(now) {
   world.update(elapsed, reducedMotion);
   updateOcclusion(dt);
   localWalking = walking; social?.update(dt, reducedMotion);
-  updateTv(dt);
+  updateTv(dt, clockDt);
   // Resting earns 온기 every 30 seconds (doubled in hot, salt and bath rooms).
   const resting = (action === 'sit' || action === 'lie') && !shop.playing;
   if (resting) {
