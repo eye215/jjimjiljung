@@ -41,8 +41,9 @@ Deno.serve(async (request) => {
   if (!pillar || pillar.length > 80)
     return respond({ error: "Invalid fortune data" }, 400);
   const prompt = "오락용 오늘의 운세를 한국어 한두 문장, 60자 이내로 작성하세요. 따뜻하고 구체적으로, 건강·재물에 대한 단정은 피하고 운세 본문만 출력하세요.";
+  const started = performance.now();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 65000);
+  const timer = setTimeout(() => controller.abort(), 8000);
   try {
     const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",
@@ -51,10 +52,10 @@ Deno.serve(async (request) => {
       body: JSON.stringify({
         model: "mistralai/mistral-large-4-1t-a52b",
         messages: [{ role: "system", content: prompt }, { role: "user", content: JSON.stringify({ pillar, day }) }],
-        max_tokens: 512,
+        max_tokens: 256,
         temperature: 0.2,
         top_p: 1,
-        reasoning_effort: "high",
+        reasoning_effort: "none",
         stream: false,
       }),
     });
@@ -70,6 +71,7 @@ Deno.serve(async (request) => {
       return respond({ error: guidance, upstream_status: status }, 502);
     }
     const result = await response.json().catch(() => null);
+    console.info("saju_ai_response", JSON.stringify({status:response.status,elapsed_ms:Math.round(performance.now()-started),finish_reason:result?.choices?.[0]?.finish_reason,content_type:typeof result?.choices?.[0]?.message?.content,content_chars:result?.choices?.[0]?.message?.content?.length||0,reasoning_chars:result?.choices?.[0]?.message?.reasoning_content?.length||0,usage:result?.usage}));
     const text = String(result?.choices?.[0]?.message?.content || "").trim().slice(0, 600);
     if (!text) return respond({ error: "Empty AI response" }, 502);
     const title = "오늘의 사주 이야기";
