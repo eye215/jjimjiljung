@@ -126,6 +126,7 @@ toastButton.addEventListener('click', () => { toastBox.hidden = true; toastActio
 let tvReady = false;
 const shop = createShop({
   wallet, toast,
+  onGameComplete: kind => tour?.done(kind),
   tv: { worth: () => tvReady && tvAds.worthVisiting, go: () => goToTv() },
   eat: (kind, style) => eat(kind, style),
   play: (kind, style) => eat(kind, style),
