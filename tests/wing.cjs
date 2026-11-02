@@ -30,6 +30,18 @@ const server = http.createServer((req, res) => {
     });
     await page.goto(base); await page.waitForSelector('#viewport[data-ready="true"]');
     if (await page.locator('#join-dialog').evaluate(d => d.open)) await page.locator('#join-solo').click();
+    // Resting displays a live 30-second countdown and explains what 온기 buys.
+    await page.locator('[data-action="sit"]').click();
+    await page.waitForFunction(() => document.querySelector('#warmth-guide')?.hidden === false);
+    assert.match(await page.locator('#warmth-guide strong').textContent(), /초 뒤 온기 \+1/);
+    assert.match(await page.locator('#warmth-guide small').textContent(), /식혜·계란/);
+    const initialCountdown = +(await page.locator('#warmth-guide strong').textContent()).match(/(\d+)초/)[1];
+    await page.waitForTimeout(1250);
+    const laterCountdown = +(await page.locator('#warmth-guide strong').textContent()).match(/(\d+)초/)[1];
+    assert(laterCountdown < initialCountdown, 'Remaining seconds decrease while resting');
+    await page.locator('[data-action="stand"]').click();
+    await page.waitForFunction(() => document.querySelector('#warmth-guide')?.hidden === true);
+
     // The places dialog lists the four new rooms.
     for (const id of ['entrance', 'locker', 'bath', 'scrub', 'fortune']) assert.equal(await page.locator(`[data-place="${id}"]`).count(), 1);
     // 입구 카운터: first visit gives a locker key and a fresh outfit; the locker shows the number.
