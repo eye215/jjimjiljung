@@ -1,20 +1,20 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-35';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-35';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-35';
-import { createTowelGame } from './towel.js?v=rpg-35';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-35';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-35';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-35';
-import { buildWorld } from './environment.js?v=rpg-35';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-35';
-import { createTvAds } from './ads.js?v=rpg-35';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-35';
-import { createSocial } from './social.js?v=rpg-35';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-35';
-import { createShop } from './shop.js?v=rpg-35';
-import { createInvite } from './invite.js?v=rpg-35';
-import { createTour, loadTour } from './tour.js?v=rpg-35';
+import { planPath, stepMovement } from './navigation.js?v=rpg-36';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-36';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-36';
+import { createTowelGame } from './towel.js?v=rpg-36';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-36';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-36';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-36';
+import { buildWorld } from './environment.js?v=rpg-36';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-36';
+import { createTvAds } from './ads.js?v=rpg-36';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-36';
+import { createSocial } from './social.js?v=rpg-36';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-36';
+import { createShop } from './shop.js?v=rpg-36';
+import { createInvite } from './invite.js?v=rpg-36';
+import { createTour, loadTour } from './tour.js?v=rpg-36';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.

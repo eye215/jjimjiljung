@@ -82,8 +82,8 @@ export function random() { randomSeed = (randomSeed * 1664525 + 1013904223) >>> 
 // `plain` (bare hair) and `cap` (the same chibi wearing the rolled sheep towel). Putting the
 // sheep cap on swaps the body. Clips: Walking, Running, Sit (on the floor), Cheer (arms up).
 // Standing, lying, eating and waving have no clip; they are posed in code.
-export const PLUSH_URL = new URL('./assets/chibi2-mobile.glb?v=4', import.meta.url).href;
-export const PLUSH_CAP_URL = new URL('./assets/chibi2-cap-mobile.glb?v=4', import.meta.url).href;
+export const PLUSH_URL = new URL('./assets/chibi2-mobile.glb?v=5', import.meta.url).href;
+export const PLUSH_CAP_URL = new URL('./assets/chibi2-cap-mobile.glb?v=5', import.meta.url).href;
 export const CLIPS = { walk: 'Walking', run: 'Running', sit: 'Sit', cheer: 'Cheer' };
 // Both models are 1.7 units tall; this makes them 1.35 m in the room like the other actors.
 const MODEL_SCALE = 1.35 / 1.7;
@@ -594,6 +594,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
 #define HAT ${profile.hat.toFixed(3)}
 #define EYE vec3(${profile.eyes.x.toFixed(3)}, ${profile.eyes.y.toFixed(3)}, ${(profile.eyes.z - .02).toFixed(3)})
 #define MOUTH vec3(${profile.mouth.x.toFixed(3)}, ${(profile.mouth.y - .012).toFixed(3)}, ${(profile.mouth.z - .02).toFixed(3)})
+#define BAKED_MOUTH vec3(${profile.mouth.x.toFixed(3)}, ${profile.mouth.y.toFixed(3)}, ${profile.mouth.z.toFixed(3)})
 varying vec3 vRest;
 uniform vec3 uTop;
 uniform vec3 uBottom;
@@ -605,15 +606,23 @@ uniform float uEyeOn;
 uniform float uMouthOn;
 // Expression decals are painted on the face itself (same surface, same light): the bind-pose
 // position is projected onto a small square facing out from the face at each feature.
-// Inside a small ellipse around a baked feature, its dark (eye) or red (mouth) texels are
-// painted over with the face colour, so only the drawn expression shows; blush stays.
+// Replace complete baked features, including their rim and highlights. Matching
+// geometry has been softened offline so expressions share the actual face surface.
 vec3 hideFeature(vec3 c, vec3 centre, float turn, vec2 radius) {
   vec3 d = vRest - centre; vec3 n = vec3(sin(turn), 0., cos(turn)), t = vec3(cos(turn), 0., -sin(turn));
-  vec2 q = vec2(dot(d, t), d.y) / radius; float r = dot(q, q);
-  if (r > 1. || abs(dot(d, n)) > .09) return c;
-  float lum = dot(c, vec3(.2126, .7152, .0722)), skinLum = dot(SKIN, vec3(.2126, .7152, .0722));
-  float feature = smoothstep(.12, .03, lum / max(skinLum, .001) - .55) + smoothstep(.0, .25, (c.r - c.g * 1.25) / max(c.r, .001)) * step(lum, skinLum * .8);
-  return mix(c, SKIN, clamp(feature, 0., 1.) * smoothstep(1., .7, r));
+  float r = length(vec2(dot(d, t), d.y) / radius);
+  if (abs(dot(d, n)) > .12) return c;
+  return mix(c, SKIN, 1. - smoothstep(.72, 1., r));
+}
+// Cover the complete baked eye (including its white highlight and dark rim).
+// Thresholding only dark texels left a crescent and a shiny dot under closed eyes.
+vec3 hideEye(vec3 c, vec3 centre, float turn) {
+  vec3 d = vRest - centre;
+  vec3 n = vec3(sin(turn), 0., cos(turn)), t = vec3(cos(turn), 0., -sin(turn));
+  vec2 q = vec2(dot(d, t), d.y) / vec2(.083, .079);
+  float radius = length(q);
+  if (abs(dot(d, n)) > .12) return c;
+  return mix(c, SKIN, 1. - smoothstep(.72, 1., radius));
 }
 vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
   vec3 d = vRest - centre; vec3 n = vec3(sin(turn), 0., cos(turn)), t = vec3(cos(turn), 0., -sin(turn));
@@ -623,13 +632,13 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
 }`).replace('#include <map_fragment>', `#include <map_fragment>
         float vRestY = vRest.y;
         if (uEyeOn > .5) {
-          diffuseColor.rgb = hideFeature(diffuseColor.rgb, EYE, .4, vec2(.05, .055));
-          diffuseColor.rgb = hideFeature(diffuseColor.rgb, EYE * vec3(-1., 1., 1.), -.4, vec2(.05, .055));
+          diffuseColor.rgb = hideEye(diffuseColor.rgb, EYE, .4);
+          diffuseColor.rgb = hideEye(diffuseColor.rgb, EYE * vec3(-1., 1., 1.), -.4);
           vec4 e = faceDecal(uEyeTex, EYE, .4, vec2(.13));
           vec4 e2 = faceDecal(uEyeTex, EYE * vec3(-1., 1., 1.), -.4, vec2(.13));
           diffuseColor.rgb = mix(diffuseColor.rgb, e.rgb, e.a); diffuseColor.rgb = mix(diffuseColor.rgb, e2.rgb, e2.a);
         }
-        if (uMouthOn > .5) { diffuseColor.rgb = hideFeature(diffuseColor.rgb, MOUTH, 0., vec2(.05, .03)); vec4 m = faceDecal(uMouthTex, MOUTH, 0., vec2(.15, .12)); diffuseColor.rgb = mix(diffuseColor.rgb, m.rgb, m.a); }
+        if (uMouthOn > .5) { diffuseColor.rgb = hideFeature(diffuseColor.rgb, BAKED_MOUTH, 0., vec2(.078, .055)); vec4 m = faceDecal(uMouthTex, MOUTH, 0., vec2(.15, .12)); diffuseColor.rgb = mix(diffuseColor.rgb, m.rgb, m.a); }
         {
           vec3 c = diffuseColor.rgb; float hi = max(c.r, max(c.g, c.b)), lo = min(c.r, min(c.g, c.b));
           float lum = dot(c, vec3(.2126, .7152, .0722));
@@ -645,7 +654,7 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
           diffuseColor.rgb = mix(diffuseColor.rgb, uTowel * clamp(lum / .78, .4, 1.08), hat);
         }`);
     };
-    material.customProgramCacheKey = () => 'plush-dye-v8-' + profile.hat;
+    material.customProgramCacheKey = () => 'plush-dye-v9-' + profile.hat;
     skinned.material = material;
     setupCharacterMaterials(model, renderer);
     // Rigid things follow a bone; they are placed in the bind pose, in model units.
