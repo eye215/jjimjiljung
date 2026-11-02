@@ -1,19 +1,20 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-30';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-30';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-30';
-import { createTowelGame } from './towel.js?v=rpg-30';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-30';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-30';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-30';
-import { buildWorld } from './environment.js?v=rpg-30';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-30';
-import { createTvAds } from './ads.js?v=rpg-30';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-30';
-import { createSocial } from './social.js?v=rpg-30';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-30';
-import { createShop } from './shop.js?v=rpg-30';
-import { createInvite } from './invite.js?v=rpg-30';
+import { planPath, stepMovement } from './navigation.js?v=rpg-36';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-36';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-36';
+import { createTowelGame } from './towel.js?v=rpg-36';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-36';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-36';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-36';
+import { buildWorld } from './environment.js?v=rpg-36';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-36';
+import { createTvAds } from './ads.js?v=rpg-36';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-36';
+import { createSocial } from './social.js?v=rpg-36';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-36';
+import { createShop } from './shop.js?v=rpg-36';
+import { createInvite } from './invite.js?v=rpg-36';
+import { createTour, loadTour } from './tour.js?v=rpg-36';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -35,12 +36,12 @@ try {
   clearTimeout(window.roomLoadTimer);
   throw error;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, coarsePointer ? 1.5 : 1.75));
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.1;
 viewport.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#2e1d14');
@@ -69,9 +70,15 @@ function contactShadow() { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.15
 
 const ACTOR_SCALE = .62, WALK_SPEED = 2.5;
 let outfit = loadOutfit();
-const player = kit.createCharacter(outfitColors(outfit)); player.setTowel(capOn(outfit));
+// 첫 방문 (no locker key, no tour record): start at the 입구 and follow the tour (tour.js).
+// Automated browsers keep the lobby start unless the page asks for ?tour=1.
+const tourParam = new URLSearchParams(location.search).get('tour');
+let firstVisit = false; try { firstVisit = !localStorage.getItem('jjimjiljung-key') && loadTour().fresh; } catch { /* storage may be unavailable */ }
+if (tourParam === '0' || (navigator.webdriver && tourParam !== '1')) firstVisit = false;
+const START = firstVisit ? { x: DESTINATIONS.entrance.x, z: DESTINATIONS.entrance.z } : SPAWN;
+const player = kit.createCharacter(outfitColors(outfit)); player.setTowel(capOn(outfit)); player.setCastShadow?.(true);
 const { root: hero, arms, legs, faceMaterial } = player;
-scene.add(hero); hero.scale.setScalar(ACTOR_SCALE); hero.position.set(SPAWN.x, 0, SPAWN.z);
+scene.add(hero); hero.scale.setScalar(ACTOR_SCALE); hero.position.set(START.x, 0, START.z);
 const shadow = contactShadow();
 
 // Resident guests keep every room feeling lived in. They share the player model.
@@ -101,9 +108,9 @@ const motes = new THREE.Points(motesGeometry, new THREE.PointsMaterial({ color: 
 let soak = null;
 let social = null, localWalking = false, snackSig = '', snackSerial = 0, restTimer = 0;
 let action = 'stand', facing = 0, elapsed = 0, contextLost = false, raf = 0, lastTime = 0;
-const target = new THREE.Vector3(SPAWN.x, 0, SPAWN.z);
+const target = new THREE.Vector3(START.x, 0, START.z);
 const route = [];
-let activeDestination = null, currentRoom = null;
+let activeDestination = null, currentRoom = null, tour = null;
 const joystickInput = { x: 0, z: 0 };
 const keys = new Set();
 const messages = { stand: '어서 와요, 푹 쉬다 가요.', sit: '따끈따끈, 마음까지 풀리는 중.', lie: '오늘도 애썼어요. 잠깐 눈 감아요.', wave: '안녕! 같이 쉬어 가요.' };
@@ -176,7 +183,7 @@ destinationMarker.rotation.x = -Math.PI / 2; destinationMarker.castShadow = fals
 
 // ---------- Camera: RPG quarter view that follows the player ----------
 const DEFAULT_YAW = .42, DEFAULT_PITCH = .52;
-const view = { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, zoom: 1, focus: new THREE.Vector3(SPAWN.x, 0, SPAWN.z) };
+const view = { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, zoom: 1, focus: new THREE.Vector3(START.x, 0, START.z) };
 function baseDistance() {
   const aspect = camera.aspect;
   // Portrait phones need a wider look around the player; landscape stays closer.
@@ -240,6 +247,7 @@ function eat(kind, style = 'normal') {
   player.startSnack(kind, { style, onDone: finished => {
     if (snackSig === serial) snackSig = '';
     updateActionButtons();
+    if (finished) tour?.done(kind);
     if (finished) status.textContent = kind === 'egg' ? '냠, 다 먹었다! 고소하고 든든해요.' : '캬~ 속까지 시원해요.';
   } });
   status.textContent = kind === 'egg' ? (style === 'forehead' ? '이마로 톡! 계란 깨기 도전…' : '톡톡, 맥반석 계란 까는 중…') : style === 'oneshot' ? '살얼음 식혜 원샷 도전!' : '살얼음 식혜 한 모금…';
@@ -274,7 +282,7 @@ let openTowelOnArrival = false;
 const towelGame = createTowelGame({
   onOpen: () => { setAction('stand'); if (nearTowels()) facing = TOWEL_SPOT.facing; keys.clear(); },
   onDone: (color, wear) => {
-    applyOutfit({ ...addTowel(outfit, color), wear });
+    applyOutfit({ ...addTowel(outfit, color), wear }); tour?.done('towel');
     player.celebrate(); toast(wear ? '🐑 양머리 완성! 잘 어울려요' : '🐑 양머리 완성! 옷 버튼 위 🐑로 언제든 써요');
     status.textContent = '폭신한 양머리가 생겼어요.';
   }
@@ -303,6 +311,7 @@ function arrive() {
   const place = activeDestination;
   destinationMarker.visible = false;
   if (place) { setAction(place.action || 'stand'); if (place.facing != null) facing = place.facing; activeDestination = place; status.textContent = place.arrival; }
+  if (place?.id === 'tv') tour?.done('tv');
   if (place?.id === 'shop' && openShopOnArrival) { openShopOnArrival = false; shop.openShop(); }
   if (place?.id === 'towel') { facing = TOWEL_SPOT.facing; if (openTowelOnArrival) { openTowelOnArrival = false; towelGame.open(); } }
 }
@@ -311,6 +320,8 @@ let openShopOnArrival = false;
 let toastTimer = 0;
 function enterRoom(room) {
   currentRoom = room; viewport.dataset.room = room.id;
+  // The lobby step only counts once the intro has led there (a newcomer walks through it earlier).
+  if (room.id !== 'lobby' || tour?.step === 'lobby') tour?.done(room.id === 'lobby' ? 'lobby' : ['hot', 'ice', 'salt'].includes(room.id) ? room.id : '');
   badge.innerHTML = `<i></i> ${room.name} <span>${room.note}</span>`;
   if (!roomToast.dataset.silent) {
     roomToast.textContent = `♨ ${room.name}에 들어왔어요`; roomToast.hidden = false;
@@ -469,14 +480,14 @@ let sleepCommitted = false, fadeTimer = -1;
 function updateSleep(dt) {
   const wanted = action === 'lie' && currentRoom.id === 'sleep';
   if (wanted !== sleepCommitted && fadeTimer < 0) {
-    if (reducedMotion) { sleepCommitted = wanted; sleep.snap(wanted); }
+    if (reducedMotion) { sleepCommitted = wanted; sleep.snap(wanted); if (wanted) tour?.done('sleep'); }
     else { fadeTimer = 0; sleepFade.classList.add('on'); }
   }
   if (fadeTimer >= 0) {
     fadeTimer += dt;
     if (fadeTimer >= FADE_IN) {
       // Fully dark: switch the view at once, then fade back in.
-      sleepCommitted = action === 'lie' && currentRoom.id === 'sleep'; sleep.snap(sleepCommitted);
+      sleepCommitted = action === 'lie' && currentRoom.id === 'sleep'; sleep.snap(sleepCommitted); if (sleepCommitted) tour?.done('sleep');
       fadeTimer = -1; sleepFade.classList.remove('on');
     }
   }
@@ -773,6 +784,7 @@ function showFortune(birth) {
   fortuneResult.hidden = false;
 }
 document.querySelector('#fortune-open').addEventListener('click', () => {
+  tour?.done('fortune');
   placesDialog.close(); const saved = loadBirth();
   fortuneResult.hidden = true;
   if (saved?.date) { document.querySelector('#fortune-date').value = saved.date; document.querySelector('#fortune-time').value = saved.time || ''; showFortune(saved); }
@@ -793,7 +805,7 @@ let spot = null, scrubbing = 0, scrubReady = 0, deskWave = 0, shower = 0;
 const BATH = { hotpool: { time: 8, reward: 2, gap: 300000, enter: '따끈따끈~ 온탕에 들어왔어요 ♨', done: '몸이 사르르 풀렸어요' }, coldpool: { time: 6, reward: 2, gap: 300000, enter: '으아, 차가워! 냉탕에 들어왔어요 🧊', done: '정신이 번쩍! 상쾌해요' }, shower: { time: 4, reward: 1, gap: 180000, enter: '쏴아~ 샤워 중이에요 🚿', done: '깨끗하게 씻었어요' } };
 const bathReady = {};
 function bathReward(kind) {
-  const b = BATH[kind]; bathReady[kind] = Date.now() + b.gap;
+  const b = BATH[kind]; bathReady[kind] = Date.now() + b.gap; tour?.done('bath');
   const got = wallet.earn(b.reward); player.celebrate(); toast(`${b.done}${got ? ` 온기 +${got}♨` : ''}`);
 }
 function leaveSoak() { const back = soak.back; soak = null; hero.position.set(back[0], 0, back[1]); target.copy(hero.position); }
@@ -818,7 +830,7 @@ function updateSpots(dt) {
     scrubbing -= dt;
     if (scrubbing <= 0) {
       scrubbing = 0; scrubReady = Date.now() + SCRUB_GAP;
-      const got = wallet.earn(SCRUB_REWARD); player.celebrate();
+      const got = wallet.earn(SCRUB_REWARD); player.celebrate(); tour?.done('scrub');
       toast(`개운해요! 때가 쏙 빠졌어요 ✨${got ? ` 온기 +${got}♨` : ''}`); status.textContent = '몸도 마음도 반질반질해졌어요.';
     }
   }
@@ -826,7 +838,7 @@ function updateSpots(dt) {
 spotButton.addEventListener('click', () => {
   if (!spot) return;
   if (spot.id === 'desk') {
-    deskWave = 2.5; faceTo({ x: 14.7, z: 4.8 });
+    deskWave = 2.5; faceTo({ x: 14.7, z: 4.8 }); tour?.done('desk');
     if (!lockerKey) {
       lockerKey = 1 + Math.floor(Math.random() * 120); try { localStorage.setItem('jjimjiljung-key', String(lockerKey)); } catch { /* storage may be unavailable */ }
       applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom') }); player.celebrate();
@@ -842,7 +854,7 @@ spotButton.addEventListener('click', () => {
     } else { setAction('stand'); facing = Math.PI; shower = b.time; }
     toast(b.enter); spotButton.hidden = true;
   }
-  else if (spot.id === 'locker') outfitButton.click();
+  else if (spot.id === 'locker') { outfitButton.click(); tour?.done('locker'); }
   else if (spot.id === 'fortune') document.querySelector('#fortune-open').click();
   else if (spot.id === 'scrub') {
     if (Date.now() < scrubReady) { toast(`세신은 ${Math.ceil((scrubReady - Date.now()) / 60000)}분 뒤에 또 받을 수 있어요`); return; }
@@ -854,7 +866,28 @@ spotButton.addEventListener('click', () => {
 
 const towelNudge = document.querySelector('#towel-nudge');
 towelNudge.querySelector('button').addEventListener('click', () => { towelNudge.hidden = true; goToTowel(); });
-if (!outfit.hasTowel) {
+// ---------- 첫 방문 안내 ----------
+function goToPlace(place) {
+  moveTo(place.x, place.z); activeDestination = place;
+  const final = (place.name.charCodeAt(place.name.length - 1) - 0xac00) % 28;
+  status.textContent = place.name + (final && final !== 8 ? '으로' : '로') + ' 걸어가는 중이에요.';
+  if (!route.length) arrive();
+}
+const TOUR_PLACE = { desk: 'entrance', bath: 'bath', locker: 'locker', lobby: 'lobby', hot: 'hot', ice: 'ice', salt: 'salt', fortune: 'fortune', scrub: 'scrub', sleep: 'sleep' };
+tour = createTour({
+  isNew: firstVisit, el: document.querySelector('#tour'), toast,
+  blocked: () => !!document.querySelector('dialog[open]') || towelGame.isOpen || shop.playing || !document.body.classList.contains('room-ready'),
+  onGo: id => {
+    if (id === 'towel') goToTowel();
+    else if (id === 'tv') goToTv();
+    else if (id === 'egg' || id === 'drink') document.querySelector(`[data-action="${id}"]`).click();
+    else if (TOUR_PLACE[id]) goToPlace(DESTINATIONS[TOUR_PLACE[id]]);
+  }
+});
+if (lockerKey) tour.done('desk');
+if (outfit.hasTowel) tour.done('towel');
+setInterval(() => tour.render(), 600);
+if (!outfit.hasTowel && !tour.active) {
   const nudge = setInterval(() => {
     if (document.querySelector('dialog[open]')) return;
     clearInterval(nudge); if (outfit.hasTowel) return;
