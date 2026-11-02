@@ -11,7 +11,7 @@ import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR,
 import { createTvAds } from './ads.js?v=rpg-38';
 import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-38';
 import { createSocial } from './social.js?v=rpg-38';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-38';
+import { createWallet, REST_SECONDS, warmthHint } from './economy.js?v=rpg-38';
 import { createShop } from './shop.js?v=rpg-38';
 import { createInvite } from './invite.js?v=rpg-38';
 import { createTour, loadTour } from './tour.js?v=rpg-38';
@@ -107,6 +107,26 @@ const motes = new THREE.Points(motesGeometry, new THREE.PointsMaterial({ color: 
 // Soaking in a bath (scene-wide so posture changes can climb out at once).
 let soak = null;
 let social = null, localWalking = false, snackSig = '', snackSerial = 0, restTimer = 0;
+const warmthGuideEl = document.querySelector('#warmth-guide');
+const warmthHeadline = warmthGuideEl.querySelector('strong'), warmthDetail = warmthGuideEl.querySelector('small');
+let warmthTick = 0;
+function updateWarmthGuide(dt) {
+  warmthTick += dt;
+  if (warmthTick < .2) return;
+  warmthTick = 0;
+  const guide = warmthHint({
+    roomId: currentRoom?.id, action, restTimer,
+    earnedToday: wallet.snapshot().earnedToday,
+    soak: soak && { kind: soak.kind, done: soak.done, seconds: soak.t },
+    showerSeconds: shower, scrubSeconds: scrubbing,
+    nearbySpot: spot?.id, adReady: nearTv() && tvAds.state === 'ready'
+  });
+  warmthGuideEl.hidden = !guide;
+  if (guide) {
+    if (warmthHeadline.textContent !== guide.headline) warmthHeadline.textContent = guide.headline;
+    if (warmthDetail.textContent !== guide.detail) warmthDetail.textContent = guide.detail;
+  }
+}
 let action = 'stand', facing = 0, elapsed = 0, contextLost = false, raf = 0, lastTime = 0;
 const target = new THREE.Vector3(START.x, 0, START.z);
 const route = [];
@@ -612,7 +632,7 @@ function frame(now) {
     if (restTimer >= REST_SECONDS) { restTimer = 0; const got = wallet.earn(['hot', 'salt', 'bath'].includes(currentRoom.id) ? 2 : 1); if (got) toast(`쉬는 동안 온기가 모였어요 +${got}♨`); }
   } else restTimer = Math.min(restTimer, REST_SECONDS * .5);
   shop.setNearShop(currentRoom.id === 'shop' && !nearTowels());
-  updateTowelShelf(); updateSpots(dt);
+  updateTowelShelf(); updateSpots(dt); updateWarmthGuide(dt);
   motes.visible = !reducedMotion; if (!reducedMotion) { motes.position.set(view.focus.x, 0, view.focus.z); motes.rotation.y = elapsed * .02; }
   renderer.render(scene, camera); raf = requestAnimationFrame(frame);
 }
