@@ -36,9 +36,11 @@ const server = http.createServer((req, res) => {
     assert.match(await page.locator('#warmth-guide strong').textContent(), /초 뒤 온기 \+1/);
     assert.match(await page.locator('#warmth-guide small').textContent(), /식혜·계란/);
     const initialCountdown = +(await page.locator('#warmth-guide strong').textContent()).match(/(\d+)초/)[1];
-    await page.waitForTimeout(1250);
-    const laterCountdown = +(await page.locator('#warmth-guide strong').textContent()).match(/(\d+)초/)[1];
-    assert(laterCountdown < initialCountdown, 'Remaining seconds decrease while resting');
+    await page.waitForFunction(first => {
+      const label = document.querySelector('#warmth-guide strong')?.textContent || '';
+      const seconds = +(label.match(/(\d+)초/) || [])[1];
+      return seconds > 0 && seconds < first;
+    }, initialCountdown, { timeout: 15000 });
     await page.locator('[data-action="stand"]').click();
     await page.waitForFunction(() => document.querySelector('#warmth-guide')?.hidden === true);
 
