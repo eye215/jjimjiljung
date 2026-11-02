@@ -614,3 +614,25 @@ body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #
   .scene-hint{display:none}
   #toast{top:calc(var(--safe-top) + 55px);max-width:calc(100vw - 36px)}
 }
+
+/* Online chip expands to a small inline visitor stats popover, not another modal. */
+#visitor-stats{
+  position:absolute;z-index:9;
+  top:calc(var(--safe-top,0px) + 166px);
+  left:14px;width:min(310px,calc(100vw - 28px));
+  padding:15px 16px 12px;
+  background:var(--ios-panel);color:var(--ios-ink);
+  border:1px solid var(--ios-edge);border-radius:25px;
+  -webkit-backdrop-filter:var(--ios-bright-frost);backdrop-filter:var(--ios-bright-frost);
+  box-shadow:var(--ios-pop);
+}
+#visitor-stats header{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:760}
+#visitor-stats-close{background:rgba(255,255,255,.57);border:1px solid rgba(255,255,255,.8);border-radius:50%;width:31px;height:31px;font-size:20px;color:var(--ios-ink)}
+#visitor-stats dl{margin:12px 0 8px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+#visitor-stats dl div{padding:12px 6px;text-align:center;background:rgba(255,255,255,.48);border:1px solid rgba(255,255,255,.75);border-radius:16px}
+#visitor-stats dt{font-size:10px;color:var(--ios-muted);margin-bottom:6px}
+#visitor-stats dd{margin:0;font-size:16px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+#visitor-stats-note{font-size:10px;line-height:1.5;color:var(--ios-muted);margin:6px 2px 0;word-break:keep-all}
+@media(max-width:760px){#visitor-stats{top:calc(var(--safe-top,0px) + 140px);left:12px}}
+/* A resting visitor cannot consume food while lying down. Wave stays available. */
+.actions [data-action="egg"]:disabled,.actions [data-action="drink"]:disabled{opacity:.32;filter:grayscale(.45);cursor:not-allowed}
