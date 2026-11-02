@@ -78,15 +78,15 @@ const FAKE_ADS = `(function () {
     await page.evaluate(() => window.__tv.teleport(-3.2, 2.6));
     await page.locator('#shop-tv button').click();
     await page.waitForFunction(() => { const s = window.__tv.state(); return s.action === 'sit' && s.tv === 'ready'; });
-    assert.match(await page.locator('#tv-ad').textContent(), /광고 보고 온기 받기 \(\+3♨\)/);
+    assert.match(await page.locator('#tv-ad').textContent(), /광고 보고 온기 받기 \(\+10♨\)/);
     assert(requests.some(url => url.includes('googlesyndication') && url.includes('client=ca-pub-')), 'Ad script loads on sitting');
     await page.screenshot({ path: path.join(output, 'tv-ready.png') });
-    // 2. Watched to the end → +3 and a cheer; rendering pauses during the ad.
+    // 2. Watched to the end → +10 and a cheer; rendering pauses during the ad.
     await page.locator('#tv-ad').click();
     await page.waitForFunction(() => window.__adShowing === true);
     assert.equal((await state(page)).playing, true, 'Rendering and sound pause during the ad');
-    await page.waitForFunction(() => window.__tv.state().points === 3);
-    assert.match(await page.locator('#toast span').textContent(), /온기 \+3/);
+    await page.waitForFunction(() => window.__tv.state().points === 10);
+    assert.match(await page.locator('#toast span').textContent(), /온기 \+10/);
     await page.waitForFunction(() => window.__tv.state().tv === 'cooldown');
     assert.match(await page.locator('#tv-ad').textContent(), /분 뒤에 또/, 'Ads are 2 minutes apart');
     await page.screenshot({ path: path.join(output, 'tv-reward.png') });
@@ -95,10 +95,10 @@ const FAKE_ADS = `(function () {
     await page.waitForFunction(() => window.__tv.state().tv === 'ready');
     await page.locator('#tv-ad').click();
     await page.waitForFunction(() => /다음에 또 봐요/.test(document.querySelector('#toast span').textContent));
-    assert.equal((await state(page)).points, 3, 'Closing early gives nothing');
+    assert.equal((await state(page)).points, 10, 'Closing early gives nothing');
     // 4. Three a day, then the day is done; midnight resets it.
     await page.evaluate(() => { window.__adMode = 'viewed'; });
-    for (const expected of [6, 9]) {
+    for (const expected of [20, 30]) {
       await page.evaluate(() => { window.__timeShift += 121000; });
       await page.waitForFunction(() => window.__tv.state().tv === 'ready');
       await page.locator('#tv-ad').click();
