@@ -981,6 +981,7 @@ document.querySelector('#fortune-open').addEventListener('click', () => {
   fortuneResult.hidden = true;
   if (saved?.date) { document.querySelector('#fortune-date').value = saved.date; document.querySelector('#fortune-time').value = saved.time || ''; }
   document.querySelector('#fortune-consent').checked = false;
+  syncFortuneConsent();
   fortuneDialog.showModal();
 });
 fortuneForm.addEventListener('submit', event => {
@@ -988,6 +989,11 @@ fortuneForm.addEventListener('submit', event => {
   const birth = { date: document.querySelector('#fortune-date').value, time: document.querySelector('#fortune-time').value };
   if (!birth.date) return; saveBirth(birth); showFortune(birth);
 });
+const fortuneConsent = document.querySelector('#fortune-consent');
+const fortuneSubmit = document.querySelector('#fortune-go');
+function syncFortuneConsent() { fortuneSubmit.disabled = !fortuneConsent.checked; fortuneSubmit.style.opacity = fortuneSubmit.disabled ? '0.45' : '1'; }
+fortuneConsent.addEventListener('change', syncFortuneConsent);
+syncFortuneConsent();
 document.querySelector('#fortune-privacy-open').addEventListener('click', () => document.querySelector('#fortune-privacy-dialog').showModal());
 document.querySelector('#fortune-privacy-close').addEventListener('click', () => document.querySelector('#fortune-privacy-dialog').close());
 document.querySelector('#fortune-close').addEventListener('click', () => fortuneDialog.close());
