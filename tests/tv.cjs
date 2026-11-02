@@ -59,7 +59,7 @@ const FAKE_ADS = `(function () {
     await page.route('https://pagead2.googlesyndication.com/**', route => route.fulfill({ contentType: 'text/javascript', body: FAKE_ADS }));
     await page.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__tv = { state: () => ({ action, room: currentRoom.id, points: wallet.snapshot().points, ads: wallet.adStatus(), tv: tvAds.state, playing: adPlaying }), teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
+      await route.fulfill({ response, body: (await response.text()) + '\nwallet.earn = () => 0; /* isolate ad rewards from slow headless rest animation */ window.__tv = { state: () => ({ action, room: currentRoom.id, points: wallet.snapshot().points, ads: wallet.adStatus(), tv: tvAds.state, playing: adPlaying }), teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
     });
     await page.goto(base);
     await page.waitForSelector('#viewport[data-ready="true"]');
