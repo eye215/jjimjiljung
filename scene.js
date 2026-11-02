@@ -127,6 +127,7 @@ let tvReady = false;
 const shop = createShop({
   wallet, toast,
   onGameComplete: kind => tour?.done(kind),
+  onGameCancel: kind => tour?.retry(kind),
   tv: { worth: () => tvReady && tvAds.worthVisiting, go: () => goToTv() },
   eat: (kind, style) => eat(kind, style),
   play: (kind, style) => eat(kind, style),
@@ -879,6 +880,7 @@ function updateSpots(dt) {
   if (near?.id === 'locker' && lockerKey) spotButton.textContent = `👕 ${lockerKey}번 사물함에서 갈아입기`;
   deskWave = Math.max(0, deskWave - dt);
   keepSeatClear(dt);
+  if (soak && tour?.step === 'bath') tour.done('bath');
   if (soak && !soak.done && (soak.t -= dt) <= 0) { soak.done = true; bathReward(soak.kind); }
   if (shower > 0) {
     if (action !== 'stand' || Math.hypot(hero.position.x - spot?.x, hero.position.z - spot?.z) > 1.2 || localWalking) shower = 0;
@@ -963,7 +965,10 @@ tour = createTour({
       else { toast('먼저 입구에서 수건을 받아 주세요 🧺'); goToPlace(DESTINATIONS.entrance); }
     }
     else if (id === 'tv') goToTv();
-    else if (id === 'egg' || id === 'drink') document.querySelector(`[data-action="${id}"]`).click();
+    else if (id === 'egg' || id === 'drink') {
+      document.querySelector(`[data-action="${id}"]`).click();
+      if (shop.playing) tour?.arrived(id);
+    }
     else if (TOUR_PLACE[id]) goToPlace(DESTINATIONS[TOUR_PLACE[id]]);
   }
 });
