@@ -642,3 +642,8 @@ body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #
 #tour span{display:block;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap!important;word-break:normal;line-height:1.2;font-size:12px;font-weight:650;}
 #tour [data-tour-go]{flex:0 0 auto;height:30px;min-width:48px;padding:0 10px;font-size:12px;white-space:nowrap;box-shadow:0 2px 6px rgba(242,104,60,.15)}
 #tour .tour-close{flex:0 0 22px;width:22px;height:28px;font-size:12px;}
+
+/* Thin stroke throughout the in-game HUD, not just the tour. */
+:root{--ios-edge:rgba(255,255,255,.30);--ios-glow:inset 0 0 0 .5px rgba(255,255,255,.30)}
+#hud button,#hud .glass,#hud .pill,#hud .chip,#hud .badge,#tour,#towel-nudge,#actions,#action-bar,#controls button,#joystick,#chat-open,#online-chip,#spot-action,#towel-open{border-width:.5px!important;outline-width:.5px;}
+#tour{border:.5px solid rgba(255,255,255,.30)!important;box-shadow:0 2px 8px rgba(55,35,22,.08)!important;}
