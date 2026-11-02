@@ -7,7 +7,7 @@ import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-39';
 import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-39';
 import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-39';
 import { buildWorld } from './environment.js?v=rpg-39';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, roomAt } from './world.js?v=rpg-39';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, CHAIR_SEATS, roomAt } from './world.js?v=rpg-39';
 import { createTvAds } from './ads.js?v=rpg-39';
 import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-39';
 import { createSocial } from './social.js?v=rpg-39';
@@ -109,7 +109,7 @@ let soak = null;
 let social = null, localWalking = false, snackSig = '', snackSerial = 0, restTimer = 0;
 let action = 'stand', facing = 0, elapsed = 0, contextLost = false, raf = 0, lastTime = 0;
 // Short hand gesture layered over the current seated or reclining posture.
-let waveTimer = 0;
+let waveTimer = 0, seatedChair = null;
 const target = new THREE.Vector3(START.x, 0, START.z);
 const route = [];
 let activeDestination = null, currentRoom = null, tour = null;
@@ -245,6 +245,10 @@ function updateActionButtons() {
 }
 function setAction(next) {
   if (!messages[next]) return;
+  if (seatedChair && next !== 'sit') {
+    // The chair is a solid navigation obstacle. Step outside before walking.
+    hero.position.set(seatedChair.ax,0,seatedChair.az); seatedChair = null;
+  }
   if (soak && next !== 'sit') leaveSoak();
   interruptSnack();
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick();
@@ -254,6 +258,7 @@ function setAction(next) {
   if (next !== 'stand' && next !== 'lie') facing = next === 'sit' && nearTv() ? TV_SEAT.facing : view.yaw;
   // On a 수면실 mat, lie along the bed with the head on its pillow.
   if (next === 'lie') facing = currentRoom?.id === 'sleep' ? 0 : view.yaw + Math.PI / 2;
+  if (next === 'stand' || next === 'lie') seatedChair = null;
   player.sitStyle = currentRoom?.id === 'hot' || currentRoom?.id === 'salt' ? 'cross' : 'relaxed';
   hint.textContent = next === 'stand' ? walkHint : '다시 걷고 싶으면 바닥을 톡 눌러요 ↗';
 }
@@ -931,6 +936,7 @@ function keepSeatClear(dt) {
   if (seatRecheck < .8) return;
   seatRecheck = 0;
   const seats = soak ? POOL_SEATS[soak.kind] : currentRoom?.id === 'scrub' && scrubbing > 0 ? SCRUB_SLOTS
+    : seatedChair ? CHAIR_SEATS.filter(s => s.room === seatedChair.room && s.kind === seatedChair.kind).map(s => [s.x,s.z])
     : currentRoom?.id === 'lobby' && action === 'sit' && nearTv() ? TV_SEATS.map(s => [s.x, s.z]) : null;
   if (!seats) return;
   // Stable tie-break: only the lexicographically later visitor changes seats.
@@ -938,10 +944,13 @@ function keepSeatClear(dt) {
   if (!other.some(p => !p.moving && Math.hypot(p.x - hero.position.x, p.z - hero.position.z) < SEAT_CLEARANCE && (!p.uid || p.uid < (social?.id || '')))) return;
   const seat = freeSeat(seats, [hero.position.x, hero.position.z], other);
   if (seat) {
-    hero.position.set(seat[0], 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
-    toast('다른 손님과 겹치지 않도록 빈자리로 이동했어요 ♨');
+    if (seatedChair) seatedChair = CHAIR_SEATS.find(s => s.x === seat[0] && s.z === seat[1]) || seatedChair;
+    hero.position.set(seat[0], seatedChair?.y || 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
+    // Quiet relocation: don't throw another toast each time a guest sits down.
   } else if (soak) {
     setAction('stand'); toast('탕이 만석이에요. 잠시 후 다시 이용해 주세요.');
+  } else if (seatedChair) {
+    setAction('stand'); toast('의자가 만석이에요. 가까운 빈자리를 이용해 주세요.');
   } else if (currentRoom?.id === 'lobby') {
     setAction('stand'); toast('TV 앞 방석이 만석이에요. 잠시 후 다시 와 주세요.');
   } else {
@@ -1013,6 +1022,19 @@ spotButton.addEventListener('click', () => {
   }
   else if (spot.id === 'locker') { outfitButton.click(); tour?.done('locker'); }
   else if (spot.id === 'fortune') document.querySelector('#fortune-open').click();
+  else if (spot.id === 'chair') {
+    const selected = CHAIR_SEATS.find(s => s.id === spot.chair);
+    if (!selected) return;
+    const nearby = CHAIR_SEATS.filter(s => s.room === selected.room && s.kind === selected.kind);
+    const free = freeSeat(nearby.map(s => [s.x,s.z]), [selected.x,selected.z]);
+    if (!free) { toast('여긴 만석이에요. 빈 의자를 찾아주세요.'); return; }
+    const chair = nearby.find(s => s.x === free[0] && s.z === free[1]);
+    route.length = 0; activeDestination = null; destinationMarker.visible = false;
+    setAction('sit'); seatedChair = chair;
+    hero.position.set(chair.x,chair.y,chair.z); target.copy(hero.position); view.focus.set(chair.x,0,chair.z);
+    facing = chair.face; status.textContent = '의자에 앉아 쉬는 중이에요 ♨';
+    spotButton.hidden = true;
+  }
   else if (spot.id === 'scrub') {
     if (Date.now() < scrubReady) { toast(`세신은 ${Math.ceil((scrubReady - Date.now()) / 60000)}분 뒤에 또 받을 수 있어요`); return; }
     const bed = freeSeat(SCRUB_SLOTS, spot.bed);
