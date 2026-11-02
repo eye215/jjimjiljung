@@ -214,6 +214,11 @@ window.__waveMotion = () => {
     assert(distance((await state(page)).position, afterKeyboard.position) < .03, 'Releasing a key stops walking');
     await page.screenshot({ path: path.join(output, 'mobile.png') });
     for (const action of ['sit', 'lie', 'egg', 'drink', 'wave']) {
+      if (action === 'egg') {
+        assert.equal(await page.locator('[data-action="egg"]').isDisabled(), true, 'Lying disables egg');
+        assert.equal(await page.locator('[data-action="drink"]').isDisabled(), true, 'Lying disables sikhye');
+        await page.locator('[data-action="stand"]').click();
+      }
       await page.locator(`[data-action="${action}"]`).click();
       if (action === 'egg') await page.locator('#game [data-tap]').click();
       await page.waitForTimeout(1200);
