@@ -956,22 +956,32 @@ async function showFortune(birth) {
       session = signed.data.session;
     }
     if (!session) throw Error('로그인 정보를 확인할 수 없어요.');
-    await recordFortuneStage(attempt, 'auth', 'session_ok', performance.now() - started);
-    await recordFortuneStage(attempt, 'request', 'saju-ai', performance.now() - started);
-    const response = await fetch(SUPABASE_URL + '/functions/v1/saju-ai', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SUPABASE_PUBLISHABLE_KEY,
-        Authorization: 'Bearer ' + session.access_token
-      },
-      body: JSON.stringify({ pillar: f.mine + ' / ' + f.today })
-    });
-    const data = await response.json().catch(() => null);
-    await recordFortuneStage(attempt, 'response', 'HTTP_' + response.status + (data?.error ? '_' + data.error : ''), performance.now() - started);
-    if (!response.ok || !data?.text) {
-      throw Error('AI 서버 응답 ' + response.status + (data?.error ? ' · ' + data.error : ' · 응답 확인 필요'));
+    void recordFortuneStage(attempt, 'auth', 'session_ok', performance.now() - started);
+    void recordFortuneStage(attempt, 'request', 'saju-ai', performance.now() - started);
+    // AI is optional: never leave the guest waiting through a 65-second upstream timeout.
+    // If NVIDIA is slow/unreachable, show the fortune computed locally, clearly labelled.
+    let data;
+    let aiError = '';
+    try {
+      const response = await fetch(SUPABASE_URL + '/functions/v1/saju-ai', {
+        method: 'POST',
+        signal: AbortSignal.timeout(12000),
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+          Authorization: 'Bearer ' + session.access_token
+        },
+        body: JSON.stringify({ pillar: f.mine + ' / ' + f.today })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.text) throw Error('HTTP ' + response.status + (payload?.error ? ' ' + payload.error : ''));
+      data = payload;
+    } catch (error) {
+      aiError = String(error?.message || 'AI unavailable').slice(0, 100);
+      data = { title: f.title + ' · 기기에서 계산한 운세', text: f.text, local: true };
     }
+    // Diagnostics are non-blocking and do not delay the result UI.
+    void recordFortuneStage(attempt, 'response', aiError ? 'local_fallback_' + aiError : 'ai_success', performance.now() - started);
     const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
     fortuneResult.innerHTML = `<p class="fortune-voice">🔮 사주 선생님이 들려주는 오늘의 이야기</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
     const labels = fortuneResult.querySelectorAll('b');
@@ -981,8 +991,9 @@ async function showFortune(birth) {
     labels[3].textContent = f.number;
     fortuneResult.querySelector('h3').textContent = data.title || '오늘의 사주 이야기';
     fortuneResult.querySelector('.fortune-text').textContent = data.text;
+    if (data.local) { const notice = document.createElement('p'); notice.className = 'fortune-local-notice'; notice.textContent = 'AI 연결이 지연되어 기기에서 계산한 기본 운세를 보여드려요.'; fortuneResult.append(notice); }
     fortuneSpeaking = 2.3;
-    await recordFortuneStage(attempt, 'render', 'success', performance.now() - started);
+    void recordFortuneStage(attempt, 'render', 'success', performance.now() - started);
   } catch (error) {
     await recordFortuneStage(attempt, 'error', String(error?.message || 'unknown').slice(0, 110), performance.now() - started);
     fortuneResult.innerHTML = '<div class="fortune-error"><span aria-hidden="true">☁️</span><h3>운세를 잠시 불러오지 못했어요</h3><p></p><button type="button" class="fortune-retry">다시 시도하기</button></div>';
