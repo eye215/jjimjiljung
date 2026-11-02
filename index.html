@@ -73,17 +73,17 @@
 <button type="button" id="fortune-open" hidden aria-hidden="true" tabindex="-1"></button>
 <dialog id="fortune-dialog" aria-labelledby="fortune-title">
 <div class="places-heading"><div><span class="places-eyebrow">사주방</span><h2 id="fortune-title">오늘의 운세</h2></div><button id="fortune-close" aria-label="운세 닫기">×</button></div>
-<form id="fortune-form"><label>생년월일<input id="fortune-date" type="date" required min="1900-01-01" max="2030-12-31"></label><label>태어난 시간 <small>(몰라도 괜찮아요)</small><input id="fortune-time" type="time"></label><label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.5"><input id="fortune-consent" type="checkbox" required style="width:18px;min-width:18px;margin-top:2px"> <span>[필수] AI 운세 생성에 필요한 개인정보 수집·이용 및 외부 AI 전송에 동의합니다. <button type="button" id="fortune-privacy-open" class="link-button">자세히 보기</button></span></label><button type="submit" id="fortune-go">동의하고 운세 보기</button></form>
+<form id="fortune-form"><label>생년월일<input id="fortune-date" type="date" required min="1900-01-01" max="2030-12-31"></label><label>태어난 시간 <small>(몰라도 괜찮아요)</small><input id="fortune-time" type="time"></label><label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.5"><input id="fortune-consent" type="checkbox" required style="width:18px;min-width:18px;margin-top:2px"> <span>[필수] AI 운세 생성에 필요한 사주 정보의 AI 전송 및 운세 결과 저장에 동의합니다. <button type="button" id="fortune-privacy-open" class="link-button">자세히 보기</button></span></label><button type="submit" id="fortune-go">동의하고 운세 보기</button></form>
 <section id="fortune-result" hidden aria-live="polite"></section>
-<p class="places-footnote">재미로 보는 운세예요. 생년월일·태어난 시간은 이 기기에 저장되며, 동의 후 운세 생성 시 생년월일과 사주 정보가 AI 서비스로 전송됩니다. <button type="button" id="fortune-forget" class="link-button">생년월일 지우기</button></p>
+<p class="places-footnote">재미로 보는 운세예요. 생년월일·태어난 시간은 이 기기에만 저장됩니다. 운세 생성 시 기기에서 계산한 사주 정보만 AI 서비스로 전송됩니다. <button type="button" id="fortune-forget" class="link-button">생년월일 지우기</button></p>
 </dialog>
 <dialog id="fortune-privacy-dialog" aria-labelledby="fortune-privacy-title" style="max-width:500px;width:calc(100% - 36px);border:0;border-radius:20px;padding:22px;background:#fff;color:#33271f">
 <h2 id="fortune-privacy-title">사주방 개인정보 처리 안내</h2>
 <p>AI 운세는 선택 기능이며 동의하지 않아도 찜질중의 다른 기능을 이용할 수 있습니다.</p>
 <ul style="font-size:14px;line-height:1.8;padding-left:20px">
 <li><b>처리 목적:</b> 오늘의 AI 운세 생성 및 하루 1회 생성 결과 재조회</li>
-<li><b>처리 정보:</b> 생년월일, 입력한 경우 태어난 시간에서 계산된 사주 정보, 익명 사용자 식별자, 운세 결과</li>
-<li><b>전송 경로:</b> 찜질중 서버(Supabase)를 통해 NVIDIA AI API로 운세 생성에 필요한 생년월일·사주 정보 전송. 태어난 시간 원본은 AI API로 직접 전송하지 않음</li>
+<li><b>처리 정보:</b> 기기에서 계산된 사주 정보, 익명 사용자 식별자, 운세 결과. 생년월일·태어난 시간 원본은 서버로 전송하거나 저장하지 않음</li>
+<li><b>전송 경로:</b> 찜질중 서버(Supabase)를 통해 NVIDIA AI API로 운세 생성에 필요한 사주 정보만 전송. 생년월일·태어난 시간 원본은 전송하지 않음</li>
 <li><b>보관:</b> 입력 생년월일·시간은 브라우저에 저장되어 직접 삭제 가능. 생성된 운세는 사용자 ID와 날짜에 연결되어 서버에 저장됨. 현재 서버 운세의 자동 삭제 기간은 설정되어 있지 않음</li>
 <li><b>국외 처리:</b> 외부 AI 서비스 및 서버의 해외 인프라를 통해 정보가 처리될 수 있음. 제공업체의 세부 보관·국외 이전 조건은 운영자 확인이 필요함</li>
 <li><b>동의 거부:</b> 거부 가능하며 AI 운세 생성만 이용할 수 없음</li>
@@ -131,5 +131,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-46').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-47').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>
