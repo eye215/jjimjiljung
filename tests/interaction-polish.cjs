@@ -4,6 +4,8 @@ const path = require('node:path');
 const fs = require('node:fs');
 const http = require('node:http');
 const root = path.resolve(__dirname, '..');
+const output = path.join(root,'test-results');
+fs.mkdirSync(output,{recursive:true});
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://localhost'), file = path.resolve(root, '.' + (u.pathname === '/' ? '/index.html' : decodeURIComponent(u.pathname)));
   if (!file.startsWith(root + path.sep)) return res.writeHead(403).end();
@@ -46,6 +48,7 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('[data-action="drink"]').isDisabled(),true,'Lying blocks drinks');
     await page.locator('[data-action="wave"]').click();
     assert.equal((await page.evaluate(()=>window.__p.state())).action,'lie','Greeting while lying retains posture');
+    await page.screenshot({path:path.join(output,'lying-greeting-mobile.png')});
     await page.locator('[data-action="stand"]').click();
     assert.equal(await page.locator('[data-action="egg"]').isDisabled(),false,'Standing enables egg');
     await page.locator('[data-action="egg"]').click();
@@ -56,6 +59,11 @@ const server = http.createServer((req, res) => {
     await page.locator('[data-action="drink"]').click();
     await page.waitForFunction(()=>window.__p.state().snack==='drink');
     assert.equal((await page.evaluate(()=>window.__p.state())).action,'stand','Drinking keeps standing posture');
+    const prop=await page.evaluate(()=>({parentIsBone:!!player.snackRoot.parent?.isBone, visible:player.snackRoot.visible, relativeToHead:player.snackRoot.getWorldPosition(new THREE.Vector3()).distanceTo(player.head.getWorldPosition(new THREE.Vector3()))}));
+    assert.equal(prop.parentIsBone,false,'Sikhye cup must be anchored to the torso, not the shoulder-rotating hand bone');
+    assert.equal(prop.visible,true,'Sikhye cup remains visible while drinking');
+    assert(prop.relativeToHead<2.5,'Sikhye cup stays near the mouth and upper body');
+    await page.screenshot({path:path.join(output,'standing-sikhye-cup-mobile.png')});
     await page.locator('#game-close').click();
     await page.evaluate(()=>window.__p.tp(-1.1,5.48));
     await page.locator('#spot-action',{hasText:'의자'}).waitFor({state:'visible'});
