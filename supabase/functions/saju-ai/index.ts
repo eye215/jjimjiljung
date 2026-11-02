@@ -21,6 +21,18 @@ Deno.serve(async (request) => {
     headers: { authorization: bearer, apikey: publicKey },
   }).catch(() => null);
   if (!verified?.ok) return respond({ error: "Login required" }, 401);
+  const user = await verified.json();
+  const uid = user.id;
+  const secret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!uid || !secret) return respond({error:"Database unavailable"},503);
+  const day = new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const url = supabaseUrl + "/rest/v1/daily_fortunes";
+  const headersDb = {apikey:secret,authorization:"Bearer "+secret,"Content-Type":"application/json"};
+  const query = "?user_id=eq."+encodeURIComponent(uid)+"&fortune_date=eq."+day+"&select=title,fortune_text";
+  const prior = await fetch(url+query,{headers:headersDb});
+  if (!prior.ok) return respond({error:"Database unavailable"},503);
+  const found = await prior.json();
+  if (found.length) return respond({title:found[0].title,text:found[0].fortune_text,cached:true});
   const apiKey = Deno.env.get("NVIDIA_API_KEY");
   if (!apiKey) return respond({ error: "AI not configured" }, 503);
   let input: Record<string, unknown>;
@@ -49,7 +61,13 @@ Deno.serve(async (request) => {
     const result = await response.json();
     const text = String(result?.choices?.[0]?.message?.content || "").trim().slice(0, 600);
     if (!text) return respond({ error: "Empty AI response" }, 502);
-    return respond({ text });
+    const title = "오늘의 사주 이야기";
+    const stored = await fetch(url,{method:"POST",headers:{...headersDb,Prefer:"resolution=ignore-duplicates"},body:JSON.stringify({user_id:uid,fortune_date:day,title,fortune_text:text})});
+    if (!stored.ok) return respond({error:"Database unavailable"},503);
+    const finalRead = await fetch(url+query,{headers:headersDb});
+    if (!finalRead.ok) return respond({error:"Database unavailable"},503);
+    const finalRows = await finalRead.json();
+    return respond({title:finalRows[0]?.title||title,text:finalRows[0]?.fortune_text||text,cached:false});
   } catch { return respond({ error: "AI request timed out" }, 504); }
   finally { clearTimeout(timer); }
 });
