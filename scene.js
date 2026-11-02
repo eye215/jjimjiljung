@@ -921,7 +921,20 @@ async function showFortune(birth) {
   fortuneBusy = true;
   const attempt = fortuneAttemptId(), started = performance.now();
   fortuneResult.hidden = false;
-  fortuneResult.textContent = '🔮 사주 선생님이 오늘의 운세를 확인하고 있어요…';
+  fortuneResult.innerHTML = `<div class="fortune-loading" role="status" aria-live="polite">
+    <div class="fortune-orbit" aria-hidden="true"><span>♨</span><i></i><b></b></div>
+    <p class="fortune-loading-kicker">TODAY'S FORTUNE</p>
+    <h3>오늘의 운세를 살펴보고 있어요</h3>
+    <p class="fortune-loading-copy">사주 선생님이 오늘의 기운을 읽고 있어요.<br>잠시만 기다려 주세요.</p>
+    <div class="fortune-progress"><i></i></div>
+    <p class="fortune-loading-step">사주 정보를 정리하고 있어요</p>
+  </div>`;
+  const loadingSteps = ['사주 정보를 정리하고 있어요', '오늘의 흐름을 살펴보고 있어요', '좋은 조언을 고르고 있어요'];
+  let loadingIndex = 0;
+  const loadingTimer = setInterval(() => {
+    const step = fortuneResult.querySelector('.fortune-loading-step');
+    if (step) step.textContent = loadingSteps[(++loadingIndex) % loadingSteps.length];
+  }, 2600);
   try {
     const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = await import('./config.js?v=rpg-40');
     if (!window.supabase?.createClient) {
@@ -972,8 +985,13 @@ async function showFortune(birth) {
     await recordFortuneStage(attempt, 'render', 'success', performance.now() - started);
   } catch (error) {
     await recordFortuneStage(attempt, 'error', String(error?.message || 'unknown').slice(0, 110), performance.now() - started);
-    fortuneResult.textContent = '⚠️ ' + (error?.message || '운세를 불러오지 못했어요.');
-  } finally { fortuneBusy = false; }
+    fortuneResult.innerHTML = '<div class="fortune-error"><span aria-hidden="true">☁️</span><h3>운세를 잠시 불러오지 못했어요</h3><p></p><button type="button" class="fortune-retry">다시 시도하기</button></div>';
+    fortuneResult.querySelector('.fortune-error p').textContent = error?.message || '잠시 후 다시 시도해 주세요.';
+    fortuneResult.querySelector('.fortune-retry').addEventListener('click', () => showFortune(birth));
+  } finally {
+    clearInterval(loadingTimer);
+    fortuneBusy = false;
+  }
 }
 document.querySelector('#fortune-open').addEventListener('click', () => {
   tour?.done('fortune');
