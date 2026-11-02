@@ -880,14 +880,27 @@ function onGreet({ type, from, name, gid }) {
 
 // ---------- 사주방: today's fortune, computed in the browser ----------
 const fortuneDialog = document.querySelector('#fortune-dialog'), fortuneForm = document.querySelector('#fortune-form'), fortuneResult = document.querySelector('#fortune-result');
+const FORTUNE_DAILY_KEY = 'jjimjiljung-fortune-daily-v1';
+function todayInKorea() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
 function showFortune(birth) {
   const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null); if (!f) return;
+  const today = todayInKorea();
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(FORTUNE_DAILY_KEY) || 'null'); } catch { /* private mode */ }
+  // Once generated, the result remains identical for the whole Korean calendar day.
+  // A changed birth date/time must not generate another result on that day.
+  const isCached = saved?.day === today && typeof saved.title === 'string' && typeof saved.text === 'string';
+  const resultTitle = isCached ? saved.title : f.title;
+  const resultText = isCached ? saved.text : f.text;
+  if (!isCached) {
+    try { localStorage.setItem(FORTUNE_DAILY_KEY, JSON.stringify({ day: today, title: resultTitle, text: resultText, pillars: f.mine, scores: f.scores, color: f.color, number: f.number })); } catch { /* storage unavailable */ }
+  }
   const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
   fortuneResult.innerHTML = `<p class="fortune-voice"><span aria-hidden="true">🔮</span> 사주 선생님이 들려주는 오늘의 이야기</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
   const b = fortuneResult.querySelectorAll('b');
   b[0].textContent = `${f.mine}(${f.element})`; b[1].textContent = `${f.today}(${f.todayElement})`; b[2].textContent = f.color; b[3].textContent = f.number;
-  fortuneResult.querySelector('h3').textContent = f.title;
-  fortuneResult.querySelector('.fortune-text').textContent = `“${f.text} 오늘은 ${f.color} 계열이 잘 어울리겠네요. 행운의 숫자는 ${f.number}이에요.”`;
+  fortuneResult.querySelector('h3').textContent = resultTitle;
+  fortuneResult.querySelector('.fortune-text').textContent = `“${resultText} 오늘은 ${f.color} 계열이 잘 어울리겠네요. 행운의 숫자는 ${f.number}이에요.”`;
   // The teacher gestures while reading. The dialog itself is the speech bubble;
   // no extra modal/toast is placed over an already-crowded 3D screen.
   fortuneSpeaking = 2.3;
