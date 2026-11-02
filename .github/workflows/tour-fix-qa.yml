@@ -28,13 +28,18 @@ jobs:
           node tests/navigation.cjs
           node tests/economy.cjs
           node tests/fortune.cjs
+          node tests/chat.cjs
+          node tests/shop.cjs
+          node tests/invite.cjs
+          node tests/channel-readiness.cjs
+          node tests/head-model.cjs
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        suite: [glass, interactions, wing, tour, tv]
+        suite: [glass, interactions, wing, tour, tv, multiplayer]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,6 +55,7 @@ jobs:
             wing) node tests/wing.cjs ;;
             tour) node tests/tour-browser.cjs ;;
             tv) node tests/tv.cjs ;;
+            multiplayer) node tests/multiplayer.cjs ;;
           esac
       - uses: actions/upload-artifact@v4
         if: always()
