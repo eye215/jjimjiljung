@@ -952,7 +952,7 @@ async function showFortune(birth) {
         apikey: SUPABASE_PUBLISHABLE_KEY,
         Authorization: 'Bearer ' + session.access_token
       },
-      body: JSON.stringify({ birth: birth.date, today: todayInKorea(), pillar: f.mine + ' / ' + f.today })
+      body: JSON.stringify({ pillar: f.mine + ' / ' + f.today })
     });
     const data = await response.json().catch(() => null);
     await recordFortuneStage(attempt, 'response', 'HTTP_' + response.status + (data?.error ? '_' + data.error : ''), performance.now() - started);
