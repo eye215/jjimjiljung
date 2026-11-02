@@ -917,6 +917,7 @@ let fortuneBusy = false;
 async function showFortune(birth) {
   const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
   if (!f || fortuneBusy) return;
+  if (!document.querySelector('#fortune-consent')?.checked) { toast('개인정보 처리 안내를 확인하고 동의해 주세요.'); return; }
   fortuneBusy = true;
   const attempt = fortuneAttemptId(), started = performance.now();
   fortuneResult.hidden = false;
@@ -978,7 +979,8 @@ document.querySelector('#fortune-open').addEventListener('click', () => {
   tour?.done('fortune');
   placesDialog.close(); const saved = loadBirth();
   fortuneResult.hidden = true;
-  if (saved?.date) { document.querySelector('#fortune-date').value = saved.date; document.querySelector('#fortune-time').value = saved.time || ''; showFortune(saved); }
+  if (saved?.date) { document.querySelector('#fortune-date').value = saved.date; document.querySelector('#fortune-time').value = saved.time || ''; }
+  document.querySelector('#fortune-consent').checked = false;
   fortuneDialog.showModal();
 });
 fortuneForm.addEventListener('submit', event => {
@@ -986,6 +988,8 @@ fortuneForm.addEventListener('submit', event => {
   const birth = { date: document.querySelector('#fortune-date').value, time: document.querySelector('#fortune-time').value };
   if (!birth.date) return; saveBirth(birth); showFortune(birth);
 });
+document.querySelector('#fortune-privacy-open').addEventListener('click', () => document.querySelector('#fortune-privacy-dialog').showModal());
+document.querySelector('#fortune-privacy-close').addEventListener('click', () => document.querySelector('#fortune-privacy-dialog').close());
 document.querySelector('#fortune-close').addEventListener('click', () => fortuneDialog.close());
 document.querySelector('#fortune-forget').addEventListener('click', () => { saveBirth(null); fortuneForm.reset(); fortuneResult.hidden = true; toast('생년월일을 지웠어요'); });
 
