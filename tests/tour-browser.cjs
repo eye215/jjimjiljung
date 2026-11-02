@@ -33,28 +33,49 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
     assert((await state()).done.includes('drink'),'Finished sikhye mini-game completes the drink tour step');console.log('PASS: completed sikhye marks tour drink step');return;
   }
   await step('desk');assert.equal((await state()).room,'entrance');assert((await state()).plush);
-  await checkLayout('mobile-new-visitor');await page.locator('[data-tour-go]').click();await page.locator('#spot-action',{hasText:'열쇠'}).click();await step('bath');
+  await checkLayout('mobile-new-visitor');await page.locator('[data-tour-go]').click();await page.locator('#spot-action',{hasText:'열쇠'}).click();await step('locker');
   const key=await page.evaluate(()=>localStorage.getItem('jjimjiljung-key'));assert(+key>=1&&+key<=120);
-  await page.locator('[data-tour-go]').click();assert.equal((await state()).destination,'bath');assert((await state()).route>0);
-  await tp(.6,9.7);await page.locator('#spot-action',{hasText:'온탕'}).click();await page.evaluate(()=>window.__tourQA.finishTimedActivity());await done('bath');await page.locator('[data-action="stand"]').click();await step('locker');
-  await page.reload();await ready();await step('locker');assert.equal(await page.evaluate(()=>localStorage.getItem('jjimjiljung-key')),key);assert((await state()).done.includes('bath'));
+  assert.equal(await page.evaluate(()=>localStorage.getItem('jjimjiljung-issued-towel-v1')),'1','The entrance hands out a raw towel');
   await tp(-6,11);await page.locator('#spot-action',{hasText:'사물함'}).click();await step('towel');
-  await place('towel');await page.locator('[data-tour-go]').click();await page.locator('#towel-game').waitFor({state:'visible'});
-  const cloth=await page.locator('.towel-cloth').boundingBox();await page.mouse.move(cloth.x+cloth.width/2,cloth.y+20);await page.mouse.down();await page.mouse.move(cloth.x+cloth.width/2,cloth.y+120,{steps:6});await page.mouse.up();await page.locator('#towel-step',{hasText:'2/3'}).waitFor();
-  for(let i=0;i<5;i++){await page.locator('[data-side=left]').click();await page.locator('[data-side=right]').click();}await page.locator('#towel-finish').click();await done('towel');await step('lobby');
+  await page.reload();await ready();await step('towel');assert.equal(await page.evaluate(()=>localStorage.getItem('jjimjiljung-key')),key);
+  // Use the entrance-issued towel where the visitor changes; the shop shelf still works afterwards.
+  await page.locator('[data-tour-go]').click();await page.locator('#towel-game').waitFor({state:'visible'});
+  // The keyboard fold is an actual accessible UI path. Mouse drag can miss the animated cloth in headless mobile emulation.
+  await page.locator('.towel-cloth').press('ArrowDown');await page.locator('#towel-step',{hasText:'2/3'}).waitFor();
+  for(let i=0;i<5;i++){await page.locator('[data-side=left]').click();await page.locator('[data-side=right]').click();}await page.locator('#towel-finish').click();await done('towel');await step('bath');
+  await page.locator('[data-tour-go]').click();assert.equal((await state()).destination,'bath');assert((await state()).route>0);
+  await tp(.6,9.7);await page.locator('#spot-action',{hasText:'온탕'}).click();
+  await done('bath');await step('lobby'); // Soak entry counts immediately, reward still runs separately.
+  await page.evaluate(()=>window.__tourQA.finishTimedActivity());await page.locator('[data-action="stand"]').click();
   await place('lobby');await step('hot');await checkLayout('mobile-lobby');
   await page.setViewportSize({width:1280,height:800});await checkLayout('desktop-lobby');await page.setViewportSize({width:390,height:844});
   await place('hot');await step('tv');await place('tv');await page.locator('[data-tour-go]').click();await step('egg');
-  await page.locator('[data-tour-go]').click();await page.locator('#game [data-tap]').click();await page.locator('#game-result').waitFor();await page.locator('#game [data-game-close]').click();await done('egg');await step('ice');
-  await place('ice');await step('drink');
-  // Cancellation must not complete the tour, but finishing the mini-game must.
+  // Starting then abandoning an egg does NOT complete the tour.
+  await page.locator('[data-tour-go]').click();await page.locator('#game-close').click();
+  assert(!(await state()).done.includes('egg'),'Canceled egg must remain pending');
+  assert.equal(await page.locator('[data-tour-go]').isDisabled(),false,'Canceled egg unlocks retry');
+  // A completed crack counts immediately on its result screen, before the 3D eating clip ends.
+  await page.locator('[data-tour-go]').click();await page.locator('#game [data-tap]').click();
+  await page.locator('#game-result').waitFor({state:'visible'});await done('egg');await step('drink');
+  await page.locator('#game [data-game-close]').click();
+  // Sikhye directly follows egg. Cancel doesn't count; completing a result does.
   await page.locator('[data-tour-go]').click();await page.locator('#game-close').click();assert(!(await state()).done.includes('drink'));
-  await page.locator('[data-tour-go]').click();await page.locator('#game [data-hold]').waitFor();await page.locator('#game-result').waitFor({state:'visible'});await page.locator('#game [data-game-close]').click();
-  await done('drink');await step('salt');await place('salt');await step('fortune');
+  await page.locator('[data-tour-go]').click();await page.locator('#game [data-hold]').waitFor();
+  await page.locator('#game-result').waitFor({state:'visible'});await done('drink');await step('ice');
+  await page.locator('#game [data-game-close]').click();
+  await place('ice');await step('salt');await place('salt');await step('fortune');
   await tp(-11.5,11.8);await page.locator('#spot-action',{hasText:'운세'}).click();await page.locator('#fortune-dialog[open]').waitFor();await page.locator('#fortune-close').click();await step('scrub');
   await tp(11.5,11);await page.locator('#spot-action',{hasText:'세신'}).click();await page.evaluate(()=>window.__tourQA.finishTimedActivity());await done('scrub');await page.locator('[data-action="stand"]').click();await step('sleep');
   await place('sleep');await page.locator('[data-action="lie"]').click();await done('sleep');assert.equal((await state()).done.length,14);assert.equal((await state()).step,null);
   await page.reload();await ready();assert.equal((await state()).done.length,14);assert.equal((await state()).step,null);
+  const savedBag=await page.evaluate(()=>localStorage.getItem('jjimjiljung-wallet-v1'));
+  const savedOutfit=await page.evaluate(()=>localStorage.getItem('jjimjiljung-outfit-v2'));
+  // Explicit replay is allowed, but no save-data key except the tutorial changes.
+  await page.locator('#places-open').click();await page.locator('#tour-restart').click();await step('desk');
+  assert.equal(await page.evaluate(()=>localStorage.getItem('jjimjiljung-key')),key);
+  assert.equal(await page.evaluate(()=>localStorage.getItem('jjimjiljung-wallet-v1')),savedBag);
+  assert.equal(await page.evaluate(()=>localStorage.getItem('jjimjiljung-outfit-v2')),savedOutfit);
+  await page.reload();await ready();await step('desk');
   // A pre-tour visitor with a locker key must retain the lobby start and no nudge.
   await page.evaluate(()=>{localStorage.removeItem('jjimjiljung-tour-v1');localStorage.setItem('jjimjiljung-key','31');});await page.reload();await ready();assert.equal((await state()).room,'lobby');assert.equal((await state()).step,null);
   const stats=await page.evaluate(()=>window.__tourQA.stats());
@@ -62,6 +83,6 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   const moduleVersions=await page.evaluate(()=>{const byPath={};for(const e of performance.getEntriesByType('resource')){const u=new URL(e.name);if(u.pathname.endsWith('.js'))(byPath[u.pathname]??=new Set()).add(u.search);}return Object.entries(byPath).filter(([,v])=>v.size>1).map(([p,v])=>[p,[...v]]);});
   const report={layout,stats,frameMs:{mean:frames.reduce((a,b)=>a+b,0)/frames.length,p95:frames.slice().sort((a,b)=>a-b)[56]},moduleVersions,errors};fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));
   assert.deepEqual(errors,[]);assert.deepEqual(moduleVersions,[],'No duplicate module versions');assert(layout.every(x=>x.overlaps.length===0),'Tour must not cover controls: '+JSON.stringify(layout));
-  console.log('PASS browser tour: all 14 real completion hooks, cancelled drink stays pending, key/progress reload, old visitor skipped, mobile/desktop controls, real models and module loading');console.log(JSON.stringify(report));
+  console.log('PASS browser tour: key+towel+outfit → locker → sheep cap → bath → lobby; immediate bath completion, 14 hooks, replay preserves belongings, legacy visitors unaffected');console.log(JSON.stringify(report));
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});

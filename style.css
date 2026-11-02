@@ -232,6 +232,7 @@ body:not(.room-ready) #dress{display:none}
 #toast{width:max-content;max-width:calc(100% - 24px)}#toast span{white-space:normal;word-break:keep-all;line-height:1.4}
 #towel-nudge,#tour{position:absolute;z-index:4;left:50%;transform:translateX(-50%);bottom:205px;display:flex;align-items:center;gap:10px;height:48px;padding:0 6px 0 16px;border-radius:999px;color:var(--ink);font-size:14px;font-weight:700;white-space:nowrap;background:var(--lg-fill);-webkit-backdrop-filter:var(--lg-blur);backdrop-filter:var(--lg-blur);box-shadow:var(--lg-shadow),inset 0 0 0 .75px rgba(255,255,255,.7);animation:toast .4s ease-out}
 #towel-nudge button,#tour [data-tour-go]{height:36px;padding:0 15px;border:0;border-radius:999px;background:var(--hot);color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 14px rgba(242,104,60,.3)}
+#tour [data-tour-go]:disabled{background:rgba(112,103,95,.18);color:#8b8076;box-shadow:none;cursor:default;opacity:.85}
 @media(max-width:760px){#towel-nudge,#tour{bottom:206px}}@media(max-height:500px) and (orientation:landscape){#towel-nudge,#tour{bottom:120px}}
 #tour{gap:8px;padding-right:4px;max-width:calc(100vw - 32px)}#tour span{overflow:hidden;text-overflow:ellipsis}#tour .tour-close{width:30px;height:30px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--ink);opacity:.55;font-size:13px}
 body.sleeping #towel-nudge,body.towel-playing #towel-nudge,body:not(.room-ready) #towel-nudge,body.chat-open #towel-nudge{display:none}

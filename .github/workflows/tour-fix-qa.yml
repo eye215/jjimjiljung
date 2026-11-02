@@ -1,0 +1,32 @@
+name: Tour and TV regression QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '*.js'
+      - '*.html'
+      - '*.css'
+      - 'tests/**'
+      - '.github/workflows/tour-fix-qa.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run check
+      - run: node tests/module-cache.cjs && node tests/tour.cjs && node tests/seat-layout.cjs
+      - run: node tests/wing.cjs
+      - run: node tests/tour-browser.cjs
+      - run: node tests/tv.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tour-tv-screenshots
+          path: test-results/
+          retention-days: 2

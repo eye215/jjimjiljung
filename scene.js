@@ -1,20 +1,20 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-37';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-37';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-37';
-import { createTowelGame } from './towel.js?v=rpg-37';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-37';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-37';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-37';
-import { buildWorld } from './environment.js?v=rpg-37';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, roomAt } from './world.js?v=rpg-37';
-import { createTvAds } from './ads.js?v=rpg-37';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-37';
-import { createSocial } from './social.js?v=rpg-37';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-37';
-import { createShop } from './shop.js?v=rpg-37';
-import { createInvite } from './invite.js?v=rpg-37';
-import { createTour, loadTour } from './tour.js?v=rpg-37';
+import { planPath, stepMovement } from './navigation.js?v=rpg-38';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-38';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-38';
+import { createTowelGame } from './towel.js?v=rpg-38';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-38';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-38';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-38';
+import { buildWorld } from './environment.js?v=rpg-38';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, roomAt } from './world.js?v=rpg-38';
+import { createTvAds } from './ads.js?v=rpg-38';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-38';
+import { createSocial } from './social.js?v=rpg-38';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-38';
+import { createShop } from './shop.js?v=rpg-38';
+import { createInvite } from './invite.js?v=rpg-38';
+import { createTour, loadTour } from './tour.js?v=rpg-38';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -126,6 +126,8 @@ toastButton.addEventListener('click', () => { toastBox.hidden = true; toastActio
 let tvReady = false;
 const shop = createShop({
   wallet, toast,
+  onGameComplete: kind => tour?.done(kind),
+  onGameCancel: kind => tour?.retry(kind),
   tv: { worth: () => tvReady && tvAds.worthVisiting, go: () => goToTv() },
   eat: (kind, style) => eat(kind, style),
   play: (kind, style) => eat(kind, style),
@@ -149,10 +151,14 @@ const tvAds = createTvAds({
 });
 tvReady = true; shop.render();
 function goToTv() {
-  if (Math.hypot(hero.position.x - TV_SEAT.x, hero.position.z - TV_SEAT.z) < .3) { setAction('sit'); return; }
-  moveTo(TV_SEAT.x, TV_SEAT.z); activeDestination = TV_SEAT; status.textContent = 'TV 앞 방석으로 걸어가는 중이에요.';
+  const seat = freeSeat(TV_SEATS.map(s => [s.x, s.z]), [hero.position.x, hero.position.z]);
+  if (!seat) { toast('TV 앞 방석이 모두 찼어요. 잠시 후 다시 와 주세요 📺'); return; }
+  const selected = TV_SEATS.find(s => s.x === seat[0] && s.z === seat[1]);
+  if (Math.hypot(hero.position.x - selected.x, hero.position.z - selected.z) < .3) { setAction('sit'); return; }
+  moveTo(selected.x, selected.z); activeDestination = selected; status.textContent = '빈 TV 방석으로 걸어가는 중이에요.';
 }
-const nearTv = () => currentRoom?.id === 'lobby' && Math.hypot(hero.position.x - TV_SEAT.x, hero.position.z - TV_SEAT.z) < .8;
+const nearTv = () => currentRoom?.id === 'lobby' &&
+  TV_SEATS.some(s => Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < .9);
 const tvPoint = new THREE.Vector3();
 function updateTv(dt) {
   const seated = action === 'sit' && nearTv();
@@ -285,6 +291,7 @@ const towelOpen = document.querySelector('#towel-open');
 let openTowelOnArrival = false;
 const towelGame = createTowelGame({
   onOpen: () => { setAction('stand'); if (nearTowels()) facing = TOWEL_SPOT.facing; keys.clear(); },
+  onClose: () => tour?.retry('towel'),
   onDone: (color, wear) => {
     applyOutfit({ ...addTowel(outfit, color), wear }); tour?.done('towel');
     player.celebrate(); toast(wear ? '🐑 양머리 완성! 잘 어울려요' : '🐑 양머리 완성! 옷 버튼 위 🐑로 언제든 써요');
@@ -315,6 +322,8 @@ function arrive() {
   const place = activeDestination;
   destinationMarker.visible = false;
   if (place) { setAction(place.action || 'stand'); if (place.facing != null) facing = place.facing; activeDestination = place; status.textContent = place.arrival; }
+  const arrivalSteps = { entrance: 'desk', locker: 'locker', bath: 'bath', fortune: 'fortune', scrub: 'scrub', sleep: 'sleep' };
+  if (place && arrivalSteps[place.id]) tour?.arrived(arrivalSteps[place.id]);
   if (place?.id === 'tv') tour?.done('tv');
   if (place?.id === 'shop' && openShopOnArrival) { openShopOnArrival = false; shop.openShop(); }
   if (place?.id === 'towel') { facing = TOWEL_SPOT.facing; if (openTowelOnArrival) { openTowelOnArrival = false; towelGame.open(); } }
@@ -326,6 +335,7 @@ function enterRoom(room) {
   currentRoom = room; viewport.dataset.room = room.id;
   // The lobby step only counts once the intro has led there (a newcomer walks through it earlier).
   if (room.id !== 'lobby' || tour?.step === 'lobby') tour?.done(room.id === 'lobby' ? 'lobby' : ['hot', 'ice', 'salt'].includes(room.id) ? room.id : '');
+  if (['locker', 'bath', 'fortune', 'scrub', 'sleep'].includes(room.id)) tour?.arrived(room.id);
   badge.innerHTML = `<i></i> ${room.name} <span>${room.note}</span>`;
   if (!roomToast.dataset.silent) {
     roomToast.textContent = `♨ ${room.name}에 들어왔어요`; roomToast.hidden = false;
@@ -815,6 +825,11 @@ function bathReward(kind) {
 function leaveSoak() { const back = soak.back; soak = null; hero.position.set(back[0], 0, back[1]); target.copy(hero.position); }
 // 입구 카운터: the first visit hands over a locker key (kept on this device) and a fresh 찜질복.
 let lockerKey = 0; try { lockerKey = Number(localStorage.getItem('jjimjiljung-key')) || 0; } catch { /* storage may be unavailable */ }
+// Raw towel issued on arrival is independent of the sheep-cap craft. Preserve older
+// visitors' keys and towels: updates or tour replays must never wipe inventory.
+const ISSUED_TOWEL_KEY = 'jjimjiljung-issued-towel-v1';
+let issuedTowel = !!lockerKey;
+try { issuedTowel = issuedTowel || localStorage.getItem(ISSUED_TOWEL_KEY) === '1'; } catch { /* optional */ }
 const SCRUB_TIME = 6, SCRUB_GAP = 10 * 60 * 1000, SCRUB_REWARD = 2;
 // Users and resident guests share the physical spots; never place visitors on
 // top of one another. Deterministic ties resolve two simultaneous arrivals.
@@ -836,7 +851,8 @@ function keepSeatClear(dt) {
   seatRecheck += dt;
   if (seatRecheck < .8) return;
   seatRecheck = 0;
-  const seats = soak ? POOL_SEATS[soak.kind] : currentRoom?.id === 'scrub' && scrubbing > 0 ? SCRUB_SLOTS : null;
+  const seats = soak ? POOL_SEATS[soak.kind] : currentRoom?.id === 'scrub' && scrubbing > 0 ? SCRUB_SLOTS
+    : currentRoom?.id === 'lobby' && action === 'sit' && nearTv() ? TV_SEATS.map(s => [s.x, s.z]) : null;
   if (!seats) return;
   // Stable tie-break: only the lexicographically later visitor changes seats.
   const other = occupiedPositions();
@@ -847,6 +863,8 @@ function keepSeatClear(dt) {
     toast('다른 손님과 겹치지 않도록 빈자리로 이동했어요 ♨');
   } else if (soak) {
     setAction('stand'); toast('탕이 만석이에요. 잠시 후 다시 이용해 주세요.');
+  } else if (currentRoom?.id === 'lobby') {
+    setAction('stand'); toast('TV 앞 방석이 만석이에요. 잠시 후 다시 와 주세요.');
   } else {
     scrubbing = 0; setAction('stand');
     hero.position.set(8.8, 0, 12.8); target.copy(hero.position); view.focus.set(8.8, 0, 12.8);
@@ -862,6 +880,7 @@ function updateSpots(dt) {
   if (near?.id === 'locker' && lockerKey) spotButton.textContent = `👕 ${lockerKey}번 사물함에서 갈아입기`;
   deskWave = Math.max(0, deskWave - dt);
   keepSeatClear(dt);
+  if (soak && tour?.step === 'bath') tour.done('bath');
   if (soak && !soak.done && (soak.t -= dt) <= 0) { soak.done = true; bathReward(soak.kind); }
   if (shower > 0) {
     if (action !== 'stand' || Math.hypot(hero.position.x - spot?.x, hero.position.z - spot?.z) > 1.2 || localWalking) shower = 0;
@@ -885,18 +904,32 @@ spotButton.addEventListener('click', () => {
     if (!lockerKey) {
       lockerKey = 1 + Math.floor(Math.random() * 120); try { localStorage.setItem('jjimjiljung-key', String(lockerKey)); } catch { /* storage may be unavailable */ }
       applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom') }); player.celebrate();
-      toast(`${lockerKey}번 열쇠와 새 찜질복을 받았어요! 탈의실 사물함에서 갈아입을 수 있어요 🔑`);
-    } else toast(`어서 오세요! ${lockerKey}번 열쇠는 그대로예요. 푹 쉬다 가세요 ♨`);
+      issuedTowel = true;
+      try { localStorage.setItem(ISSUED_TOWEL_KEY, '1'); } catch { /* optional */ }
+      toast(`${lockerKey}번 열쇠·수건·찜질복을 받았어요! 탈의실에서 갈아입어 봐요 🔑`);
+    } else {
+      issuedTowel = true;
+      try { localStorage.setItem(ISSUED_TOWEL_KEY, '1'); } catch { /* optional */ }
+      toast(`어서 오세요! ${lockerKey}번 열쇠는 그대로예요. 수건도 준비되어 있어요. 푹 쉬다 가세요 ♨`);
+    }
   }
   else if (BATH[spot.id]) {
     const kind = spot.id, b = BATH[kind];
-    if (Date.now() < (bathReady[kind] || 0)) { toast(`조금 쉬었다가 다시 해요 (${Math.ceil((bathReady[kind] - Date.now()) / 60000)}분)`); return; }
+    if (Date.now() < (bathReady[kind] || 0)) {
+      // The visitor has already used this bath during the current session.
+      tour?.done('bath');
+      toast(`조금 쉬었다가 다시 해요 (${Math.ceil((bathReady[kind] - Date.now()) / 60000)}분)`);
+      return;
+    }
     if (spot.pool) {
       const seat = freeSeat(POOL_SEATS[kind], [spot.pool[0], spot.pool[1]]);
       if (!seat) { toast('탕이 만석이에요. 빈자리가 생기면 다시 들어와 주세요.'); return; }
       const back = [spot.x, spot.z]; setAction('sit'); hero.position.set(seat[0], 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
       facing = 0; soak = { kind, t: b.time, back, done: false };
     } else { setAction('stand'); facing = Math.PI; shower = b.time; }
+    // Onboarding is about experiencing the bath, not waiting for the reward timer.
+    // The 8-second soak and 5-minute reward cooldown remain unchanged.
+    tour?.done('bath');
     toast(b.enter); spotButton.hidden = true;
   }
   else if (spot.id === 'locker') { outfitButton.click(); tour?.done('locker'); }
@@ -925,14 +958,28 @@ tour = createTour({
   isNew: firstVisit, el: document.querySelector('#tour'), toast,
   blocked: () => !!document.querySelector('dialog[open]') || towelGame.isOpen || shop.playing || !document.body.classList.contains('room-ready'),
   onGo: id => {
-    if (id === 'towel') goToTowel();
+    if (id === 'towel') {
+      // The raw towel is handed out at the entrance; fold it right after changing.
+      // The shop shelf remains available to make more caps later.
+      if (issuedTowel || lockerKey) { tour?.arrived('towel'); towelGame.open(); }
+      else { toast('먼저 입구에서 수건을 받아 주세요 🧺'); goToPlace(DESTINATIONS.entrance); }
+    }
     else if (id === 'tv') goToTv();
-    else if (id === 'egg' || id === 'drink') document.querySelector(`[data-action="${id}"]`).click();
+    else if (id === 'egg' || id === 'drink') {
+      document.querySelector(`[data-action="${id}"]`).click();
+      if (shop.playing) tour?.arrived(id);
+    }
     else if (TOUR_PLACE[id]) goToPlace(DESTINATIONS[TOUR_PLACE[id]]);
   }
 });
-if (lockerKey) tour.done('desk');
-if (outfit.hasTowel) tour.done('towel');
+document.querySelector('#tour-restart').addEventListener('click', () => {
+  placesDialog.close();
+  tour.restart();
+  goToPlace(DESTINATIONS.entrance);
+  toast('안내를 1단계부터 다시 시작해요. 열쇠·수건·찜질복·온기는 그대로예요 ♨');
+});
+// Do not auto-mark steps based on old possessions. Replay must remain at step 1
+// even for a returning visitor who already owns a key, outfit and sheep cap.
 setInterval(() => tour.render(), 600);
 if (!outfit.hasTowel && !tour.active) {
   const nudge = setInterval(() => {
