@@ -532,6 +532,12 @@ body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #
   background:var(--ios-surface);
   pointer-events:none;
 }
+.scene-hint.warmth-active{
+  background:linear-gradient(155deg,rgba(255,249,229,.89),rgba(250,237,211,.72));
+  border-color:rgba(255,251,231,.85);
+  box-shadow:var(--ios-glow),inset 0 0 0 1px rgba(251,224,174,.3);
+  color:#6c4e32;
+}
 /* Short lived one-at-a-time messages. Avoid the wallet and room name rows. */
 #toast{
   top:calc(var(--safe-top) + 155px);
