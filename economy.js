@@ -114,7 +114,7 @@ export function warmthHint({
     return { headline: '📺 광고를 끝까지 보면 온기 +3♨', detail: spending };
   } else return null;
 
-  if (!enough) return { headline: '♨ 오늘의 온기는 모두 모았어요 (60/60)', detail: spending };
+  if (!enough) return { headline: `♨ 오늘의 활동 온기 한도에 도달했어요 (${DAILY_EARN_CAP}/${DAILY_EARN_CAP})`, detail: spending };
   reward = Math.min(reward, enough);
   if (reason === '안내') {
     if (seconds) return { headline: `♨ 이용하면 ${seconds}초 뒤 온기 +${reward}`, detail: spending };
