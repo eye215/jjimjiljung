@@ -7,7 +7,7 @@ import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-37';
 import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-37';
 import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-37';
 import { buildWorld } from './environment.js?v=rpg-37';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-37';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, roomAt } from './world.js?v=rpg-37';
 import { createTvAds } from './ads.js?v=rpg-37';
 import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-37';
 import { createSocial } from './social.js?v=rpg-37';
@@ -88,7 +88,7 @@ const residents = [
   { x: 3.2, z: -8.5, y: .05, face: -.5, action: 'sit' },
   { x: 9.5, z: -11.05, y: .1, face: 0, action: 'lie' },
   { x: 14.5, z: -1.7, y: 0, face: -Math.PI / 2, action: 'stand', greeter: true },
-  { x: 13.4, z: 11.6, y: 0, face: -Math.PI / 2, action: 'stand', scrubber: true },
+  { x: 14.45, z: 12.4, y: 0, face: -Math.PI / 2, action: 'stand', scrubber: true },
   { x: 14.7, z: 4.8, y: 0, face: -Math.PI / 2, action: 'stand', clerk: true },
   { x: 1.5, z: 12.3, y: 0, face: -.4, action: 'sit' },
   { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' }
@@ -816,13 +816,52 @@ function leaveSoak() { const back = soak.back; soak = null; hero.position.set(ba
 // 입구 카운터: the first visit hands over a locker key (kept on this device) and a fresh 찜질복.
 let lockerKey = 0; try { lockerKey = Number(localStorage.getItem('jjimjiljung-key')) || 0; } catch { /* storage may be unavailable */ }
 const SCRUB_TIME = 6, SCRUB_GAP = 10 * 60 * 1000, SCRUB_REWARD = 2;
+// Users and resident guests share the physical spots; never place visitors on
+// top of one another. Deterministic ties resolve two simultaneous arrivals.
+const SCRUB_SLOTS = SCRUB_BEDS.map(({ x, z }) => [x, z]);
+const SEAT_CLEARANCE = .82;
+let seatRecheck = 0;
+function occupiedPositions() {
+  const people = residents.map(r => ({ x: r.root.position.x, z: r.root.position.z, uid: null, moving: false }));
+  for (const r of social?.remotes?.values() || []) {
+    if (r.placed) people.push({ x: r.target.x, z: r.target.z, uid: r.id, moving: r.walking });
+  }
+  return people;
+}
+function freeSeat(seats, from, people = occupiedPositions()) {
+  return [...seats].sort((a, b) => Math.hypot(a[0] - from[0], a[1] - from[1]) - Math.hypot(b[0] - from[0], b[1] - from[1]))
+    .find(([x, z]) => !people.some(p => Math.hypot(p.x - x, p.z - z) < SEAT_CLEARANCE)) || null;
+}
+function keepSeatClear(dt) {
+  seatRecheck += dt;
+  if (seatRecheck < .8) return;
+  seatRecheck = 0;
+  const seats = soak ? POOL_SEATS[soak.kind] : currentRoom?.id === 'scrub' && scrubbing > 0 ? SCRUB_SLOTS : null;
+  if (!seats) return;
+  // Stable tie-break: only the lexicographically later visitor changes seats.
+  const other = occupiedPositions();
+  if (!other.some(p => !p.moving && Math.hypot(p.x - hero.position.x, p.z - hero.position.z) < SEAT_CLEARANCE && (!p.uid || p.uid < (social?.id || '')))) return;
+  const seat = freeSeat(seats, [hero.position.x, hero.position.z], other);
+  if (seat) {
+    hero.position.set(seat[0], 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
+    toast('다른 손님과 겹치지 않도록 빈자리로 이동했어요 ♨');
+  } else if (soak) {
+    setAction('stand'); toast('탕이 만석이에요. 잠시 후 다시 이용해 주세요.');
+  } else {
+    scrubbing = 0; setAction('stand');
+    hero.position.set(8.8, 0, 12.8); target.copy(hero.position); view.focus.set(8.8, 0, 12.8);
+    toast('세신대가 만석이에요. 잠시 후 다시 이용해 주세요.');
+  }
+}
 function updateSpots(dt) {
-  const near = SPOTS.find(s => s.room === currentRoom.id && Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < s.r) || null;
+  const near = SPOTS.filter(s => s.room === currentRoom.id && Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < s.r)
+    .sort((a, b) => Math.hypot(hero.position.x - a.x, hero.position.z - a.z) - Math.hypot(hero.position.x - b.x, hero.position.z - b.z))[0] || null;
   const show = near && !towelGame.isOpen && !shop.playing && !scrubbing && !soak && !shower && !document.querySelector('dialog[open]');
   if (near !== spot || spotButton.hidden === !!show) { spot = near; spotButton.hidden = !show; if (near) spotButton.textContent = near.label; }
   if (show) towelNudge.hidden = true;
   if (near?.id === 'locker' && lockerKey) spotButton.textContent = `👕 ${lockerKey}번 사물함에서 갈아입기`;
   deskWave = Math.max(0, deskWave - dt);
+  keepSeatClear(dt);
   if (soak && !soak.done && (soak.t -= dt) <= 0) { soak.done = true; bathReward(soak.kind); }
   if (shower > 0) {
     if (action !== 'stand' || Math.hypot(hero.position.x - spot?.x, hero.position.z - spot?.z) > 1.2 || localWalking) shower = 0;
@@ -853,7 +892,9 @@ spotButton.addEventListener('click', () => {
     const kind = spot.id, b = BATH[kind];
     if (Date.now() < (bathReady[kind] || 0)) { toast(`조금 쉬었다가 다시 해요 (${Math.ceil((bathReady[kind] - Date.now()) / 60000)}분)`); return; }
     if (spot.pool) {
-      const back = [spot.x, spot.z]; setAction('sit'); hero.position.set(spot.pool[0], 0, spot.pool[1]); target.copy(hero.position);
+      const seat = freeSeat(POOL_SEATS[kind], [spot.pool[0], spot.pool[1]]);
+      if (!seat) { toast('탕이 만석이에요. 빈자리가 생기면 다시 들어와 주세요.'); return; }
+      const back = [spot.x, spot.z]; setAction('sit'); hero.position.set(seat[0], 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
       facing = 0; soak = { kind, t: b.time, back, done: false };
     } else { setAction('stand'); facing = Math.PI; shower = b.time; }
     toast(b.enter); spotButton.hidden = true;
@@ -862,7 +903,9 @@ spotButton.addEventListener('click', () => {
   else if (spot.id === 'fortune') document.querySelector('#fortune-open').click();
   else if (spot.id === 'scrub') {
     if (Date.now() < scrubReady) { toast(`세신은 ${Math.ceil((scrubReady - Date.now()) / 60000)}분 뒤에 또 받을 수 있어요`); return; }
-    const [x, z] = spot.bed; route.length = 0; hero.position.set(x, 0, z); target.copy(hero.position); view.focus.set(x, 0, z);
+    const bed = freeSeat(SCRUB_SLOTS, spot.bed);
+    if (!bed) { toast('세신대가 만석이에요. 빈자리가 생기면 다시 이용해 주세요.'); return; }
+    const [x, z] = bed; route.length = 0; hero.position.set(x, 0, z); target.copy(hero.position); view.focus.set(x, 0, z);
     setAction('lie'); facing = -Math.PI / 2; scrubbing = SCRUB_TIME; spotButton.hidden = true;
     toast('슥슥… 세신사님이 시원하게 밀어 드려요 🧽'); status.textContent = '가만히 누워 있어요. 시원해요~';
   }
