@@ -147,10 +147,12 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     const { text, flagged } = maskProfanity(raw);
     limit.hit(); ui.input.value = '';
     const message = { id, name: nickname, text, mid: newId(), room: getLocal().room };
-    group.channel.send('msg', message);
-    append({ kind: 'me', name: nickname, text, ts: Date.now() });
-    say(selfLabel, text); onLocalBubble?.(text);
-    note(flagged ? '고운 말로 바꿔서 보냈어요 ♨' : '');
+    Promise.resolve(group.channel.send('msg', message)).then(ok => {
+      if (ok === false) { note('메시지를 보내지 못했어요. 연결 상태를 확인해 주세요.'); return; }
+      append({ kind: 'me', name: nickname, text, ts: Date.now() });
+      say(selfLabel, text); onLocalBubble?.(text);
+      note(flagged ? '고운 말로 바꿔서 보냈어요 ♨' : '');
+    }).catch(() => note('메시지를 보내지 못했어요. 다시 시도해 주세요.'));
   });
   ui.input.maxLength = MAX_MESSAGE;
 
@@ -269,7 +271,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
       clearTimeout(outgoing.timer); outgoing = null;
       // Trust only the server: am I really in that group now?
       const mine = payload.group ? await api.myGroup().catch(() => null) : null;
-      if (mine && mine === payload.group) { await joinGroup(mine); notify(`${remote.name}님과 대화가 시작됐어요 💬`); }
+      if (mine && mine === payload.group) { if (await joinGroup(mine)) notify(`${remote.name}님과 대화가 시작됐어요 💬`); }
       else notify(NO_ANSWER);
     }
   }
@@ -277,7 +279,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     if (!incoming) return; const { from, request } = incoming, remote = remotes.get(from), api = link.groups; closeIncoming();
     let gid = null; try { gid = await api.answer(request.id, accept, nickname, remote?.name || '손님'); } catch { gid = null; }
     link.send('chatans', { from: id, to: from, group: gid });
-    if (gid) { await joinGroup(gid); notify(`${remote?.name || '손님'}님과 대화가 시작됐어요 💬`); }
+    if (gid) { if (await joinGroup(gid)) notify(`${remote?.name || '손님'}님과 대화가 시작됐어요 💬`); }
   }
   ui2.accept.addEventListener('click', () => answer(true));
   ui2.decline.addEventListener('click', () => answer(false));
@@ -290,11 +292,23 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     viewport.dataset.group = String(list.length);
   }
   async function joinGroup(gid) {
-    if (group?.id === gid) { await refreshMembers(); group.channel.send('member', { id }); return; }
+    if (group?.id === gid) { await refreshMembers(); if (group) await group.channel.send('member', { id }); return !!group; }
     if (group) dropGroup();
-    group = { id: gid, members: new Set(), channel: link.groups.joinGroup(gid, (event, payload) => event === 'msg' ? onChat(payload) : refreshMembers()) };
-    await refreshMembers(); group.channel.send('member', { id });
+    const channel = link.groups.joinGroup(gid, (event, payload) => event === 'msg' ? onChat(payload) : refreshMembers());
+    group = { id: gid, members: new Set(), channel };
+    if (channel.ready && !(await channel.ready)) {
+      dropGroup();
+      notify('그룹 채팅에 연결하지 못했어요. 새로고침 후 다시 시도해 주세요.');
+      return false;
+    }
+    await refreshMembers();
+    if (!group) {
+      notify('그룹 참여 정보를 확인하지 못했어요. 새로고침 후 다시 시도해 주세요.');
+      return false;
+    }
+    await group.channel.send('member', { id });
     system('그룹 대화가 시작됐어요. 말풍선은 우리 그룹에게만 보여요');
+    return true;
   }
   function dropGroup() { group?.channel.leave(); group = null; ui2.leave.hidden = true; ui.count.textContent = ''; viewport.dataset.group = '0'; }
   async function loadSafety() {
