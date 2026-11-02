@@ -163,7 +163,20 @@ const server = http.createServer((req, res) => {
     guest.on('pageerror', error => errors.push('guest: ' + error.message));
     await guest.addInitScript(() => localStorage.setItem('jjimjiljung-nickname', '찜질손님'));
     await guest.goto(base + '&from=%EB%B3%B4%EB%A6%AC&join=' + token);
-    await guest.waitForSelector('#viewport[data-ready="true"]', { timeout: 120000 });
+    try {
+      await guest.waitForSelector('#viewport[data-ready="true"]', { timeout: 120000 });
+    } catch (error) {
+      const diagnostics = await guest.evaluate(() => ({
+        ready: document.querySelector('#viewport')?.dataset.ready,
+        joinDialogOpen: document.querySelector('#join-dialog')?.open,
+        documentState: document.readyState,
+        viewportExists: !!document.querySelector('#viewport'),
+        scripts: [...document.scripts].filter(s => s.type === 'module').map(s => s.src),
+      })).catch(e => ({ evaluationError: e.message }));
+      console.error('Invite guest startup diagnostics:', JSON.stringify({ diagnostics, errors }));
+      await guest.screenshot({ path: path.join(output, 'multiplayer-guest-startup-failure.png') }).catch(() => {});
+      throw error;
+    }
     await guest.waitForFunction(() => window.__mp.group()?.size >= 2, null, { timeout: 60000 });
     assert.equal(new URL(guest.url()).searchParams.has('join'), false, 'The token leaves the address bar');
     await guest.close();
