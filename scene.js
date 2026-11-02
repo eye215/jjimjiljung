@@ -289,6 +289,7 @@ const towelOpen = document.querySelector('#towel-open');
 let openTowelOnArrival = false;
 const towelGame = createTowelGame({
   onOpen: () => { setAction('stand'); if (nearTowels()) facing = TOWEL_SPOT.facing; keys.clear(); },
+  onClose: () => tour?.retry('towel'),
   onDone: (color, wear) => {
     applyOutfit({ ...addTowel(outfit, color), wear }); tour?.done('towel');
     player.celebrate(); toast(wear ? '🐑 양머리 완성! 잘 어울려요' : '🐑 양머리 완성! 옷 버튼 위 🐑로 언제든 써요');
@@ -319,6 +320,8 @@ function arrive() {
   const place = activeDestination;
   destinationMarker.visible = false;
   if (place) { setAction(place.action || 'stand'); if (place.facing != null) facing = place.facing; activeDestination = place; status.textContent = place.arrival; }
+  const arrivalSteps = { entrance: 'desk', locker: 'locker', bath: 'bath', fortune: 'fortune', scrub: 'scrub', sleep: 'sleep' };
+  if (place && arrivalSteps[place.id]) tour?.arrived(arrivalSteps[place.id]);
   if (place?.id === 'tv') tour?.done('tv');
   if (place?.id === 'shop' && openShopOnArrival) { openShopOnArrival = false; shop.openShop(); }
   if (place?.id === 'towel') { facing = TOWEL_SPOT.facing; if (openTowelOnArrival) { openTowelOnArrival = false; towelGame.open(); } }
@@ -330,6 +333,7 @@ function enterRoom(room) {
   currentRoom = room; viewport.dataset.room = room.id;
   // The lobby step only counts once the intro has led there (a newcomer walks through it earlier).
   if (room.id !== 'lobby' || tour?.step === 'lobby') tour?.done(room.id === 'lobby' ? 'lobby' : ['hot', 'ice', 'salt'].includes(room.id) ? room.id : '');
+  if (['locker', 'bath', 'fortune', 'scrub', 'sleep'].includes(room.id)) tour?.arrived(room.id);
   badge.innerHTML = `<i></i> ${room.name} <span>${room.note}</span>`;
   if (!roomToast.dataset.silent) {
     roomToast.textContent = `♨ ${room.name}에 들어왔어요`; roomToast.hidden = false;
@@ -954,7 +958,7 @@ tour = createTour({
     if (id === 'towel') {
       // The raw towel is handed out at the entrance; fold it right after changing.
       // The shop shelf remains available to make more caps later.
-      if (issuedTowel || lockerKey) towelGame.open();
+      if (issuedTowel || lockerKey) { tour?.arrived('towel'); towelGame.open(); }
       else { toast('먼저 입구에서 수건을 받아 주세요 🧺'); goToPlace(DESTINATIONS.entrance); }
     }
     else if (id === 'tv') goToTv();
