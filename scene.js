@@ -573,21 +573,26 @@ for (const m of fadeMeshes) if (m.material.transparent) m.material.userData.alwa
 function damp(object, key, to, dt, speed = 9) { object[key] = THREE.MathUtils.damp(object[key], to, speed, dt); }
 // Reuse the existing bottom hint instead of adding another popup on a crowded phone.
 // This reads the SAME timer and wallet cap as the reward loop; it cannot grant points.
-let restHintOwned = false, restHintLast = '';
+let restHintOwned = false, restHintLast = '', restHintSecond = -1, restHintRoom = '';
 const warmthWallet = document.querySelector('#wallet');
 let warmthPulseTimer = 0;
 function updateRestHint(earning) {
   if (earning && !shop.playing && !document.body.classList.contains('chat-open')) {
+    const seconds = Math.max(1, Math.ceil(REST_SECONDS - restTimer));
+    // Save performance on mobile: only query the wallet when a second (or room) changes.
+    if (restHintOwned && seconds === restHintSecond && currentRoom?.id === restHintRoom) return;
+    restHintSecond = seconds; restHintRoom = currentRoom?.id;
     const earned = wallet.snapshot().earnedToday;
     const amount = ['hot', 'salt', 'bath'].includes(currentRoom?.id) ? 2 : 1;
-    const seconds = Math.max(1, Math.ceil(REST_SECONDS - restTimer));
     const message = earned >= DAILY_EARN_CAP
       ? '♨ 오늘 모을 수 있는 온기는 다 모았어요 · 매점에서 간식으로 바꿔요'
       : `♨ ${seconds}초 뒤 온기 +${Math.min(amount, DAILY_EARN_CAP - earned)} · 모아서 식혜·계란을 살 수 있어요`;
     if (message !== restHintLast) { hint.textContent = message; restHintLast = message; }
     restHintOwned = true;
+    hint.classList.add('warmth-active');
   } else if (restHintOwned) {
-    restHintOwned = false; restHintLast = '';
+    restHintOwned = false; restHintLast = ''; restHintSecond = -1; restHintRoom = '';
+    hint.classList.remove('warmth-active');
     if (!document.body.classList.contains('sleeping'))
       hint.textContent = action === 'stand' ? walkHint : '다시 걸으려면 바닥을 톡 눌러요 ↗';
   }
