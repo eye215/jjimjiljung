@@ -49,15 +49,15 @@ Deno.serve(async (request) => {
       signal: controller.signal,
       headers: { authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "meta/llama-3.3-70b-instruct",
+        model: "nvidia/nemotron-3-super-120b-a12b",
         messages: [{ role: "system", content: prompt }, { role: "user", content: JSON.stringify({ pillar, day }) }],
         max_tokens: 300,
-        temperature: 0.7,
+        temperature: 0.5,
       }),
     });
     if (!response.ok) {
       const status = response.status;
-      console.error("NVIDIA completion failed", { upstream_status: status, model: "meta/llama-3.3-70b-instruct" });
+      console.error("NVIDIA completion failed", { upstream_status: status, model: "nvidia/nemotron-3-super-120b-a12b" });
       const guidance = status === 401 || status === 403 ? "NVIDIA API key or access denied"
         : status === 402 ? "NVIDIA credits unavailable"
         : status === 404 ? "NVIDIA model unavailable"
