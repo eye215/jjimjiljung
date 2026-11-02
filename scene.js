@@ -14,7 +14,7 @@ import { createSocial } from './social.js?v=rpg-39';
 import { createWallet, REST_SECONDS, DAILY_EARN_CAP } from './economy.js?v=rpg-39';
 import { createShop } from './shop.js?v=rpg-39';
 import { createInvite } from './invite.js?v=rpg-39';
-import { createTour, loadTour } from './tour.js?v=rpg-39';
+import { createTour, loadTour } from './tour.js?v=rpg-50';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -1005,12 +1005,10 @@ async function showFortune(birth) {
   }
 }
 document.querySelector('#fortune-open').addEventListener('click', () => {
-  tour?.done('fortune');
-  placesDialog.close(); const saved = loadBirth();
+  placesDialog.close();
+  // 사주방은 공사 중입니다. 운세 요청이나 개인정보 입력 화면을 열지 않습니다.
+  fortuneDialog.classList.add('fortune-maintenance-mode');
   fortuneResult.hidden = true;
-  if (saved?.date) { document.querySelector('#fortune-date').value = saved.date; document.querySelector('#fortune-time').value = saved.time || ''; }
-  document.querySelector('#fortune-consent').checked = false;
-  syncFortuneConsent();
   fortuneDialog.showModal();
 });
 fortuneForm.addEventListener('submit', event => {
