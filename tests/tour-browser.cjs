@@ -40,7 +40,8 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   await page.reload();await ready();await step('towel');assert.equal(await page.evaluate(()=>localStorage.getItem('jjimjiljung-key')),key);
   // Use the entrance-issued towel where the visitor changes; the shop shelf still works afterwards.
   await page.locator('[data-tour-go]').click();await page.locator('#towel-game').waitFor({state:'visible'});
-  const cloth=await page.locator('.towel-cloth').boundingBox();await page.mouse.move(cloth.x+cloth.width/2,cloth.y+20);await page.mouse.down();await page.mouse.move(cloth.x+cloth.width/2,cloth.y+120,{steps:6});await page.mouse.up();await page.locator('#towel-step',{hasText:'2/3'}).waitFor();
+  // The keyboard fold is an actual accessible UI path. Mouse drag can miss the animated cloth in headless mobile emulation.
+  await page.locator('.towel-cloth').press('ArrowDown');await page.locator('#towel-step',{hasText:'2/3'}).waitFor();
   for(let i=0;i<5;i++){await page.locator('[data-side=left]').click();await page.locator('[data-side=right]').click();}await page.locator('#towel-finish').click();await done('towel');await step('bath');
   await page.locator('[data-tour-go]').click();assert.equal((await state()).destination,'bath');assert((await state()).route>0);
   await tp(.6,9.7);await page.locator('#spot-action',{hasText:'온탕'}).click();
