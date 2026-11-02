@@ -40,18 +40,18 @@ Deno.serve(async (request) => {
   const pillar = String(input.pillar || "");
   if (!pillar || pillar.length > 80)
     return respond({ error: "Invalid fortune data" }, 400);
-  const prompt = "가상의 찜질방 사주 선생님입니다. 오락용 운세를 한국어로 120~180자 작성하세요. 사주 데이터가 부족하면 확정적으로 해석하지 마세요. 건강과 재물에 대한 단정적인 조언을 피하세요. 운세 본문만 답하세요.";
+  const prompt = "오락용 오늘의 운세를 한국어로 2~3문장, 80자 이내로 작성하세요. 짧고 따뜻하게 답하고 건강·재물에 대한 단정은 피하세요. 운세 본문만 출력하세요.";
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 50000);
+  const timer = setTimeout(() => controller.abort(), 25000);
   try {
     const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",
       signal: controller.signal,
       headers: { authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "openai/gpt-oss-20b",
+        model: "meta/llama-3.1-8b-instruct",
         messages: [{ role: "system", content: prompt }, { role: "user", content: JSON.stringify({ pillar, day }) }],
-        max_tokens: 180,
+        max_tokens: 100,
         temperature: 0.5,
       }),
     });
