@@ -486,13 +486,13 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     character.celebrate = () => { cheer = 1.6; celebrateBurst(); };
     // Shared pose animation for the player, NPCs and remote visitors. `action` is
     // the posture (stand, sit, lie, wave); a snack in progress layers on top of it.
-    character.animate = (action, walking, dt, reducedMotion, speed = 1) => {
+    character.animate = (action, walking, dt, reducedMotion, speed = 1, snackDt = dt) => {
       const damp = (object, key, to, rate = 9) => { object[key] = THREE.MathUtils.damp(object[key], to, rate, dt); };
       character.elapsed += dt;
       if (action === 'egg' || action === 'drink') action = 'stand';
       const elapsed = character.elapsed, sleep = action === 'lie' || action === 'liewave',
         sitting = action === 'sit' || action === 'sitwave', greeting = ['wave','sitwave','liewave'].includes(action), cycle = elapsed * 9 * speed;
-      const eating = sleep ? null : snackPose(dt);
+      const eating = sleep ? null : snackPose(snackDt);
       cheer = Math.max(0, cheer - dt); const cheering = cheer > 0 && !eating && !sleep;
       if (sleep && character.snack) character.stopSnack();
       updateBursts(dt);
@@ -783,13 +783,13 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
     }
     let lie = 0, wave = 0, sat = 0, seat = 0;
     const proxy = (b, target, x) => { q1.copy(b.rest.get(x)).invert().multiply(x.quaternion); e1.setFromQuaternion(q1); target.rotation.x = e1.x; target.rotation.y = e1.y; target.rotation.z = e1.z; };
-    character.animate = (action, walking, dt, reducedMotion, speed = 1) => {
+    character.animate = (action, walking, dt, reducedMotion, speed = 1, snackDt = dt) => {
       character.elapsed += dt;
       if (action === 'egg' || action === 'drink') action = 'stand';
       const b = active, elapsed = character.elapsed,
         greeting = action === 'wave' || action === 'sitwave' || action === 'liewave',
         sleep = action === 'lie' || action === 'liewave', sitting = action === 'sit' || action === 'sitwave';
-      const eating = sleep ? null : snackPose(dt);
+      const eating = sleep ? null : snackPose(snackDt);
       cheer = Math.max(0, cheer - dt); const cheering = cheer > 0 && !eating && !sleep;
       if (sleep && character.snack) character.stopSnack();
       updateBursts(dt);
