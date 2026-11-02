@@ -37,10 +37,8 @@ Deno.serve(async (request) => {
   if (!apiKey) return respond({ error: "AI not configured" }, 503);
   let input: Record<string, unknown>;
   try { input = await request.json(); } catch { return respond({ error: "Invalid input" }, 400); }
-  const birth = String(input.birth || "");
-  const today = String(input.today || "");
   const pillar = String(input.pillar || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(birth) || !/^\d{4}-\d{2}-\d{2}$/.test(today) || pillar.length > 80)
+  if (!pillar || pillar.length > 80)
     return respond({ error: "Invalid fortune data" }, 400);
   const prompt = "가상의 찜질방 사주 선생님입니다. 오락용 운세를 한국어로 120~180자 작성하세요. 사주 데이터가 부족하면 확정적으로 해석하지 마세요. 건강과 재물에 대한 단정적인 조언을 피하세요. 운세 본문만 답하세요.";
   const controller = new AbortController();
@@ -52,7 +50,7 @@ Deno.serve(async (request) => {
       headers: { authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "meta/llama-3.3-70b-instruct",
-        messages: [{ role: "system", content: prompt }, { role: "user", content: JSON.stringify({ birth, today, pillar }) }],
+        messages: [{ role: "system", content: prompt }, { role: "user", content: JSON.stringify({ pillar, day }) }],
         max_tokens: 300,
         temperature: 0.7,
       }),
