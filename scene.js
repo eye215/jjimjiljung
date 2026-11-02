@@ -674,7 +674,7 @@ function frame(now) {
   destinationMarker.scale.setScalar(reducedMotion ? 1 : 1 + Math.sin(elapsed * 4) * .10);
   let angle = facing - hero.rotation.y; angle = Math.atan2(Math.sin(angle), Math.cos(angle)); hero.rotation.y += angle * Math.min(1, dt * 10);
   player.animate(waveTimer && action === 'sit' ? 'sitwave' : waveTimer && action === 'lie' ? 'liewave' : action,
-    walking, dt, reducedMotion, WALK_SPEED / 1.9);
+    walking, dt, reducedMotion, WALK_SPEED / 1.9, clockDt);
   for (const resident of residents) {
     const near = Math.hypot(resident.root.position.x - hero.position.x, resident.root.position.z - hero.position.z) < 8;
     resident.animate(resident.config.fortuneTeller && fortuneSpeaking > 0 ? 'sitwave'
