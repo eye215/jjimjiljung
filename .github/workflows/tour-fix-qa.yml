@@ -29,8 +29,6 @@ jobs:
           node tests/economy.cjs
           node tests/fortune.cjs
           node tests/chat.cjs
-          node tests/shop.cjs
-          node tests/invite.cjs
           node tests/channel-readiness.cjs
           node tests/head-model.cjs
   browser:
@@ -39,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [glass, interactions, wing, tour, tv, multiplayer]
+        suite: [glass, interactions, wing, tour, tv, multiplayer, shop, invite]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -56,6 +54,8 @@ jobs:
             tour) node tests/tour-browser.cjs ;;
             tv) node tests/tv.cjs ;;
             multiplayer) node tests/multiplayer.cjs ;;
+            shop) node tests/shop.cjs ;;
+            invite) node tests/invite.cjs ;;
           esac
       - uses: actions/upload-artifact@v4
         if: always()
