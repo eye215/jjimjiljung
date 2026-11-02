@@ -30,7 +30,7 @@ const server = http.createServer((req, res) => {
     await page.route('**/scene.js*', async request => {
       const response = await request.fetch();
       await request.fulfill({response,body:(await response.text())+
-        '\nwindow.__p = {tp:(x,z)=>{route.length=0;hero.position.set(x,0,z);target.copy(hero.position);view.focus.set(x,0,z)},state:()=>({action,waveTimer,posture:action,chair:seatedChair?.id||null,position:hero.position.toArray(),fortuneNPC:residents.some(r=>r.config.fortuneTeller),snack:player.snack?.kind||null,holder:player.snackRoot?.parent?.name||"none"})};'});
+        '\nwindow.__p = {tp:(x,z)=>{route.length=0;hero.position.set(x,0,z);target.copy(hero.position);view.focus.set(x,0,z)},state:()=>({action,waveTimer,posture:action,chair:seatedChair?.id||null,position:hero.position.toArray(),fortuneNPC:residents.some(r=>r.config.fortuneTeller),snack:player.snack?.kind||null,holder:player.snackRoot?.parent?.name||"none"}),cup:()=>({parentIsBone:!!player.snackRoot.parent?.isBone,visible:player.snackRoot.visible,relativeToHead:player.snackRoot.getWorldPosition(new THREE.Vector3()).distanceTo(player.head.getWorldPosition(new THREE.Vector3()))})};'});
     });
     await page.goto(`http://127.0.0.1:${server.address().port}/?net=local`);
     await page.waitForSelector('#viewport[data-ready="true"]');
@@ -59,7 +59,7 @@ const server = http.createServer((req, res) => {
     await page.locator('[data-action="drink"]').click();
     await page.waitForFunction(()=>window.__p.state().snack==='drink');
     assert.equal((await page.evaluate(()=>window.__p.state())).action,'stand','Drinking keeps standing posture');
-    const prop=await page.evaluate(()=>({parentIsBone:!!player.snackRoot.parent?.isBone, visible:player.snackRoot.visible, relativeToHead:player.snackRoot.getWorldPosition(new THREE.Vector3()).distanceTo(player.head.getWorldPosition(new THREE.Vector3()))}));
+    const prop=await page.evaluate(()=>window.__p.cup());
     assert.equal(prop.parentIsBone,false,'Sikhye cup must be anchored to the torso, not the shoulder-rotating hand bone');
     assert.equal(prop.visible,true,'Sikhye cup remains visible while drinking');
     assert(prop.relativeToHead<2.5,'Sikhye cup stays near the mouth and upper body');
