@@ -38,6 +38,17 @@ export const DOORS = Object.freeze([
 // Furniture is centred on x/z with an axis-aligned footprint w (x) by d (z).
 // `face` is the direction the front of the item looks towards.
 // Only `solid` pieces block walking; mats and cushions can be walked over.
+// Fixed resting locations leave enough space for different visitors to avoid overlapping.
+export const SCRUB_BEDS = Object.freeze([
+  { x: 10.1, z: 9.0 }, { x: 12.75, z: 9.0 },
+  { x: 10.1, z: 11.35 }, { x: 12.75, z: 11.35 },
+  { x: 11.4, z: 13.7 }
+].map(Object.freeze));
+export const POOL_SEATS = Object.freeze({
+  hotpool: Object.freeze([[-.35, 10.85], [.85, 10.85], [-.35, 12.15], [.85, 12.15]].map(Object.freeze)),
+  coldpool: Object.freeze([[4.85, 11.3], [5.95, 11.3], [4.85, 12.65], [5.95, 12.65]].map(Object.freeze))
+});
+
 export const FURNITURE = Object.freeze([
   // Central lobby
   { type: 'tv', x: -7.4, z: 3.4, w: .75, d: 2.8, face: 'e', solid: true },
@@ -84,7 +95,7 @@ export const FURNITURE = Object.freeze([
   { type: 'hotpool', x: .6, z: 11.6, w: 3.2, d: 3, solid: true }, { type: 'coldpool', x: 5.4, z: 12, w: 2.6, d: 2.6, solid: true },
   { type: 'shower', x: -.6, z: 7.4, w: 1.6, d: .45, face: 's', solid: true }, { type: 'shower', x: 6.6, z: 7.4, w: 1.6, d: .45, face: 's', solid: true },
   // 세신실 (beds are low and walkable, like the 수면실 mats)
-  { type: 'scrubbed', x: 11.5, z: 10, w: 2.2, d: .95 }, { type: 'scrubbed', x: 11.5, z: 13.2, w: 2.2, d: .95 },
+  ...SCRUB_BEDS.map(({ x, z }) => ({ type: 'scrubbed', x, z, w: 2.2, d: .95 })),
   { type: 'pot', x: 14.5, z: 7.5, w: .7, d: .7, solid: true },
   // 사주방
   { type: 'fortunetable', x: -11.5, z: 10.6, w: 1.4, d: 1, solid: true },
@@ -148,8 +159,7 @@ export const SPOTS = Object.freeze([
   { id: 'hotpool', room: 'bath', x: .6, z: 9.7, r: 1.5, label: '♨ 온탕에 들어가기', pool: [.6, 11.6] },
   { id: 'coldpool', room: 'bath', x: 5.4, z: 10.3, r: 1.3, label: '🧊 냉탕에 들어가기', pool: [5.4, 12] },
   { id: 'shower', room: 'bath', x: -.6, z: 8.1, r: 1, label: '🚿 샤워하기' }, { id: 'shower', room: 'bath', x: 6.6, z: 8.1, r: 1, label: '🚿 샤워하기' },
-  { id: 'scrub', room: 'scrub', x: 11.5, z: 10, r: 2.4, label: '🧽 세신 받기', bed: [11.5, 10] },
-  { id: 'scrub', room: 'scrub', x: 11.5, z: 13.2, r: 2.4, label: '🧽 세신 받기', bed: [11.5, 13.2] }
+  ...SCRUB_BEDS.map(({ x, z }, i) => ({ id: 'scrub', room: 'scrub', x, z, r: 1.85, label: `🧽 세신 ${i + 1}번 자리`, bed: [x, z] }))
 ].map(Object.freeze));
 
 export function roomAt(x, z) {
