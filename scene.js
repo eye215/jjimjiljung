@@ -643,7 +643,7 @@ function frame(now) {
     const move = screenToWorld(inputX, inputZ);
     const from = { x: hero.position.x, z: hero.position.z };
     const proposed = stepMovement(from, move.x * dt * WALK_SPEED, move.z * dt * WALK_SPEED);
-    const safe = avoidVisitors(from, proposed, occupiedPositions());
+    const safe = avoidVisitors(from, proposed, blockingPlayers());
     const next = stepMovement(from, safe.x - from.x, safe.z - from.z);
     const dx = next.x - hero.position.x, dz = next.z - hero.position.z; walking = Math.hypot(dx, dz) > .0005;
     hero.position.set(next.x, 0, next.z); target.copy(hero.position); facing = Math.atan2(move.x, move.z);
@@ -651,7 +651,7 @@ function frame(now) {
     const next = route[0], dx = next.x - hero.position.x, dz = next.z - hero.position.z, distance = Math.hypot(dx, dz);
     if (distance > .001) {
       const step = Math.min(distance, dt * WALK_SPEED), from = {x:hero.position.x,z:hero.position.z};
-      const safe = avoidVisitors(from, {x:from.x+dx/distance*step,z:from.z+dz/distance*step}, occupiedPositions());
+      const safe = avoidVisitors(from, {x:from.x+dx/distance*step,z:from.z+dz/distance*step}, blockingPlayers());
       const actual = stepMovement(from, safe.x - from.x, safe.z - from.z);
       hero.position.x = actual.x; hero.position.z = actual.z;
       facing = Math.atan2(actual.x-from.x || dx, actual.z-from.z || dz);
@@ -932,6 +932,14 @@ const SCRUB_TIME = 6, SCRUB_GAP = 10 * 60 * 1000, SCRUB_REWARD = 2;
 const SCRUB_SLOTS = SCRUB_BEDS.map(({ x, z }) => [x, z]);
 const SEAT_CLEARANCE = .82;
 let seatRecheck = 0;
+// NPCs are non-solid for walking; only connected human visitors block movement.
+function blockingPlayers() {
+  const players = [];
+  for (const r of social?.remotes?.values() || []) {
+    if (r.placed) players.push({ x: r.target.x, z: r.target.z, uid: r.id });
+  }
+  return players;
+}
 function occupiedPositions() {
   const people = residents.map(r => ({ x: r.root.position.x, z: r.root.position.z, uid: null, moving: false }));
   for (const r of social?.remotes?.values() || []) {
