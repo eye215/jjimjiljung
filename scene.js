@@ -912,14 +912,7 @@ async function showFortuneDiagnostics() {
   const close = document.createElement('button'); close.textContent = '닫기'; close.onclick = () => modal.close();
   modal.append(close); document.body.append(modal); modal.addEventListener('close', () => modal.remove()); modal.showModal();
 }
-if (fortuneDebug) {
-  const debugButton = document.createElement('button');
-  debugButton.textContent = '🔎 진단 로그';
-  debugButton.type = 'button';
-  debugButton.style.cssText = 'position:fixed;right:12px;bottom:160px;z-index:100;background:#fff;color:#333;border:1px solid #ccc;border-radius:18px;padding:9px 12px;font-size:12px';
-  debugButton.addEventListener('click', showFortuneDiagnostics);
-  document.body.append(debugButton);
-}
+// Debug viewer disabled until owner account is verified; URL flags never grant admin access.
 let fortuneBusy = false;
 async function showFortune(birth) {
   const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
