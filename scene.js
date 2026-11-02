@@ -108,6 +108,8 @@ const motes = new THREE.Points(motesGeometry, new THREE.PointsMaterial({ color: 
 let soak = null;
 let social = null, localWalking = false, snackSig = '', snackSerial = 0, restTimer = 0;
 let action = 'stand', facing = 0, elapsed = 0, contextLost = false, raf = 0, lastTime = 0;
+// Short hand gesture layered over the current seated or reclining posture.
+let waveTimer = 0;
 const target = new THREE.Vector3(START.x, 0, START.z);
 const route = [];
 let activeDestination = null, currentRoom = null, tour = null;
@@ -136,6 +138,7 @@ const shop = createShop({
   wallet, toast,
   onGameComplete: kind => tour?.done(kind),
   onGameCancel: kind => tour?.retry(kind),
+  canSnack: () => action !== 'lie',
   tv: { worth: () => tvReady && tvAds.worthVisiting, go: () => goToTv() },
   eat: (kind, style) => eat(kind, style),
   play: (kind, style) => eat(kind, style),
@@ -230,14 +233,22 @@ function resize() {
 }
 
 function updateActionButtons() {
-  for (const button of actionButtons) { const selected = button.dataset.action === action || button.dataset.action === player.snack?.kind; button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected)); }
+  for (const button of actionButtons) {
+    const kind = button.dataset.action;
+    const selected = kind === action || kind === player.snack?.kind;
+    button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected));
+    if (kind === 'egg' || kind === 'drink') {
+      button.disabled = action === 'lie';
+      button.setAttribute('aria-label', action === 'lie' ? '누워서는 먹을 수 없어요. 먼저 앉거나 일어나세요.' : kind === 'egg' ? '계란 먹기' : '식혜 마시기');
+    }
+  }
 }
 function setAction(next) {
   if (!messages[next]) return;
   if (soak && next !== 'sit') leaveSoak();
   interruptSnack();
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick();
-  action = next; target.copy(hero.position); status.textContent = messages[next];
+  action = next; waveTimer = 0; target.copy(hero.position); status.textContent = messages[next];
   updateActionButtons();
   // Turn towards the camera for poses, so faces and snacks are visible.
   if (next !== 'stand' && next !== 'lie') facing = next === 'sit' && nearTv() ? TV_SEAT.facing : view.yaw;
@@ -248,13 +259,15 @@ function setAction(next) {
 }
 actionButtons.forEach(button => button.addEventListener('click', () => {
   const kind = button.dataset.action;
-  if (kind === 'egg' || kind === 'drink') { if (player.snack?.kind !== kind && !shop.playing) shop.choose(kind); } else if (kind === 'wave') startGreet(); else setAction(kind);
+  if (kind === 'egg' || kind === 'drink') { if (action !== 'lie' && player.snack?.kind !== kind && !shop.playing) shop.choose(kind); } else if (kind === 'wave') startGreet(); else setAction(kind);
 }));
 // ---------- Snacks: eaten in the current pose (sitting or standing) ----------
 function interruptSnack() { if (player.snack) { player.stopSnack(); snackSig = ''; } }
 function eat(kind, style = 'normal') {
-  // The plush eats sitting down (its drinking clip is a seated one).
-  if (kit.plush ? action !== 'sit' : action === 'lie' || action === 'wave') setAction(kit.plush ? 'sit' : action === 'lie' ? 'sit' : 'stand'); else interruptSnack();
+  // Preserve the current standing or seated pose. Never eat while lying.
+  if (action === 'lie') return null;
+  if (action === 'wave') setAction('stand');
+  else interruptSnack();
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick(); keys.clear();
   facing = view.yaw; snackSig = `${kind}:${style}:${++snackSerial}`;
   const serial = snackSig;
@@ -610,6 +623,7 @@ function frame(now) {
   // A queued RAF timestamp can precede initialization after shader compilation.
   // Negative dt makes exponential damping diverge and spins the limbs wildly.
   const dt = THREE.MathUtils.clamp((now - lastTime) / 1000, 0, .05); lastTime = now; elapsed += dt;
+  waveTimer = Math.max(0, waveTimer - dt);
   let walking = false;
   let inputX = joystickInput.x + (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
   let inputZ = joystickInput.z + (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0);
@@ -636,7 +650,8 @@ function frame(now) {
   sun.position.set(view.focus.x - 5, 12, view.focus.z + 6); sun.target.position.set(view.focus.x, 0, view.focus.z);
   destinationMarker.scale.setScalar(reducedMotion ? 1 : 1 + Math.sin(elapsed * 4) * .10);
   let angle = facing - hero.rotation.y; angle = Math.atan2(Math.sin(angle), Math.cos(angle)); hero.rotation.y += angle * Math.min(1, dt * 10);
-  player.animate(action, walking, dt, reducedMotion, WALK_SPEED / 1.9);
+  player.animate(waveTimer && action === 'sit' ? 'sitwave' : waveTimer && action === 'lie' ? 'liewave' : action,
+    walking, dt, reducedMotion, WALK_SPEED / 1.9);
   for (const resident of residents) {
     const near = Math.hypot(resident.root.position.x - hero.position.x, resident.root.position.z - hero.position.z) < 8;
     resident.animate((resident.config.greeter && action === 'wave' && near) || (resident.config.scrubber && scrubbing > 0) || (resident.config.clerk && deskWave > 0) ? 'wave' : resident.config.action, false, dt, reducedMotion);
@@ -682,7 +697,7 @@ placeTowelDecor(scene, TOWEL_DECOR).then(placed => { towelDecor = placed; viewpo
 document.querySelector('#chat-input').addEventListener('focus', () => { keys.clear(); stopJoystick(); });
 social = createSocial({
   scene, camera, kit, viewport, actorScale: ACTOR_SCALE, makeShadow: contactShadow,
-  getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
+  getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action: waveTimer && action === 'sit' ? 'sitwave' : waveTimer && action === 'lie' ? 'liewave' : action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
   onTrade: payload => onTrade(payload),
   onGreet: payload => onGreet(payload),
   notify: text => toast(text)
@@ -802,8 +817,12 @@ function fly(from, to, emoji) {
 }
 const faceTo = p => { facing = Math.atan2(p.x - hero.position.x, p.z - hero.position.z); };
 function clearPick() { if (!picking) return; picking.buttons.forEach(b => b.remove()); clearTimeout(picking.timer); picking = null; }
+function gestureHello() {
+  if (action === 'sit' || action === 'lie') waveTimer = 1.5;
+  else setAction('wave');
+}
 function greet(remote) {
-  clearPick(); setAction('wave'); faceTo(remote.character.root.position);
+  clearPick(); gestureHello(); faceTo(remote.character.root.position);
   const wait = greetLog.wait(remote.id);
   if (wait) { toast(`${remote.name}님에게는 ${Math.ceil(wait / 1000)}초 뒤에 다시 인사할 수 있어요`); return; }
   greetLog.sent(remote.id); social.sendGreet(remote.id, 'hello', Math.random().toString(36).slice(2, 10));
@@ -813,7 +832,7 @@ function greet(remote) {
 function startGreet() {
   const near = social ? greetTargets(social.remotes, hero.position, currentRoom.id) : [];
   if (near.length === 1) { greet(near[0]); return; }
-  setAction('wave'); clearPick(); if (!near.length) return;
+  gestureHello(); clearPick(); if (!near.length) return;
   picking = { timer: setTimeout(clearPick, 8000), buttons: near.map(remote => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'greet-pick'; b.textContent = '👋'; b.setAttribute('aria-label', `${remote.name}님에게 인사`);
     b.addEventListener('click', event => { event.stopPropagation(); greet(remote); }); remote.label.prepend(b); return b;
@@ -821,7 +840,7 @@ function startGreet() {
   toast('누구에게 인사할까요? 이름 위 👋를 눌러요');
 }
 function highFive(remote) {
-  setAction('wave'); faceTo(remote.character.root.position); player.celebrate(); fly(hero.position, remote.character.root.position, '💖');
+  gestureHello(); faceTo(remote.character.root.position); if (action !== 'lie') player.celebrate(); fly(hero.position, remote.character.root.position, '💖');
   const got = greetLog.reward(remote.id) ? wallet.earn(1) : 0;
   toast(`${remote.name}님과 하이파이브! 🙌${got ? ` 온기 +${got}♨` : ''}`);
 }
