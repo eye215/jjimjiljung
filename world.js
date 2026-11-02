@@ -53,7 +53,7 @@ export const FURNITURE = Object.freeze([
   // Central lobby
   { type: 'tv', x: -7.4, z: 3.4, w: .75, d: 2.8, face: 'e', solid: true },
   { type: 'mat', x: -4.6, z: 2.4, w: 1.3, d: 1.3 }, { type: 'mat', x: -4.6, z: 4.6, w: 1.3, d: 1.3 },
-  { type: 'mat', x: -2.5, z: 3.5, w: 1.3, d: 1.3 },
+  { type: 'mat', x: -2.5, z: 3.5, w: 1.3, d: 1.3 }, { type: 'mat', x: -2.5, z: 5.4, w: 1.3, d: 1.3 },
   { type: 'tree', x: -6, z: 5.9, w: 1.4, d: 1.4, solid: true }, { type: 'tree', x: 6.4, z: -2.5, w: 1.4, d: 1.4, solid: true },
   { type: 'table', x: 3.8, z: 2.6, w: 1.9, d: 1.05, solid: true }, { type: 'table', x: 5.3, z: 5.2, w: 1.5, d: 1.05, solid: true },
   { type: 'cushion', x: 3.8, z: 1.55, w: .8, d: .7 }, { type: 'cushion', x: 3.8, z: 3.65, w: .8, d: .7 },
@@ -121,7 +121,10 @@ export const DESTINATIONS = Object.freeze({
 });
 
 // The mat in front of the lobby TV, facing the screen (west).
-export const TV_SEAT = Object.freeze({ id: 'tv', name: 'TV 앞 방석', x: -4.6, z: 2.4, facing: -Math.PI / 2, action: 'sit', arrival: 'TV 앞에 앉았어요. 광고를 보면 온기를 받을 수 있어요 📺' });
+export const TV_SEATS = Object.freeze([
+  [-4.6, 2.4], [-4.6, 4.6], [-2.5, 3.5], [-2.5, 5.4]
+].map(([x, z], index) => Object.freeze({ id: 'tv', name: `TV 시청 자리 ${index + 1}`, x, z, facing: -Math.PI / 2, action: 'sit', arrival: 'TV 앞 방석에 앉았어요. 광고를 보면 온기를 받을 수 있어요 📺' })));
+export const TV_SEAT = TV_SEATS[0];
 
 // Meshy towel props placed around the rooms (props.js). `y` is the surface they
 // rest on, `turn` a rotation about y, `size` the longest side in metres and
