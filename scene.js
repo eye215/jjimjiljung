@@ -365,10 +365,9 @@ function enterRoom(room) {
   if (room.id !== 'lobby' || tour?.step === 'lobby') tour?.done(room.id === 'lobby' ? 'lobby' : ['hot', 'ice', 'salt'].includes(room.id) ? room.id : '');
   if (['locker', 'bath', 'fortune', 'scrub', 'sleep'].includes(room.id)) tour?.arrived(room.id);
   badge.innerHTML = `<i></i> ${room.name} <span>${room.note}</span>`;
-  if (!roomToast.dataset.silent) {
-    roomToast.textContent = `♨ ${room.name}에 들어왔어요`; roomToast.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => { roomToast.hidden = true; }, 1800);
-  }
+  // The fixed room badge already shows the location. Avoid another popup
+  // each time a player crosses a threshold (especially during guided touring).
+  roomToast.hidden = true;
 }
 roomToast.dataset.silent = '1'; enterRoom(roomAt(hero.position.x, hero.position.z) || ROOMS[0]); delete roomToast.dataset.silent;
 
