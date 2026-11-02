@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     await context.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), block: () => social.block([...social.remotes.keys()][0]), invite: () => social.createInviteToken(), openCard: () => { const r = [...social.remotes.values()].find(x => x.name === "율무"); if (r) openPerson(r); return !!r; }, group: () => social.group, teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
+      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), block: () => social.block([...social.remotes.keys()][0]), invite: () => social.createInviteToken(), openCard: () => { const r = [...social.remotes.values()].find(x => x.name === "율무"); if (r) openPerson(r); return !!r; }, group: () => social.group, forceGreetCooldown: () => greetLog.sent([...social.remotes.keys()][0]), teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
     });
     await context.addInitScript(() => localStorage.setItem('jjimjiljung-wallet-v1', JSON.stringify({ points: 50, bag: { egg: 5, drink: 5 }, free: { egg: '', drink: '' } })));
     const errors = [];
@@ -81,6 +81,9 @@ const server = http.createServer((req, res) => {
     await b.locator('#toast button').click();
     await a.waitForFunction(() => /율무님과 하이파이브/.test(document.querySelector('#toast span').textContent), null, { timeout: 30000 });
     assert.match(await a.locator('#toast span').textContent(), /온기 \+1/, 'First greeting with a partner today gives 온기');
+    // CI may spend >30s rendering two 3D scenes. Set the test clock anchor
+    // immediately before the second greeting so the cooldown is deterministic.
+    await a.evaluate(() => window.__mp.forceGreetCooldown());
     await a.locator('[data-action="wave"]').click();
     assert.match(await a.locator('#toast span').textContent(), /초 뒤에 다시 인사/, 'Same person: 30-second cooldown');
     // 3. No public chat: talking needs a request the other visitor accepts (server rules, local mock here).
