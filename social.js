@@ -6,7 +6,7 @@ import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, sug
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
-const ACTIONS = ['stand', 'sit', 'lie', 'wave'];
+const ACTIONS = ['stand', 'sit', 'lie', 'wave', 'sitwave', 'liewave'];
 const MOVE_INTERVAL = 200, IDLE_INTERVAL = 2500, HISTORY = 60;
 const $ = selector => document.querySelector(selector);
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
@@ -16,6 +16,9 @@ const dress = (character, code) => { const outfit = decodeOutfit(code) || decode
 
 export function createSocial({ scene, camera, kit, viewport, getLocal, makeShadow, actorScale, onLocalBubble, onTrade, onGreet, notify = () => {} }) {
   const id = newId();
+  const visitorPanel = $('#visitor-stats'), visitorLive = $('#visitor-live'), visitorToday = $('#visitor-today'), visitorTotal = $('#visitor-total'), visitorNote = $('#visitor-stats-note');
+  const format = value => Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value).toLocaleString('ko-KR') + '명' : '—';
+  let visitorStats = null, visitorStatsAt = 0, visitorLoading = false;
   const ui = {
     online: $('#online'), onlineText: $('#online-text'), chat: $('#chat'), log: $('#chat-log'), form: $('#chat-form'), input: $('#chat-input'),
     note: $('#chat-note'), open: $('#chat-open'), close: $('#chat-close'), unread: $('#chat-unread'), count: $('#chat-count'),
@@ -198,7 +201,42 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   document.addEventListener('pointerdown', event => { if (!ui.chat.hidden && !ui.chat.contains(event.target) && !ui.open.contains(event.target)) closeChat(); }, true);
   setMode(mode);
   ui.chat.addEventListener('keydown', event => { if (event.key === 'Escape') { event.stopPropagation(); closeChat(); } });
-  ui.online.addEventListener('click', () => { if (status === 'offline') reconnect(); else openChat(false); });
+  function paintVisitorStats() {
+    visitorLive.textContent = status === 'online' ? format(presence.length + 1) : '—';
+    visitorToday.textContent = visitorStats ? format(visitorStats.today_count) : '—';
+    visitorTotal.textContent = visitorStats ? format(visitorStats.total_count) : '—';
+    visitorNote.textContent = visitorStats ? `한국 시간 ${visitorStats.counted_day} 기준 · 연결된 방문 기록을 집계해요`
+      : status === 'online' ? '방문 기록을 불러올 수 없어요. 잠시 후 다시 확인해 주세요.' : '서버에 연결되면 방문자 통계를 보여 드려요.';
+  }
+  async function refreshVisitorStats(record = false) {
+    if (!link?.stats || visitorLoading) { paintVisitorStats(); return; }
+    const now = Date.now();
+    if (!record && visitorStats && now - visitorStatsAt < 30000) { paintVisitorStats(); return; }
+    visitorLoading = true;
+    try {
+      const list = record ? await link.stats.record() : await link.stats.read();
+      const stats = Array.isArray(list) ? list[0] : list;
+      if (stats) { visitorStats = stats; visitorStatsAt = now; }
+    } catch { /* Counters are optional until the SQL migration is deployed. */ }
+    finally { visitorLoading = false; paintVisitorStats(); }
+  }
+  ui.online.addEventListener('click', () => {
+    if (visitorPanel.hidden) {
+      visitorPanel.hidden = false; ui.online.setAttribute('aria-expanded', 'true');
+      paintVisitorStats(); refreshVisitorStats();
+    } else { visitorPanel.hidden = true; ui.online.setAttribute('aria-expanded', 'false'); }
+  });
+  $('#visitor-stats-close').addEventListener('click', () => {
+    visitorPanel.hidden = true; ui.online.setAttribute('aria-expanded', 'false'); ui.online.focus({ preventScroll: true });
+  });
+  document.addEventListener('pointerdown', event => {
+    if (!visitorPanel.hidden && !visitorPanel.contains(event.target) && !ui.online.contains(event.target)) {
+      visitorPanel.hidden = true; ui.online.setAttribute('aria-expanded', 'false');
+    }
+  });
+  visitorPanel.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.stopPropagation(); $('#visitor-stats-close').click(); }
+  });
 
   // ---------- Nickname and joining ----------
   // A cosy suggestion is filled in for newcomers; it stays fully editable.
@@ -385,6 +423,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     try {
       link = await connect({ id, presence: presencePayload(), onPresence, onStatus: next => { status = next; renderStatus(); if (next === 'online') lastSent = 0; }, onMessage: (event, payload) => event === 'state' ? onState(payload) : event === 'chatreq' || event === 'chatans' ? onChatSignal(event, payload) : event === 'trade' ? readTrade(payload) : event === 'greet' ? readGreet(payload) : null });
       selfLabel.hidden = false; link.track(presencePayload());
+      if (link.stats) refreshVisitorStats(true);
       if (!ui.log.children.length) system(`${nickname}님, 찜질방에 오신 걸 환영해요! 다른 손님을 눌러 대화를 신청해 보세요`);
       restoreGroup();
     } catch { status = 'offline'; renderStatus(); }
@@ -396,6 +435,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     ui.onlineText.textContent = status === 'online' ? `${count}명 접속 중` : status === 'connecting' ? '연결 중…' : status === 'offline' ? '다시 연결' : '함께하기';
     if (!group) ui.count.textContent = '';
     viewport.dataset.online = status === 'online' ? String(count) : status;
+    if (!visitorPanel.hidden) paintVisitorStats();
   }
   addEventListener('pagehide', () => { link?.leave(); });
   renderStatus();
