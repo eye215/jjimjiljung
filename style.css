@@ -659,3 +659,41 @@ body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #
  #tour [data-tour-go]{min-width:44px;height:29px;padding:0 9px;font-size:11px;}
  #tour .tour-close{width:19px;flex-basis:19px;font-size:11px;}
 }
+
+/* Mobile HUD collision fixes: notifications, tour and context action get separate lanes. */
+@media (max-width:760px) {
+  #tour {
+    box-sizing:border-box;
+    bottom:calc(var(--safe-bottom) + 160px);
+    width:min(340px,calc(100vw - 28px));
+    max-width:calc(100vw - 28px);
+    padding:7px 9px 7px 12px;
+    min-height:44px;
+    max-height:none;
+    height:auto;
+    gap:7px;
+    border-radius:20px;
+    white-space:normal;
+  }
+  #tour span { flex:1 1 auto; min-width:0; max-height:none; line-height:1.3; -webkit-line-clamp:2; }
+  #tour [data-tour-go] {
+    flex:0 0 auto;
+    min-width:74px;
+    max-width:112px;
+    height:34px;
+    padding:0 10px;
+    white-space:nowrap;
+    overflow:visible;
+    font-size:12px;
+  }
+  #tour .tour-close { flex:0 0 25px; width:25px; height:30px; }
+  #spot-action { bottom:calc(var(--safe-bottom) + 242px); max-width:calc(100vw - 28px); }
+  /* Only one actionable overlay at a time: a nearby action takes priority. */
+  body:has(#spot-action:not([hidden])) #tour { display:none!important; }
+  #toast { top:auto; bottom:calc(var(--safe-bottom) + 310px); width:max-content; max-width:calc(100vw - 32px); box-sizing:border-box; }
+  #toast span { min-width:0; overflow-wrap:anywhere; }
+  #toast button { flex:0 0 auto; max-width:42vw; white-space:normal; }
+  body:has(#toast:not([hidden])) #tour { display:none!important; }
+  .actions { width:100%; justify-content:space-around; }
+  .actions>button { flex:1 1 0; width:auto; min-width:0; }
+}
