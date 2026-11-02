@@ -66,8 +66,21 @@ export async function connectSupabase({ id, presence, onPresence, onMessage, onS
     joinGroup(group, onMessage) {
       const ch = client.channel('group:' + group, { config: { private: true, broadcast: { self: false } } });
       for (const event of ['msg', 'member']) ch.on('broadcast', { event }, message => onMessage(event, message.payload));
-      ch.subscribe();
-      return { send: (event, payload) => ch.send({ type: 'broadcast', event, payload }).catch(() => {}), leave: () => client.removeChannel(ch).catch(() => {}) };
+      let settle;
+      const ready = new Promise(resolve => { settle = resolve; });
+      ch.subscribe(status => {
+        if (status === 'SUBSCRIBED') settle(true);
+        else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) settle(false);
+      });
+      return {
+        ready,
+        async send(event, payload) {
+          if (!(await ready)) return false;
+          try { return (await ch.send({ type: 'broadcast', event, payload })) === 'ok'; }
+          catch { return false; }
+        },
+        leave: () => { settle(false); return client.removeChannel(ch).catch(() => {}); }
+      };
     }
   };
   return {
