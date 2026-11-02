@@ -21,9 +21,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: node tests/module-cache.cjs && node tests/tour.cjs && node tests/seat-layout.cjs
+      - run: node tests/wing.cjs
       - run: node tests/tour-browser.cjs
       - run: node tests/tv.cjs
-      - run: node tests/wing.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
