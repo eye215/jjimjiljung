@@ -230,9 +230,10 @@ body:not(.room-ready) #dress{display:none}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.glass-round,.glass-card,.glass-sheet,#towel-open{background:rgba(255,250,245,.94)}}
 @media(prefers-reduced-motion:reduce){.towel-swipe{animation:none}.glass-round,.towel-cloth{transition:none}}
 #toast{width:max-content;max-width:calc(100% - 24px)}#toast span{white-space:normal;word-break:keep-all;line-height:1.4}
-#towel-nudge{position:absolute;z-index:4;left:50%;transform:translateX(-50%);bottom:205px;display:flex;align-items:center;gap:10px;height:48px;padding:0 6px 0 16px;border-radius:999px;color:var(--ink);font-size:14px;font-weight:700;white-space:nowrap;background:var(--lg-fill);-webkit-backdrop-filter:var(--lg-blur);backdrop-filter:var(--lg-blur);box-shadow:var(--lg-shadow),inset 0 0 0 .75px rgba(255,255,255,.7);animation:toast .4s ease-out}
-#towel-nudge button{height:36px;padding:0 15px;border:0;border-radius:999px;background:var(--hot);color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 14px rgba(242,104,60,.3)}
-@media(max-width:760px){#towel-nudge{bottom:206px}}@media(max-height:500px) and (orientation:landscape){#towel-nudge{bottom:120px}}
+#towel-nudge,#tour{position:absolute;z-index:4;left:50%;transform:translateX(-50%);bottom:205px;display:flex;align-items:center;gap:10px;height:48px;padding:0 6px 0 16px;border-radius:999px;color:var(--ink);font-size:14px;font-weight:700;white-space:nowrap;background:var(--lg-fill);-webkit-backdrop-filter:var(--lg-blur);backdrop-filter:var(--lg-blur);box-shadow:var(--lg-shadow),inset 0 0 0 .75px rgba(255,255,255,.7);animation:toast .4s ease-out}
+#towel-nudge button,#tour [data-tour-go]{height:36px;padding:0 15px;border:0;border-radius:999px;background:var(--hot);color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 14px rgba(242,104,60,.3)}
+@media(max-width:760px){#towel-nudge,#tour{bottom:206px}}@media(max-height:500px) and (orientation:landscape){#towel-nudge,#tour{bottom:120px}}
+#tour{gap:8px;padding-right:4px;max-width:calc(100vw - 32px)}#tour span{overflow:hidden;text-overflow:ellipsis}#tour .tour-close{width:30px;height:30px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--ink);opacity:.55;font-size:13px}
 body.sleeping #towel-nudge,body.towel-playing #towel-nudge,body:not(.room-ready) #towel-nudge,body.chat-open #towel-nudge{display:none}
 #trade-card .person-actions button{font-size:14px}.trade-decline{align-self:center;margin-top:8px;min-height:36px;padding:0 14px;border:0;background:none;color:var(--ink-soft);font-weight:650;font-size:13px}
 /* 양머리 만들기 step 2: a 2.5D towel whose ends roll inwards with each tap. */
@@ -453,3 +454,9 @@ body.sleeping #spot-action,body.playing #spot-action,body.towel-playing #spot-ac
 #report-detail{width:100%;min-height:80px;border:0;border-radius:16px;padding:12px 14px;font:inherit;font-size:15px;color:var(--ink);background:rgba(255,255,255,.8);box-shadow:inset 0 0 0 1px rgba(107,70,54,.12);resize:vertical}
 .report-actions{display:flex;gap:8px;margin-top:12px}.report-actions button{flex:1;min-height:46px;border:0;border-radius:999px;font-weight:800;font-size:15px}
 #report-cancel{background:rgba(107,70,54,.08);color:var(--ink)}
+/* 첫 방문 안내 sits above the context button when both show. */
+/* Keep the tour above the joystick and towel button, using the same safe-area
+   offset as the other floating nudges. Preserve the compact landscape layout. */
+@media(min-height:501px){#tour{bottom:calc(var(--safe-bottom) + 232px)}}
+body:has(#spot-action:not([hidden])) #tour{bottom:calc(var(--safe-bottom) + 292px)}
+body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #tour{display:none}

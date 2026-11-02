@@ -1,19 +1,20 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-30';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-30';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-30';
-import { createTowelGame } from './towel.js?v=rpg-30';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-30';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-30';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-30';
-import { buildWorld } from './environment.js?v=rpg-30';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-30';
-import { createTvAds } from './ads.js?v=rpg-30';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-30';
-import { createSocial } from './social.js?v=rpg-30';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-30';
-import { createShop } from './shop.js?v=rpg-30';
-import { createInvite } from './invite.js?v=rpg-30';
+import { planPath, stepMovement } from './navigation.js?v=rpg-37';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-37';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-37';
+import { createTowelGame } from './towel.js?v=rpg-37';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-37';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-37';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-37';
+import { buildWorld } from './environment.js?v=rpg-37';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, roomAt } from './world.js?v=rpg-37';
+import { createTvAds } from './ads.js?v=rpg-37';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-37';
+import { createSocial } from './social.js?v=rpg-37';
+import { createWallet, REST_SECONDS } from './economy.js?v=rpg-37';
+import { createShop } from './shop.js?v=rpg-37';
+import { createInvite } from './invite.js?v=rpg-37';
+import { createTour, loadTour } from './tour.js?v=rpg-37';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -35,12 +36,12 @@ try {
   clearTimeout(window.roomLoadTimer);
   throw error;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, coarsePointer ? 1.5 : 1.75));
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.1;
 viewport.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#2e1d14');
@@ -69,9 +70,15 @@ function contactShadow() { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.15
 
 const ACTOR_SCALE = .62, WALK_SPEED = 2.5;
 let outfit = loadOutfit();
-const player = kit.createCharacter(outfitColors(outfit)); player.setTowel(capOn(outfit));
+// 첫 방문 (no locker key, no tour record): start at the 입구 and follow the tour (tour.js).
+// Automated browsers keep the lobby start unless the page asks for ?tour=1.
+const tourParam = new URLSearchParams(location.search).get('tour');
+let firstVisit = false; try { firstVisit = !localStorage.getItem('jjimjiljung-key') && loadTour().fresh; } catch { /* storage may be unavailable */ }
+if (tourParam === '0' || (navigator.webdriver && tourParam !== '1')) firstVisit = false;
+const START = firstVisit ? { x: DESTINATIONS.entrance.x, z: DESTINATIONS.entrance.z } : SPAWN;
+const player = kit.createCharacter(outfitColors(outfit)); player.setTowel(capOn(outfit)); player.setCastShadow?.(true);
 const { root: hero, arms, legs, faceMaterial } = player;
-scene.add(hero); hero.scale.setScalar(ACTOR_SCALE); hero.position.set(SPAWN.x, 0, SPAWN.z);
+scene.add(hero); hero.scale.setScalar(ACTOR_SCALE); hero.position.set(START.x, 0, START.z);
 const shadow = contactShadow();
 
 // Resident guests keep every room feeling lived in. They share the player model.
@@ -81,7 +88,7 @@ const residents = [
   { x: 3.2, z: -8.5, y: .05, face: -.5, action: 'sit' },
   { x: 9.5, z: -11.05, y: .1, face: 0, action: 'lie' },
   { x: 14.5, z: -1.7, y: 0, face: -Math.PI / 2, action: 'stand', greeter: true },
-  { x: 13.4, z: 11.6, y: 0, face: -Math.PI / 2, action: 'stand', scrubber: true },
+  { x: 14.45, z: 12.4, y: 0, face: -Math.PI / 2, action: 'stand', scrubber: true },
   { x: 14.7, z: 4.8, y: 0, face: -Math.PI / 2, action: 'stand', clerk: true },
   { x: 1.5, z: 12.3, y: 0, face: -.4, action: 'sit' },
   { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' }
@@ -101,9 +108,9 @@ const motes = new THREE.Points(motesGeometry, new THREE.PointsMaterial({ color: 
 let soak = null;
 let social = null, localWalking = false, snackSig = '', snackSerial = 0, restTimer = 0;
 let action = 'stand', facing = 0, elapsed = 0, contextLost = false, raf = 0, lastTime = 0;
-const target = new THREE.Vector3(SPAWN.x, 0, SPAWN.z);
+const target = new THREE.Vector3(START.x, 0, START.z);
 const route = [];
-let activeDestination = null, currentRoom = null;
+let activeDestination = null, currentRoom = null, tour = null;
 const joystickInput = { x: 0, z: 0 };
 const keys = new Set();
 const messages = { stand: '어서 와요, 푹 쉬다 가요.', sit: '따끈따끈, 마음까지 풀리는 중.', lie: '오늘도 애썼어요. 잠깐 눈 감아요.', wave: '안녕! 같이 쉬어 가요.' };
@@ -152,7 +159,7 @@ function updateTv(dt) {
   if (seated !== tvSeated) {
     tvSeated = seated; tvButton.hidden = !seated;
     // Swing the camera round behind the sitter so the TV fills the view.
-    if (seated) { tvCheck = 0; tvTurn = 1.6; tvAds.prepare(); } else { tvTurn = 0; tvAds.leave(); }
+    if (seated) { tour?.done('tv'); tvCheck = 0; tvTurn = 1.6; tvAds.prepare(); } else { tvTurn = 0; tvAds.leave(); }
   }
   if (tvTurn > 0) {
     tvTurn -= dt; const goal = TV_SEAT.facing + Math.PI + .3;
@@ -176,7 +183,7 @@ destinationMarker.rotation.x = -Math.PI / 2; destinationMarker.castShadow = fals
 
 // ---------- Camera: RPG quarter view that follows the player ----------
 const DEFAULT_YAW = .42, DEFAULT_PITCH = .52;
-const view = { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, zoom: 1, focus: new THREE.Vector3(SPAWN.x, 0, SPAWN.z) };
+const view = { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, zoom: 1, focus: new THREE.Vector3(START.x, 0, START.z) };
 function baseDistance() {
   const aspect = camera.aspect;
   // Portrait phones need a wider look around the player; landscape stays closer.
@@ -237,11 +244,16 @@ function eat(kind, style = 'normal') {
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick(); keys.clear();
   facing = view.yaw; snackSig = `${kind}:${style}:${++snackSerial}`;
   const serial = snackSig;
+  let startedSnack;
   player.startSnack(kind, { style, onDone: finished => {
     if (snackSig === serial) snackSig = '';
     updateActionButtons();
+    // The one-shot game finishes externally, then puts its cup away via stopSnack.
+    // Preserve cancellation semantics, but count a genuinely finished game in the tour.
+    if (finished || (kind === 'drink' && style === 'oneshot' && startedSnack?.finished)) tour?.done(kind);
     if (finished) status.textContent = kind === 'egg' ? '냠, 다 먹었다! 고소하고 든든해요.' : '캬~ 속까지 시원해요.';
   } });
+  startedSnack = player.snack;
   status.textContent = kind === 'egg' ? (style === 'forehead' ? '이마로 톡! 계란 깨기 도전…' : '톡톡, 맥반석 계란 까는 중…') : style === 'oneshot' ? '살얼음 식혜 원샷 도전!' : '살얼음 식혜 한 모금…';
   hint.textContent = '걸으면 간식을 내려놓아요';
   updateActionButtons();
@@ -274,7 +286,7 @@ let openTowelOnArrival = false;
 const towelGame = createTowelGame({
   onOpen: () => { setAction('stand'); if (nearTowels()) facing = TOWEL_SPOT.facing; keys.clear(); },
   onDone: (color, wear) => {
-    applyOutfit({ ...addTowel(outfit, color), wear });
+    applyOutfit({ ...addTowel(outfit, color), wear }); tour?.done('towel');
     player.celebrate(); toast(wear ? '🐑 양머리 완성! 잘 어울려요' : '🐑 양머리 완성! 옷 버튼 위 🐑로 언제든 써요');
     status.textContent = '폭신한 양머리가 생겼어요.';
   }
@@ -303,6 +315,7 @@ function arrive() {
   const place = activeDestination;
   destinationMarker.visible = false;
   if (place) { setAction(place.action || 'stand'); if (place.facing != null) facing = place.facing; activeDestination = place; status.textContent = place.arrival; }
+  if (place?.id === 'tv') tour?.done('tv');
   if (place?.id === 'shop' && openShopOnArrival) { openShopOnArrival = false; shop.openShop(); }
   if (place?.id === 'towel') { facing = TOWEL_SPOT.facing; if (openTowelOnArrival) { openTowelOnArrival = false; towelGame.open(); } }
 }
@@ -311,6 +324,8 @@ let openShopOnArrival = false;
 let toastTimer = 0;
 function enterRoom(room) {
   currentRoom = room; viewport.dataset.room = room.id;
+  // The lobby step only counts once the intro has led there (a newcomer walks through it earlier).
+  if (room.id !== 'lobby' || tour?.step === 'lobby') tour?.done(room.id === 'lobby' ? 'lobby' : ['hot', 'ice', 'salt'].includes(room.id) ? room.id : '');
   badge.innerHTML = `<i></i> ${room.name} <span>${room.note}</span>`;
   if (!roomToast.dataset.silent) {
     roomToast.textContent = `♨ ${room.name}에 들어왔어요`; roomToast.hidden = false;
@@ -469,14 +484,14 @@ let sleepCommitted = false, fadeTimer = -1;
 function updateSleep(dt) {
   const wanted = action === 'lie' && currentRoom.id === 'sleep';
   if (wanted !== sleepCommitted && fadeTimer < 0) {
-    if (reducedMotion) { sleepCommitted = wanted; sleep.snap(wanted); }
+    if (reducedMotion) { sleepCommitted = wanted; sleep.snap(wanted); if (wanted) tour?.done('sleep'); }
     else { fadeTimer = 0; sleepFade.classList.add('on'); }
   }
   if (fadeTimer >= 0) {
     fadeTimer += dt;
     if (fadeTimer >= FADE_IN) {
       // Fully dark: switch the view at once, then fade back in.
-      sleepCommitted = action === 'lie' && currentRoom.id === 'sleep'; sleep.snap(sleepCommitted);
+      sleepCommitted = action === 'lie' && currentRoom.id === 'sleep'; sleep.snap(sleepCommitted); if (sleepCommitted) tour?.done('sleep');
       fadeTimer = -1; sleepFade.classList.remove('on');
     }
   }
@@ -773,6 +788,7 @@ function showFortune(birth) {
   fortuneResult.hidden = false;
 }
 document.querySelector('#fortune-open').addEventListener('click', () => {
+  tour?.done('fortune');
   placesDialog.close(); const saved = loadBirth();
   fortuneResult.hidden = true;
   if (saved?.date) { document.querySelector('#fortune-date').value = saved.date; document.querySelector('#fortune-time').value = saved.time || ''; showFortune(saved); }
@@ -793,20 +809,59 @@ let spot = null, scrubbing = 0, scrubReady = 0, deskWave = 0, shower = 0;
 const BATH = { hotpool: { time: 8, reward: 2, gap: 300000, enter: '따끈따끈~ 온탕에 들어왔어요 ♨', done: '몸이 사르르 풀렸어요' }, coldpool: { time: 6, reward: 2, gap: 300000, enter: '으아, 차가워! 냉탕에 들어왔어요 🧊', done: '정신이 번쩍! 상쾌해요' }, shower: { time: 4, reward: 1, gap: 180000, enter: '쏴아~ 샤워 중이에요 🚿', done: '깨끗하게 씻었어요' } };
 const bathReady = {};
 function bathReward(kind) {
-  const b = BATH[kind]; bathReady[kind] = Date.now() + b.gap;
+  const b = BATH[kind]; bathReady[kind] = Date.now() + b.gap; tour?.done('bath');
   const got = wallet.earn(b.reward); player.celebrate(); toast(`${b.done}${got ? ` 온기 +${got}♨` : ''}`);
 }
 function leaveSoak() { const back = soak.back; soak = null; hero.position.set(back[0], 0, back[1]); target.copy(hero.position); }
 // 입구 카운터: the first visit hands over a locker key (kept on this device) and a fresh 찜질복.
 let lockerKey = 0; try { lockerKey = Number(localStorage.getItem('jjimjiljung-key')) || 0; } catch { /* storage may be unavailable */ }
 const SCRUB_TIME = 6, SCRUB_GAP = 10 * 60 * 1000, SCRUB_REWARD = 2;
+// Users and resident guests share the physical spots; never place visitors on
+// top of one another. Deterministic ties resolve two simultaneous arrivals.
+const SCRUB_SLOTS = SCRUB_BEDS.map(({ x, z }) => [x, z]);
+const SEAT_CLEARANCE = .82;
+let seatRecheck = 0;
+function occupiedPositions() {
+  const people = residents.map(r => ({ x: r.root.position.x, z: r.root.position.z, uid: null, moving: false }));
+  for (const r of social?.remotes?.values() || []) {
+    if (r.placed) people.push({ x: r.target.x, z: r.target.z, uid: r.id, moving: r.walking });
+  }
+  return people;
+}
+function freeSeat(seats, from, people = occupiedPositions()) {
+  return [...seats].sort((a, b) => Math.hypot(a[0] - from[0], a[1] - from[1]) - Math.hypot(b[0] - from[0], b[1] - from[1]))
+    .find(([x, z]) => !people.some(p => Math.hypot(p.x - x, p.z - z) < SEAT_CLEARANCE)) || null;
+}
+function keepSeatClear(dt) {
+  seatRecheck += dt;
+  if (seatRecheck < .8) return;
+  seatRecheck = 0;
+  const seats = soak ? POOL_SEATS[soak.kind] : currentRoom?.id === 'scrub' && scrubbing > 0 ? SCRUB_SLOTS : null;
+  if (!seats) return;
+  // Stable tie-break: only the lexicographically later visitor changes seats.
+  const other = occupiedPositions();
+  if (!other.some(p => !p.moving && Math.hypot(p.x - hero.position.x, p.z - hero.position.z) < SEAT_CLEARANCE && (!p.uid || p.uid < (social?.id || '')))) return;
+  const seat = freeSeat(seats, [hero.position.x, hero.position.z], other);
+  if (seat) {
+    hero.position.set(seat[0], 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
+    toast('다른 손님과 겹치지 않도록 빈자리로 이동했어요 ♨');
+  } else if (soak) {
+    setAction('stand'); toast('탕이 만석이에요. 잠시 후 다시 이용해 주세요.');
+  } else {
+    scrubbing = 0; setAction('stand');
+    hero.position.set(8.8, 0, 12.8); target.copy(hero.position); view.focus.set(8.8, 0, 12.8);
+    toast('세신대가 만석이에요. 잠시 후 다시 이용해 주세요.');
+  }
+}
 function updateSpots(dt) {
-  const near = SPOTS.find(s => s.room === currentRoom.id && Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < s.r) || null;
+  const near = SPOTS.filter(s => s.room === currentRoom.id && Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < s.r)
+    .sort((a, b) => Math.hypot(hero.position.x - a.x, hero.position.z - a.z) - Math.hypot(hero.position.x - b.x, hero.position.z - b.z))[0] || null;
   const show = near && !towelGame.isOpen && !shop.playing && !scrubbing && !soak && !shower && !document.querySelector('dialog[open]');
   if (near !== spot || spotButton.hidden === !!show) { spot = near; spotButton.hidden = !show; if (near) spotButton.textContent = near.label; }
   if (show) towelNudge.hidden = true;
   if (near?.id === 'locker' && lockerKey) spotButton.textContent = `👕 ${lockerKey}번 사물함에서 갈아입기`;
   deskWave = Math.max(0, deskWave - dt);
+  keepSeatClear(dt);
   if (soak && !soak.done && (soak.t -= dt) <= 0) { soak.done = true; bathReward(soak.kind); }
   if (shower > 0) {
     if (action !== 'stand' || Math.hypot(hero.position.x - spot?.x, hero.position.z - spot?.z) > 1.2 || localWalking) shower = 0;
@@ -818,7 +873,7 @@ function updateSpots(dt) {
     scrubbing -= dt;
     if (scrubbing <= 0) {
       scrubbing = 0; scrubReady = Date.now() + SCRUB_GAP;
-      const got = wallet.earn(SCRUB_REWARD); player.celebrate();
+      const got = wallet.earn(SCRUB_REWARD); player.celebrate(); tour?.done('scrub');
       toast(`개운해요! 때가 쏙 빠졌어요 ✨${got ? ` 온기 +${got}♨` : ''}`); status.textContent = '몸도 마음도 반질반질해졌어요.';
     }
   }
@@ -826,7 +881,7 @@ function updateSpots(dt) {
 spotButton.addEventListener('click', () => {
   if (!spot) return;
   if (spot.id === 'desk') {
-    deskWave = 2.5; faceTo({ x: 14.7, z: 4.8 });
+    deskWave = 2.5; faceTo({ x: 14.7, z: 4.8 }); tour?.done('desk');
     if (!lockerKey) {
       lockerKey = 1 + Math.floor(Math.random() * 120); try { localStorage.setItem('jjimjiljung-key', String(lockerKey)); } catch { /* storage may be unavailable */ }
       applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom') }); player.celebrate();
@@ -837,16 +892,20 @@ spotButton.addEventListener('click', () => {
     const kind = spot.id, b = BATH[kind];
     if (Date.now() < (bathReady[kind] || 0)) { toast(`조금 쉬었다가 다시 해요 (${Math.ceil((bathReady[kind] - Date.now()) / 60000)}분)`); return; }
     if (spot.pool) {
-      const back = [spot.x, spot.z]; setAction('sit'); hero.position.set(spot.pool[0], 0, spot.pool[1]); target.copy(hero.position);
+      const seat = freeSeat(POOL_SEATS[kind], [spot.pool[0], spot.pool[1]]);
+      if (!seat) { toast('탕이 만석이에요. 빈자리가 생기면 다시 들어와 주세요.'); return; }
+      const back = [spot.x, spot.z]; setAction('sit'); hero.position.set(seat[0], 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
       facing = 0; soak = { kind, t: b.time, back, done: false };
     } else { setAction('stand'); facing = Math.PI; shower = b.time; }
     toast(b.enter); spotButton.hidden = true;
   }
-  else if (spot.id === 'locker') outfitButton.click();
+  else if (spot.id === 'locker') { outfitButton.click(); tour?.done('locker'); }
   else if (spot.id === 'fortune') document.querySelector('#fortune-open').click();
   else if (spot.id === 'scrub') {
     if (Date.now() < scrubReady) { toast(`세신은 ${Math.ceil((scrubReady - Date.now()) / 60000)}분 뒤에 또 받을 수 있어요`); return; }
-    const [x, z] = spot.bed; route.length = 0; hero.position.set(x, 0, z); target.copy(hero.position); view.focus.set(x, 0, z);
+    const bed = freeSeat(SCRUB_SLOTS, spot.bed);
+    if (!bed) { toast('세신대가 만석이에요. 빈자리가 생기면 다시 이용해 주세요.'); return; }
+    const [x, z] = bed; route.length = 0; hero.position.set(x, 0, z); target.copy(hero.position); view.focus.set(x, 0, z);
     setAction('lie'); facing = -Math.PI / 2; scrubbing = SCRUB_TIME; spotButton.hidden = true;
     toast('슥슥… 세신사님이 시원하게 밀어 드려요 🧽'); status.textContent = '가만히 누워 있어요. 시원해요~';
   }
@@ -854,7 +913,28 @@ spotButton.addEventListener('click', () => {
 
 const towelNudge = document.querySelector('#towel-nudge');
 towelNudge.querySelector('button').addEventListener('click', () => { towelNudge.hidden = true; goToTowel(); });
-if (!outfit.hasTowel) {
+// ---------- 첫 방문 안내 ----------
+function goToPlace(place) {
+  moveTo(place.x, place.z); activeDestination = place;
+  const final = (place.name.charCodeAt(place.name.length - 1) - 0xac00) % 28;
+  status.textContent = place.name + (final && final !== 8 ? '으로' : '로') + ' 걸어가는 중이에요.';
+  if (!route.length) arrive();
+}
+const TOUR_PLACE = { desk: 'entrance', bath: 'bath', locker: 'locker', lobby: 'lobby', hot: 'hot', ice: 'ice', salt: 'salt', fortune: 'fortune', scrub: 'scrub', sleep: 'sleep' };
+tour = createTour({
+  isNew: firstVisit, el: document.querySelector('#tour'), toast,
+  blocked: () => !!document.querySelector('dialog[open]') || towelGame.isOpen || shop.playing || !document.body.classList.contains('room-ready'),
+  onGo: id => {
+    if (id === 'towel') goToTowel();
+    else if (id === 'tv') goToTv();
+    else if (id === 'egg' || id === 'drink') document.querySelector(`[data-action="${id}"]`).click();
+    else if (TOUR_PLACE[id]) goToPlace(DESTINATIONS[TOUR_PLACE[id]]);
+  }
+});
+if (lockerKey) tour.done('desk');
+if (outfit.hasTowel) tour.done('towel');
+setInterval(() => tour.render(), 600);
+if (!outfit.hasTowel && !tour.active) {
   const nudge = setInterval(() => {
     if (document.querySelector('dialog[open]')) return;
     clearInterval(nudge); if (outfit.hasTowel) return;

@@ -93,8 +93,12 @@ const server = http.createServer((req, res) => {
     await page.locator('#game-result').waitFor({ state: 'visible', timeout: 120000 });
     assert.match(await page.locator('#game-result').textContent(), /원샷|띵|시간/);
     await page.locator('#game [data-game-close]').click();
+    // Result animation keeps the finished cup for 1.8 s. The same snack cannot
+    // restart until that cup is put away; otherwise the next click is ignored.
+    await page.waitForFunction(() => window.__shopTest.state().snack === null);
     // Closing a game midway puts the cup away.
     await page.locator('[data-action="drink"]').click();
+    await page.locator('#game').waitFor({ state: 'visible' });
     await page.waitForFunction(() => window.__shopTest.state().snack?.style === 'oneshot');
     await page.locator('#game-close').click();
     assert.equal((await state()).snack, null, 'Closing the game puts the snack away');

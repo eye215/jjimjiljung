@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-30';
-import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-30';
-import { NAV_BOUNDS } from './navigation.js?v=rpg-30';
-import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-30';
+import { connect } from './net.js?v=rpg-37';
+import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-37';
+import { NAV_BOUNDS } from './navigation.js?v=rpg-37';
+import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-37';
 
 // Multiplayer presence, movement sync, name tags, speech bubbles and the
 // public chat. Rendering stays in scene.js; this module only adds visitors.
@@ -251,9 +251,31 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     if (group?.members.has(remote.uid)) { notify(`${remote.name}님과 이미 같은 그룹이에요`); return; }
     let result; try { result = await api.requestChat(remote.uid); } catch { result = 'invalid'; }
     if (result !== 'sent') { notify(RESULT[result] || NO_ANSWER); return; }
-    link.send('chatreq', { from: id, to: remoteId });
     clearTimeout(outgoing?.timer);
-    outgoing = { to: remoteId, timer: setTimeout(() => { outgoing = null; notify(NO_ANSWER); }, 61000) };
+    clearInterval(outgoing?.poll);
+    outgoing = { to: remoteId, timer: null, poll: null };
+    const pending = outgoing;
+    // Broadcast notifications can be missed; the database membership is authoritative.
+    pending.poll = setInterval(async () => {
+      if (outgoing !== pending || pending.checking) return;
+      pending.checking = true;
+      try {
+        const gid = await api.myGroup();
+        if (gid) {
+          const members = await api.members(gid);
+          if (members.some(m => m.user_id === remote.uid) && members.some(m => m.user_id === api.uid)) {
+            clearTimeout(pending.timer); clearInterval(pending.poll); outgoing = null;
+            if (await joinGroup(gid)) notify(`${remote.name}님과 대화가 시작됐어요 💬`);
+          }
+        }
+      } catch { /* A transient lookup error will be retried until the request expires. */ }
+      finally { pending.checking = false; }
+    }, 2000);
+    pending.timer = setTimeout(() => {
+      if (outgoing !== pending) return;
+      clearInterval(pending.poll); outgoing = null; notify(NO_ANSWER);
+    }, 61000);
+    link.send('chatreq', { from: id, to: remoteId });
     notify(`${remote.name}님에게 대화를 신청했어요 💬`);
   }
   function closeIncoming() { clearInterval(incoming?.timer); incoming = null; ui2.card.hidden = true; }
@@ -268,7 +290,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
       incoming = { from: payload.from, request, timer: setInterval(() => { ui2.left.textContent = `${left()}초`; if (!left()) closeIncoming(); }, 500) };
       ui2.name.textContent = `${remote.name}님이 대화를 신청했어요`; ui2.left.textContent = `${left()}초`; ui2.card.hidden = false;
     } else if (outgoing?.to === payload.from) {
-      clearTimeout(outgoing.timer); outgoing = null;
+      clearTimeout(outgoing.timer); clearInterval(outgoing.poll); outgoing = null;
       // Trust only the server: am I really in that group now?
       const mine = payload.group ? await api.myGroup().catch(() => null) : null;
       if (mine && mine === payload.group) { if (await joinGroup(mine)) notify(`${remote.name}님과 대화가 시작됐어요 💬`); }
@@ -277,9 +299,14 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   }
   async function answer(accept) {
     if (!incoming) return; const { from, request } = incoming, remote = remotes.get(from), api = link.groups; closeIncoming();
+    if (accept) notify('대화 연결을 확인하고 있어요…');
     let gid = null; try { gid = await api.answer(request.id, accept, nickname, remote?.name || '손님'); } catch { gid = null; }
     link.send('chatans', { from: id, to: from, group: gid });
-    if (gid) { if (await joinGroup(gid)) notify(`${remote?.name || '손님'}님과 대화가 시작됐어요 💬`); }
+    if (gid) {
+      if (await joinGroup(gid)) notify(`${remote?.name || '손님'}님과 대화가 시작됐어요 💬`);
+    } else if (accept) {
+      notify('대화 수락을 완료하지 못했어요. 상대방에게 다시 신청해 달라고 해주세요.');
+    }
   }
   ui2.accept.addEventListener('click', () => answer(true));
   ui2.decline.addEventListener('click', () => answer(false));
