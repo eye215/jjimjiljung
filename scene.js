@@ -628,7 +628,11 @@ function frame(now) {
   if (contextLost || document.hidden || adPlaying) return;
   // A queued RAF timestamp can precede initialization after shader compilation.
   // Negative dt makes exponential damping diverge and spins the limbs wildly.
-  const dt = THREE.MathUtils.clamp((now - lastTime) / 1000, 0, .05); lastTime = now; elapsed += dt;
+  // Animate with a stable 50ms step, but measure soak/scrub/earn intervals with
+  // elapsed wall time. A 1-2 FPS mobile phone must not take several minutes to
+  // finish a 6-second scrub or a 30-second warmth interval.
+  const clockDt = Math.max(0, Math.min((now - lastTime) / 1000, 1));
+  const dt = Math.min(clockDt, .05); lastTime = now; elapsed += dt;
   waveTimer = Math.max(0, waveTimer - dt);
   fortuneSpeaking = Math.max(0, fortuneSpeaking - dt);
   let walking = false;
@@ -686,7 +690,7 @@ function frame(now) {
   // Resting earns 온기 every 30 seconds (doubled in hot, salt and bath rooms).
   const resting = (action === 'sit' || action === 'lie') && !shop.playing;
   if (resting) {
-    restTimer += dt;
+    restTimer += clockDt;
     if (restTimer >= REST_SECONDS) {
       restTimer = 0;
       const got = wallet.earn(['hot', 'salt', 'bath'].includes(currentRoom.id) ? 2 : 1);
@@ -696,7 +700,7 @@ function frame(now) {
   } else restTimer = Math.min(restTimer, REST_SECONDS * .5);
   updateRestHint(resting);
   shop.setNearShop(currentRoom.id === 'shop' && !nearTowels());
-  updateTowelShelf(); updateSpots(dt);
+  updateTowelShelf(); updateSpots(clockDt);
   motes.visible = !reducedMotion; if (!reducedMotion) { motes.position.set(view.focus.x, 0, view.focus.z); motes.rotation.y = elapsed * .02; }
   renderer.render(scene, camera); raf = requestAnimationFrame(frame);
 }
