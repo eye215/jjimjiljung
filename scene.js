@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-39';
+import { planPath, stepMovement, avoidVisitors } from './navigation.js?v=rpg-39';
 import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-39';
 import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-39';
 import { createTowelGame } from './towel.js?v=rpg-39';
@@ -630,13 +630,25 @@ function frame(now) {
   const inputLength = Math.hypot(inputX, inputZ); if (inputLength > 1) { inputX /= inputLength; inputZ /= inputLength; }
   if (action === 'stand' && inputLength > .01) {
     const move = screenToWorld(inputX, inputZ);
-    const next = stepMovement({ x: hero.position.x, z: hero.position.z }, move.x * dt * WALK_SPEED, move.z * dt * WALK_SPEED);
+    const from = { x: hero.position.x, z: hero.position.z };
+    const proposed = stepMovement(from, move.x * dt * WALK_SPEED, move.z * dt * WALK_SPEED);
+    const safe = avoidVisitors(from, proposed, occupiedPositions());
+    const next = stepMovement(from, safe.x - from.x, safe.z - from.z);
     const dx = next.x - hero.position.x, dz = next.z - hero.position.z; walking = Math.hypot(dx, dz) > .0005;
     hero.position.set(next.x, 0, next.z); target.copy(hero.position); facing = Math.atan2(move.x, move.z);
   } else if (action === 'stand' && route.length) {
     const next = route[0], dx = next.x - hero.position.x, dz = next.z - hero.position.z, distance = Math.hypot(dx, dz);
-    if (distance > .001) { const step = Math.min(distance, dt * WALK_SPEED); hero.position.x += dx / distance * step; hero.position.z += dz / distance * step; facing = Math.atan2(dx, dz); walking = true; }
-    if (distance <= dt * WALK_SPEED + .001) { hero.position.set(next.x, 0, next.z); route.shift(); if (!route.length) arrive(); }
+    if (distance > .001) {
+      const step = Math.min(distance, dt * WALK_SPEED), from = {x:hero.position.x,z:hero.position.z};
+      const safe = avoidVisitors(from, {x:from.x+dx/distance*step,z:from.z+dz/distance*step}, occupiedPositions());
+      const actual = stepMovement(from, safe.x - from.x, safe.z - from.z);
+      hero.position.x = actual.x; hero.position.z = actual.z;
+      facing = Math.atan2(actual.x-from.x || dx, actual.z-from.z || dz);
+      walking = Math.hypot(actual.x - from.x, actual.z - from.z) > .0005;
+    }
+    if (Math.hypot(next.x - hero.position.x, next.z - hero.position.z) < .045) {
+      hero.position.set(next.x, 0, next.z); route.shift(); if (!route.length) arrive();
+    }
   }
   const room = roomAt(hero.position.x, hero.position.z);
   if (room && room !== currentRoom) enterRoom(room);
