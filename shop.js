@@ -7,7 +7,7 @@ const $ = selector => document.querySelector(selector);
 const batchim = word => { const c = word.charCodeAt(word.length - 1) - 0xac00; return c >= 0 && c < 11172 && c % 28 !== 0; };
 const josa = (word, withFinal, without) => word + (batchim(word) ? withFinal : without);
 
-export function createShop({ wallet, eat, play, goToShop, toast, tv, onGameComplete = () => {} }) {
+export function createShop({ wallet, eat, play, goToShop, toast, tv, onGameComplete = () => {}, onGameCancel = () => {} }) {
   const ui = {
     chip: $('#wallet'), points: $('#wallet-points'), eggs: $('#wallet-egg'), drinks: $('#wallet-drink'),
     open: $('#shop-open'), dialog: $('#shop-dialog'), close: $('#shop-close'), balance: $('#shop-balance'),
@@ -83,7 +83,7 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv, onGameCompl
     onGameComplete(lastGame);
   }
   // Closing mid-game puts the snack away too (the one-shot cup has no natural end).
-  function cancelGame() { if (running) { running.stop(); running = null; if (snackRef()) stopSnack(); } ui.game.hidden = true; document.body.classList.remove('playing'); }
+  function cancelGame() { if (running) { running.stop(); running = null; onGameCancel(lastGame); if (snackRef()) stopSnack(); } ui.game.hidden = true; document.body.classList.remove('playing'); }
   ui.game.querySelector('#game-close').addEventListener('click', cancelGame);
   ui.result.querySelector('[data-game-close]').addEventListener('click', cancelGame);
   ui.result.querySelector('[data-game-again]').addEventListener('click', event => { const kind = lastGame, toShop = event.currentTarget.dataset.shop === '1'; cancelGame(); if (toShop) goToShop(); else startGame(kind); });
