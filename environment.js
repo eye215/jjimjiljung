@@ -359,7 +359,7 @@ export function buildWorld({ scene, kit }) {
       for (let i = 0; i < 4; i++) { cylinder(g, mat('#f3e2c0'), [-.3 + i * .22, 1.14, .12], .07, .06, .2, 12); cylinder(g, mat('#d8a978'), [-.3 + i * .22, 1.245, .12], .072, .072, .02, 12); }
       for (let i = 0; i < 3; i++) { cylinder(g, mat(['#e86a4c', '#f3c34f', '#e86a4c'][i]), [.9 + i * .3, 1.14, .05], .1, .08, .22, 14); cylinder(g, M.white, [.9 + i * .3, 1.26, .05], .1, .1, .02, 14); }
       box(g, mat('#e9e4dc'), [1.85, 1.2, -.05], [.5, .38, .36], .05, 4);
-      sign(g, '식혜 · 계란 · 라면', [0, .55, d * .28 + .01], 0, 2.4, { bg: '#fff6e2', ink: '#8b4d2a', border: '#b37b4a' });
+      sign(g, '식혜 · 계란', [0, .55, d * .28 + .01], 0, 2.4, { bg: '#fff6e2', ink: '#8b4d2a', border: '#b37b4a' });
     },
     fridge(g, w, d) {
       box(g, mat('#e5f1ec'), [0, .9, 0], [w, 1.8, d], .08, 4);
@@ -466,7 +466,7 @@ export function buildWorld({ scene, kit }) {
   wallSign('소금방', [-11.5, 1.75, -3.79], 0, 1.3, { bg: '#fff1ea', ink: '#b65f4e', border: '#c98b7a' }, ['z', -4]);
   // Shop: big sign and menu boards on the back wall, shelves of snacks.
   wallSign('매  점', [14.79, 2.05, 0], -Math.PI / 2, 2, { bg: '#fff4da', ink: '#7b4524' }, ['x', 15]);
-  for (const [z, text] of [[-2.6, '식혜'], [2.6, '라면']]) wallSign(text, [14.79, 1.62, z], -Math.PI / 2, .9, { bg: '#fffaf0', ink: '#9b5a30' }, ['x', 15]);
+  for (const [z, text] of [[-2.6, '식혜'], [2.6, '계란']]) wallSign(text, [14.79, 1.62, z], -Math.PI / 2, .9, { bg: '#fffaf0', ink: '#9b5a30' }, ['x', 15]);
   decor(g => { for (const y of [1.15, 1.45]) { box(g, M.lightWood, [0, y, 0], [3.4, .05, .3], .02, 4); for (let i = 0; i < 9; i++) cylinder(g, mat(['#f2d58a', '#e98d6b', '#f4e3c0', '#a8d38a'][i % 4]), [-1.5 + i * .37, y + .12, 0], .08, .08, .2, 10); } }, [14.6, 0, 0], -Math.PI / 2, ['x', 15]);
 
   // ---------- Lighting ----------
