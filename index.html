@@ -10,7 +10,8 @@
 <section class="room" aria-label="따뜻한 3D 찜질방">
 <div id="viewport" tabindex="0" role="application" aria-label="3D 찜질방. 바닥을 누르거나 WASD·방향키로 걸어요. 화면을 끌면 시점이 돌아가고, 휠이나 두 손가락으로 확대해요. Home 키로 시점을 처음처럼 맞춰요."></div>
 <div id="labels" aria-hidden="true"></div>
-<div id="social-row"><button id="online" class="online-pill" data-status="solo"><i aria-hidden="true"></i><span id="online-text">함께하기</span></button><button id="invite" aria-label="카카오톡으로 친구 초대하기"><span aria-hidden="true">💛</span> 친구 초대</button></div>
+<div id="social-row"><button id="online" class="online-pill" data-status="solo" aria-controls="visitor-stats" aria-expanded="false" aria-label="현재 접속자 수와 방문 통계 보기"><i aria-hidden="true"></i><span id="online-text">함께하기</span></button><button id="invite" aria-label="카카오톡으로 친구 초대하기"><span aria-hidden="true">💛</span> 친구 초대</button></div>
+<section id="visitor-stats" class="glass-card" role="region" aria-label="찜질방 방문 현황" hidden><header><strong>♨ 찜질방 방문 현황</strong><button id="visitor-stats-close" type="button" aria-label="방문 현황 닫기">×</button></header><dl><div><dt>지금 접속</dt><dd id="visitor-live">—</dd></div><div><dt>오늘 방문</dt><dd id="visitor-today">—</dd></div><div><dt>누적 방문</dt><dd id="visitor-total">—</dd></div></dl><p id="visitor-stats-note">집계 중이에요…</p></section>
 <button id="chat-open" aria-controls="chat" aria-expanded="false" aria-label="채팅 열기"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /></svg><b>채팅</b><em id="chat-unread" hidden>0</em></button>
 <section id="chat" aria-label="채팅" data-mode="bubble" hidden>
 <header><div><h2>지난 대화</h2><span id="chat-count"></span></div><label class="chat-switch"><input type="checkbox" id="chat-norequests" role="switch"> 신청 받지 않기</label><button id="chat-leave" type="button" hidden>그룹 나가기</button><button id="chat-rename" type="button">이름 바꾸기</button></header>
