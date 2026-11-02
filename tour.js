@@ -13,9 +13,9 @@ export const INTRO = Object.freeze([
 export const EXPLORE = Object.freeze([
   { id: 'hot', text: '🔥 불가마에 들어가 보기' },
   { id: 'tv', text: '📺 휴게실 TV 앞에 앉아 보기' },
-  { id: 'egg', text: '🥚 맥반석 계란 먹어 보기' },
+  { id: 'egg', text: '🥚 맥반석 계란 깨기' },
+  { id: 'drink', text: '🥤 계란 먹고 살얼음 식혜 마시기' },
   { id: 'ice', text: '🧊 얼음방에서 열 식히기' },
-  { id: 'drink', text: '🥤 살얼음 식혜 마셔 보기' },
   { id: 'salt', text: '🧂 소금방에 누워 보기' },
   { id: 'fortune', text: '🔮 사주방에서 오늘의 운세 보기' },
   { id: 'scrub', text: '🧽 세신실에서 세신 받기' },
