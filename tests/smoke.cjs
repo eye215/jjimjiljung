@@ -35,7 +35,19 @@ const server = http.createServer((req, res) => {
     // Instrument only the test response, keeping debug state out of production.
     await page.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__characterTestState = () => ({ action, arms: arms.map(a => [a.rotation.x,a.rotation.z]), legs: legs.map(a => [a.rotation.x,a.rotation.z]), position: [hero.position.x,hero.position.z], target: [target.x,target.z], joystick: [joystickInput.x,joystickInput.z], destination: activeDestination?.id || null, routeRemaining: route.length, expression: player.expression(), room: currentRoom.id, yaw: view.yaw, zoom: view.zoom, faded: world.fadeUnits.filter(unit => unit.opacity < .9 || unit.cut < .5).length, camera: [camera.position.x, camera.position.y, camera.position.z] });\nwindow.__teleport = (x, z) => { route.length = 0; activeDestination = null; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); };' });
+      const waveProbe = `
+window.__waveMotion = () => {
+        let mesh; hero.traverseVisible(o => { if (o.isSkinnedMesh) mesh = o; });
+        if (!mesh) throw new Error('Meshy model required for wave regression');
+        const hand = mesh.skeleton.bones.find(b => b.name === 'mixamorigRightHand');
+        const position = () => { hero.updateMatrixWorld(true); return hand.getWorldPosition(new THREE.Vector3()); };
+        for (let i=0;i<60;i++) player.animate('stand',false,1/60,true);
+        const start=position(), samples=[];
+        for(let i=0;i<120;i++){player.animate('wave',false,1/60,false);if(i>60)samples.push(position());}
+        return {rise:Math.min(...samples.map(p=>p.y))-start.y,travel:Math.max(...samples.map(p=>p.distanceTo(samples[0])))};
+      };`;
+
+      await route.fulfill({ response, body: (await response.text()) + waveProbe + '\nwindow.__characterTestState = () => ({ action, arms: arms.map(a => [a.rotation.x,a.rotation.z]), legs: legs.map(a => [a.rotation.x,a.rotation.z]), position: [hero.position.x,hero.position.z], target: [target.x,target.z], joystick: [joystickInput.x,joystickInput.z], destination: activeDestination?.id || null, routeRemaining: route.length, expression: player.expression(), room: currentRoom.id, yaw: view.yaw, zoom: view.zoom, faded: world.fadeUnits.filter(unit => unit.opacity < .9 || unit.cut < .5).length, camera: [camera.position.x, camera.position.y, camera.position.z] });\nwindow.__teleport = (x, z) => { route.length = 0; activeDestination = null; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); };' });
     });
     // A well-stocked snack bag, so pose checks can eat freely (the shop has its own test).
     await page.addInitScript(() => localStorage.setItem('jjimjiljung-wallet-v1', JSON.stringify({ points: 500, bag: { egg: 99, drink: 99 }, free: { egg: '', drink: '' } })));
@@ -208,8 +220,13 @@ const server = http.createServer((req, res) => {
       if (action === 'wave') {
         await page.waitForFunction(() => {
           const s = window.__characterTestState();
-          return s.expression === 'happy' && s.arms.flat().some(angle => Math.abs(angle) > 1);
+          return s.expression === 'happy';
         }, null, { timeout: 8000 });
+        // Bone-local Euler angles depend on the imported bind pose. Verify the
+        // visible hand actually rises and oscillates instead of requiring 1 rad.
+        const motion = await page.evaluate(() => window.__waveMotion());
+        assert(motion.rise > .15, 'Waving raises the right hand from its resting position');
+        assert(motion.travel > .015, 'The raised hand visibly oscillates');
       }
       await page.screenshot({ path: path.join(output, `${action}.png`) });
       if (action === 'egg') await page.locator('#game [data-game-close]').click();
