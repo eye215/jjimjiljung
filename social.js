@@ -222,6 +222,8 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     finally { visitorLoading = false; paintVisitorStats(); }
   }
   ui.online.addEventListener('click', () => {
+    // Keep the old one-tap reconnect behavior while opening the new stats card.
+    if (status === 'offline') reconnect();
     if (visitorPanel.hidden) {
       visitorPanel.hidden = false; ui.online.setAttribute('aria-expanded', 'true');
       paintVisitorStats(); refreshVisitorStats();
