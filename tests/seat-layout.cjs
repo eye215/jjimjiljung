@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 (async () => {
-  const { ROOMS, FURNITURE, SCRUB_BEDS, POOL_SEATS, TV_SEATS } =
+  const { ROOMS, FURNITURE, SCRUB_BEDS, POOL_SEATS, TV_SEATS, CHAIR_SEATS, SPOTS } =
     await import(pathToFileURL(path.join(__dirname, '../world.js')).href);
   const scrub = ROOMS.find(room => room.id === 'scrub');
   assert.equal(SCRUB_BEDS.length, 5, 'Five scrub stations exist');
@@ -38,5 +38,18 @@ const path = require('node:path');
   for(let i=0;i<TV_SEATS.length;i++)for(let j=i+1;j<TV_SEATS.length;j++){
     const a=TV_SEATS[i],b=TV_SEATS[j];assert(Math.hypot(a.x-b.x,a.z-b.z)>1.3,'TV mats have physical separation');
   }
-  console.log('PASS five scrub tables, individual pool seats, and four independent TV watching mats');
+  const { isWalkable } = await import(pathToFileURL(path.join(__dirname, '../navigation.js')).href);
+  assert(CHAIR_SEATS.length >= 8, 'The sauna has eight real stools and bench seats');
+  for(const chair of CHAIR_SEATS) {
+    const room=ROOMS.find(r=>r.id===chair.room);
+    assert(room && chair.x>room.minX && chair.x<room.maxX && chair.z>room.minZ && chair.z<room.maxZ,'Seat is inside a room');
+    assert(FURNITURE.some(f=>['bench','stool','icebench'].includes(f.type) && Math.abs(chair.x-f.x)<f.w/2+.05 && Math.abs(chair.z-f.z)<f.d/2+.05),'Seat is on real furniture');
+    assert(isWalkable(chair.ax,chair.az),'Chair entry stays on clear floor');
+    assert(SPOTS.some(s=>s.id==='chair'&&s.chair===chair.id),'Each seat has an action trigger');
+  }
+  for(let i=0;i<CHAIR_SEATS.length;i++)for(let j=i+1;j<CHAIR_SEATS.length;j++) {
+    const a=CHAIR_SEATS[i],b=CHAIR_SEATS[j];
+    assert(Math.hypot(a.x-b.x,a.z-b.z)>.82,'One seat cannot overlap another');
+  }
+  console.log('PASS five scrub tables, pool seats, four TV mats, eight real bench/stool seats and walkable entries');
 })().catch(error => { console.error(error); process.exitCode = 1; });

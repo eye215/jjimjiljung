@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 (async () => {
-  const { isWalkable, clampToWalkable, planPath, stepMovement, segmentClear, NAV_BOUNDS, OBSTACLES, WALKABLE } = await import('../navigation.js');
+  const { isWalkable, clampToWalkable, planPath, stepMovement, segmentClear, NAV_BOUNDS, OBSTACLES, WALKABLE, avoidVisitors } = await import('../navigation.js');
   const { DESTINATIONS, SPAWN, ROOMS, roomAt } = await import('../world.js');
   const started = Date.now();
   assert(isWalkable(SPAWN.x, SPAWN.z), 'Spawn point is clear');
@@ -46,5 +46,14 @@ const assert = require('node:assert/strict');
   assert(door.x < -8, 'Joystick walks straight through an open doorway');
   assert.deepEqual(stepMovement(SPAWN, NaN, Infinity), SPAWN);
   assert(Number.isFinite(NAV_BOUNDS.minX) && NAV_BOUNDS.maxX > 14);
+  // New visitors may initially overlap at spawn; moving away must not be blocked.
+  const near = [{x:0.55,z:3}];
+  const avoided = avoidVisitors({x:0,z:3},{x:.08,z:3},near);
+  assert(Math.hypot(avoided.x - near[0].x, avoided.z - near[0].z) >= Math.hypot(0 - near[0].x, 0) - .001,'Visitor must not approach another player');
+  assert(isWalkable(avoided.x, avoided.z),'Visitor steering stays in a traversable space');
+  const clear = avoidVisitors({x:0,z:3},{x:.08,z:3},[{x:5,z:3}]);
+  assert.deepEqual(clear,{x:.08,z:3},'Distant guests do not affect walking');
+  const exiting = avoidVisitors({x:0,z:3},{x:-.08,z:3},[{x:0,z:3}]);
+  assert.deepEqual(exiting,{x:-.08,z:3},'People can walk out of spawn overlap');
   console.log(`PASS: ${destinations.length ** 2} room-to-room routes through doors, blocked/off-map targets, furniture blocking, exact segment checks, wall glide, door walking, anti-tunneling (${Date.now() - started} ms).`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -3,7 +3,7 @@
 //   connect({ id, presence, onPresence, onMessage, onStatus }) → { track, send, leave }
 // onPresence receives an array of presence payloads (one per visitor).
 // onStatus receives 'connecting' | 'online' | 'offline'.
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-38';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-39';
 
 const EVENTS = ['state', 'chat', 'trade', 'greet', 'chatreq', 'chatans'];
 
@@ -85,6 +85,12 @@ export async function connectSupabase({ id, presence, onPresence, onMessage, onS
   };
   return {
     groups,
+    // Counts are computed in Postgres. Never expose individual visitor IDs to
+    // browser clients; duplicate reloads/tabs record at most once per KST day.
+    stats: uid ? {
+      record: () => one(client.rpc('record_visit')),
+      read: () => one(client.rpc('get_visit_stats'))
+    } : null,
     track(next) { current = next; return channel.track(next).catch(() => {}); },
     send(event, payload) { return channel.send({ type: 'broadcast', event, payload }).catch(() => {}); },
     async leave() { await channel.untrack().catch(() => {}); await client.removeChannel(channel).catch(() => {}); }

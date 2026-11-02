@@ -2,7 +2,7 @@
 // Walkable space is the union of room floors and doorway passages, minus
 // furniture footprints. Every rectangle is already inflated by the actor radius,
 // so a point that is walkable keeps the whole plush body clear of walls and props.
-import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS, ACTOR_RADIUS } from './world.js?v=rpg-38';
+import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS, ACTOR_RADIUS } from './world.js?v=rpg-39';
 
 const INSET = WALL_THICKNESS / 2 + ACTOR_RADIUS;
 export const WALKABLE = Object.freeze([
@@ -186,6 +186,37 @@ export function stepMovement(position, dx, dz) {
       if (segmentClear(from, probe)) low = mid; else high = mid;
     }
     if (low > .01) return { x: from.x + (candidate.x - from.x) * low, z: from.z + (candidate.z - from.z) * low };
+  }
+  return from;
+}
+
+// Soft dynamic visitor avoidance on top of the existing static furniture collision.
+// No spawn teleport: an initial overlap is permitted until the user walks away.
+// Obstacles are not server-authoritative; this is comfort steering, not a lock.
+export function avoidVisitors(from, desired, visitors, radius = .74) {
+  if (!Number.isFinite(from?.x) || !Number.isFinite(from?.z) || !Number.isFinite(desired?.x) || !Number.isFinite(desired?.z)) return from;
+  const moveX = desired.x - from.x, moveZ = desired.z - from.z, length = Math.hypot(moveX, moveZ);
+  if (length < .00001 || !Array.isArray(visitors) || !visitors.length) return desired;
+  const blocked = candidate => visitors.some(p => {
+    const before = Math.hypot(from.x - p.x, from.z - p.z);
+    const after = Math.hypot(candidate.x - p.x, candidate.z - p.z);
+    // Allow stepping out of a collision already present at login/teleport.
+    return after < radius && after < before - .0001;
+  });
+  if (!blocked(desired)) return desired;
+  const closest = visitors.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.z))
+    .sort((a,b)=>Math.hypot(from.x-a.x,from.z-a.z)-Math.hypot(from.x-b.x,from.z-b.z))[0];
+  if (!closest) return from;
+  const awayX = from.x - closest.x, awayZ = from.z - closest.z;
+  const d = Math.hypot(awayX,awayZ);
+  const nx = d > .001 ? awayX/d : -moveZ/length, nz = d > .001 ? awayZ/d : moveX/length;
+  // Prefer the side that best preserves the visitor's intended direction.
+  const tx = -nz, tz = nx, side = (tx*moveX + tz*moveZ >= 0) ? 1 : -1;
+  for (const [a,b] of [[.7,.7],[.4,.9],[.92,.3],[1,0]]) {
+    const dx = nx*a + tx*side*b, dz = nz*a + tz*side*b;
+    const norm = Math.hypot(dx,dz);
+    const candidate = {x:from.x+dx*length/norm,z:from.z+dz*length/norm};
+    if (!blocked(candidate) && segmentClear(from,candidate)) return candidate;
   }
   return from;
 }

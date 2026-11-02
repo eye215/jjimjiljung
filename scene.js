@@ -1,20 +1,20 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-38';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-38';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-38';
-import { createTowelGame } from './towel.js?v=rpg-38';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-38';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-38';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-38';
-import { buildWorld } from './environment.js?v=rpg-38';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, roomAt } from './world.js?v=rpg-38';
-import { createTvAds } from './ads.js?v=rpg-38';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-38';
-import { createSocial } from './social.js?v=rpg-38';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-38';
-import { createShop } from './shop.js?v=rpg-38';
-import { createInvite } from './invite.js?v=rpg-38';
-import { createTour, loadTour } from './tour.js?v=rpg-38';
+import { planPath, stepMovement, avoidVisitors } from './navigation.js?v=rpg-39';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-39';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-39';
+import { createTowelGame } from './towel.js?v=rpg-39';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-39';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-39';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-39';
+import { buildWorld } from './environment.js?v=rpg-39';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, CHAIR_SEATS, roomAt } from './world.js?v=rpg-39';
+import { createTvAds } from './ads.js?v=rpg-39';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-39';
+import { createSocial } from './social.js?v=rpg-39';
+import { createWallet, REST_SECONDS, DAILY_EARN_CAP } from './economy.js?v=rpg-39';
+import { createShop } from './shop.js?v=rpg-39';
+import { createInvite } from './invite.js?v=rpg-39';
+import { createTour, loadTour } from './tour.js?v=rpg-39';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -91,13 +91,15 @@ const residents = [
   { x: 14.45, z: 12.4, y: 0, face: -Math.PI / 2, action: 'stand', scrubber: true },
   { x: 14.7, z: 4.8, y: 0, face: -Math.PI / 2, action: 'stand', clerk: true },
   { x: 1.5, z: 12.3, y: 0, face: -.4, action: 'sit' },
-  { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' }
+  { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' },
+  { x: -11.5, z: 9.5, y: .12, face: 0, action: 'sit', fortuneTeller: true }
 ].map((config, index) => {
   const actor = kit.createCharacter(outfitColors(randomOutfit(seeded(index * 977 + 31))));
   actor.root.position.set(config.x, config.y, config.z); actor.root.rotation.y = config.face; actor.root.scale.setScalar(ACTOR_SCALE);
   scene.add(actor.root); actor.config = config; if (config.action !== 'lie') contactShadow().position.set(config.x, .012, config.z);
   return actor;
 });
+let fortuneSpeaking = 0;
 
 // A few translucent motes near the player, kept subtle and disabled for reduced motion.
 const motePositions = new Float32Array(40 * 3); for (let i = 0; i < 40; i++) { motePositions[i * 3] = (Math.random() - .5) * 12; motePositions[i * 3 + 1] = Math.random() * 3 + .4; motePositions[i * 3 + 2] = (Math.random() - .5) * 10; }
@@ -108,6 +110,8 @@ const motes = new THREE.Points(motesGeometry, new THREE.PointsMaterial({ color: 
 let soak = null;
 let social = null, localWalking = false, snackSig = '', snackSerial = 0, restTimer = 0;
 let action = 'stand', facing = 0, elapsed = 0, contextLost = false, raf = 0, lastTime = 0;
+// Short hand gesture layered over the current seated or reclining posture.
+let waveTimer = 0, seatedChair = null;
 const target = new THREE.Vector3(START.x, 0, START.z);
 const route = [];
 let activeDestination = null, currentRoom = null, tour = null;
@@ -117,10 +121,18 @@ const messages = { stand: '어서 와요, 푹 쉬다 가요.', sit: '따끈따�
 // ---------- 매점 wallet, toasts and shop ----------
 const wallet = createWallet();
 const toastBox = document.querySelector('#toast'), toastText = toastBox.querySelector('span'), toastButton = toastBox.querySelector('button');
-let toastTimer2 = 0, toastAction = null;
+let toastTimer2 = 0, toastAction = null, lastToast = '', lastToastAt = 0;
 function toast(text, label = '', onClick = null, ms = 0) {
-  toastText.textContent = text; toastButton.hidden = !label; toastButton.textContent = label; toastAction = onClick;
-  toastBox.hidden = false; clearTimeout(toastTimer2); toastTimer2 = setTimeout(() => { toastBox.hidden = true; }, ms || (label ? 5000 : 2600));
+  // Keep one calm notification at a time. Identical transient notifications should
+  // not keep popping up, but actionable prompts (e.g. accept a greeting) are never deduped.
+  const now = performance.now();
+  if (!label && text === lastToast && now - lastToastAt < 7000) return;
+  lastToast = text; lastToastAt = now;
+  toastText.textContent = text; toastButton.hidden = !label;
+  toastBox.dataset.actionable = String(!!label);
+  toastButton.textContent = label; toastAction = onClick;
+  toastBox.hidden = false; clearTimeout(toastTimer2);
+  toastTimer2 = setTimeout(() => { toastBox.hidden = true; }, ms || (label ? 5000 : 1900));
 }
 toastButton.addEventListener('click', () => { toastBox.hidden = true; toastAction?.(); });
 let tvReady = false;
@@ -128,6 +140,7 @@ const shop = createShop({
   wallet, toast,
   onGameComplete: kind => tour?.done(kind),
   onGameCancel: kind => tour?.retry(kind),
+  canSnack: () => action !== 'lie',
   tv: { worth: () => tvReady && tvAds.worthVisiting, go: () => goToTv() },
   eat: (kind, style) => eat(kind, style),
   play: (kind, style) => eat(kind, style),
@@ -160,7 +173,7 @@ function goToTv() {
 const nearTv = () => currentRoom?.id === 'lobby' &&
   TV_SEATS.some(s => Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < .9);
 const tvPoint = new THREE.Vector3();
-function updateTv(dt) {
+function updateTv(dt, clockDt = dt) {
   const seated = action === 'sit' && nearTv();
   if (seated !== tvSeated) {
     tvSeated = seated; tvButton.hidden = !seated;
@@ -175,7 +188,7 @@ function updateTv(dt) {
   world.tv.setMode(seated && tvAds.state === 'ready' ? 'ad' : 'channel');
   if (!seated) return;
   // Re-check each second (cooldowns end, midnight resets); retry "no ad" every 30 s.
-  tvCheck += dt;
+  tvCheck += clockDt;
   if (tvCheck > 1 && ['idle', 'cooldown', 'done'].includes(tvAds.state)) { tvCheck = 0; tvAds.prepare(); }
   else if (tvCheck > 30 && tvAds.state === 'none') { tvCheck = 0; tvAds.retry(); }
   // Pin the button to the TV screen.
@@ -222,31 +235,46 @@ function resize() {
 }
 
 function updateActionButtons() {
-  for (const button of actionButtons) { const selected = button.dataset.action === action || button.dataset.action === player.snack?.kind; button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected)); }
+  for (const button of actionButtons) {
+    const kind = button.dataset.action;
+    const selected = kind === action || kind === player.snack?.kind;
+    button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected));
+    if (kind === 'egg' || kind === 'drink') {
+      button.disabled = action === 'lie';
+      button.setAttribute('aria-label', action === 'lie' ? '누워서는 먹을 수 없어요. 먼저 앉거나 일어나세요.' : kind === 'egg' ? '계란 먹기' : '식혜 마시기');
+    }
+  }
 }
 function setAction(next) {
   if (!messages[next]) return;
+  if (seatedChair && next !== 'sit') {
+    // The chair is a solid navigation obstacle. Step outside before walking.
+    hero.position.set(seatedChair.ax,0,seatedChair.az); seatedChair = null;
+  }
   if (soak && next !== 'sit') leaveSoak();
   interruptSnack();
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick();
-  action = next; target.copy(hero.position); status.textContent = messages[next];
+  action = next; waveTimer = 0; target.copy(hero.position); status.textContent = messages[next];
   updateActionButtons();
   // Turn towards the camera for poses, so faces and snacks are visible.
   if (next !== 'stand' && next !== 'lie') facing = next === 'sit' && nearTv() ? TV_SEAT.facing : view.yaw;
   // On a 수면실 mat, lie along the bed with the head on its pillow.
   if (next === 'lie') facing = currentRoom?.id === 'sleep' ? 0 : view.yaw + Math.PI / 2;
+  if (next === 'stand' || next === 'lie') seatedChair = null;
   player.sitStyle = currentRoom?.id === 'hot' || currentRoom?.id === 'salt' ? 'cross' : 'relaxed';
   hint.textContent = next === 'stand' ? walkHint : '다시 걷고 싶으면 바닥을 톡 눌러요 ↗';
 }
 actionButtons.forEach(button => button.addEventListener('click', () => {
   const kind = button.dataset.action;
-  if (kind === 'egg' || kind === 'drink') { if (player.snack?.kind !== kind && !shop.playing) shop.choose(kind); } else if (kind === 'wave') startGreet(); else setAction(kind);
+  if (kind === 'egg' || kind === 'drink') { if (action !== 'lie' && player.snack?.kind !== kind && !shop.playing) shop.choose(kind); } else if (kind === 'wave') startGreet(); else setAction(kind);
 }));
 // ---------- Snacks: eaten in the current pose (sitting or standing) ----------
 function interruptSnack() { if (player.snack) { player.stopSnack(); snackSig = ''; } }
 function eat(kind, style = 'normal') {
-  // The plush eats sitting down (its drinking clip is a seated one).
-  if (kit.plush ? action !== 'sit' : action === 'lie' || action === 'wave') setAction(kit.plush ? 'sit' : action === 'lie' ? 'sit' : 'stand'); else interruptSnack();
+  // Preserve the current standing or seated pose. Never eat while lying.
+  if (action === 'lie') return null;
+  if (action === 'wave') setAction('stand');
+  else interruptSnack();
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick(); keys.clear();
   facing = view.yaw; snackSig = `${kind}:${style}:${++snackSerial}`;
   const serial = snackSig;
@@ -282,7 +310,7 @@ outfitButton.addEventListener('click', () => {
 });
 capButton.addEventListener('click', () => {
   applyOutfit({ ...outfit, wear: !outfit.wear });
-  toast(outfit.wear ? '🐑 양머리를 썼어요' : '🐑 양머리를 벗었어요');
+  // The visible towel change and pressed state already confirm this action.
 });
 applyOutfit(outfit);
 
@@ -337,10 +365,9 @@ function enterRoom(room) {
   if (room.id !== 'lobby' || tour?.step === 'lobby') tour?.done(room.id === 'lobby' ? 'lobby' : ['hot', 'ice', 'salt'].includes(room.id) ? room.id : '');
   if (['locker', 'bath', 'fortune', 'scrub', 'sleep'].includes(room.id)) tour?.arrived(room.id);
   badge.innerHTML = `<i></i> ${room.name} <span>${room.note}</span>`;
-  if (!roomToast.dataset.silent) {
-    roomToast.textContent = `♨ ${room.name}에 들어왔어요`; roomToast.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => { roomToast.hidden = true; }, 1800);
-  }
+  // The fixed room badge already shows the location. Avoid another popup
+  // each time a player crosses a threshold (especially during guided touring).
+  roomToast.hidden = true;
 }
 roomToast.dataset.silent = '1'; enterRoom(roomAt(hero.position.x, hero.position.z) || ROOMS[0]); delete roomToast.dataset.silent;
 
@@ -563,25 +590,76 @@ function updateOcclusion(dt) {
 for (const m of fadeMeshes) if (m.material.transparent) m.material.userData.alwaysTransparent = true;
 
 function damp(object, key, to, dt, speed = 9) { object[key] = THREE.MathUtils.damp(object[key], to, speed, dt); }
+// Reuse the existing bottom hint instead of adding another popup on a crowded phone.
+// This reads the SAME timer and wallet cap as the reward loop; it cannot grant points.
+let restHintOwned = false, restHintLast = '', restHintSecond = -1, restHintRoom = '';
+const warmthWallet = document.querySelector('#wallet');
+let warmthPulseTimer = 0;
+function updateRestHint(earning) {
+  if (earning && !shop.playing && !document.body.classList.contains('chat-open')) {
+    const seconds = Math.max(1, Math.ceil(REST_SECONDS - restTimer));
+    // Save performance on mobile: only query the wallet when a second (or room) changes.
+    if (restHintOwned && seconds === restHintSecond && currentRoom?.id === restHintRoom) return;
+    restHintSecond = seconds; restHintRoom = currentRoom?.id;
+    const earned = wallet.snapshot().earnedToday;
+    const amount = ['hot', 'salt', 'bath'].includes(currentRoom?.id) ? 2 : 1;
+    const message = earned >= DAILY_EARN_CAP
+      ? '♨ 오늘 모을 수 있는 온기는 다 모았어요 · 매점에서 간식으로 바꿔요'
+      : `♨ ${seconds}초 뒤 온기 +${Math.min(amount, DAILY_EARN_CAP - earned)} · 모아서 식혜·계란을 살 수 있어요`;
+    if (message !== restHintLast) { hint.textContent = message; restHintLast = message; }
+    restHintOwned = true;
+    hint.classList.add('warmth-active');
+  } else if (restHintOwned) {
+    restHintOwned = false; restHintLast = ''; restHintSecond = -1; restHintRoom = '';
+    hint.classList.remove('warmth-active');
+    if (!document.body.classList.contains('sleeping'))
+      hint.textContent = action === 'stand' ? walkHint : '다시 걸으려면 바닥을 톡 눌러요 ↗';
+  }
+}
+function pulseWallet() {
+  warmthWallet.classList.remove('warmth-earned');
+  void warmthWallet.offsetWidth;
+  warmthWallet.classList.add('warmth-earned');
+  clearTimeout(warmthPulseTimer);
+  warmthPulseTimer = setTimeout(() => warmthWallet.classList.remove('warmth-earned'), 1400);
+}
 const ambientColor = new THREE.Color(), ambientGoal = new THREE.Color();
 function frame(now) {
   if (contextLost || document.hidden || adPlaying) return;
   // A queued RAF timestamp can precede initialization after shader compilation.
   // Negative dt makes exponential damping diverge and spins the limbs wildly.
-  const dt = THREE.MathUtils.clamp((now - lastTime) / 1000, 0, .05); lastTime = now; elapsed += dt;
+  // Animate with a stable 50ms step, but measure soak/scrub/earn intervals with
+  // elapsed wall time. A 1-2 FPS mobile phone must not take several minutes to
+  // finish a 6-second scrub or a 30-second warmth interval.
+  const clockDt = Math.max(0, Math.min((now - lastTime) / 1000, 1));
+  const dt = Math.min(clockDt, .05); lastTime = now; elapsed += dt;
+  waveTimer = Math.max(0, waveTimer - dt);
+  fortuneSpeaking = Math.max(0, fortuneSpeaking - dt);
   let walking = false;
   let inputX = joystickInput.x + (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
   let inputZ = joystickInput.z + (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0);
   const inputLength = Math.hypot(inputX, inputZ); if (inputLength > 1) { inputX /= inputLength; inputZ /= inputLength; }
   if (action === 'stand' && inputLength > .01) {
     const move = screenToWorld(inputX, inputZ);
-    const next = stepMovement({ x: hero.position.x, z: hero.position.z }, move.x * dt * WALK_SPEED, move.z * dt * WALK_SPEED);
+    const from = { x: hero.position.x, z: hero.position.z };
+    const proposed = stepMovement(from, move.x * dt * WALK_SPEED, move.z * dt * WALK_SPEED);
+    const safe = avoidVisitors(from, proposed, occupiedPositions());
+    const next = stepMovement(from, safe.x - from.x, safe.z - from.z);
     const dx = next.x - hero.position.x, dz = next.z - hero.position.z; walking = Math.hypot(dx, dz) > .0005;
     hero.position.set(next.x, 0, next.z); target.copy(hero.position); facing = Math.atan2(move.x, move.z);
   } else if (action === 'stand' && route.length) {
     const next = route[0], dx = next.x - hero.position.x, dz = next.z - hero.position.z, distance = Math.hypot(dx, dz);
-    if (distance > .001) { const step = Math.min(distance, dt * WALK_SPEED); hero.position.x += dx / distance * step; hero.position.z += dz / distance * step; facing = Math.atan2(dx, dz); walking = true; }
-    if (distance <= dt * WALK_SPEED + .001) { hero.position.set(next.x, 0, next.z); route.shift(); if (!route.length) arrive(); }
+    if (distance > .001) {
+      const step = Math.min(distance, dt * WALK_SPEED), from = {x:hero.position.x,z:hero.position.z};
+      const safe = avoidVisitors(from, {x:from.x+dx/distance*step,z:from.z+dz/distance*step}, occupiedPositions());
+      const actual = stepMovement(from, safe.x - from.x, safe.z - from.z);
+      hero.position.x = actual.x; hero.position.z = actual.z;
+      facing = Math.atan2(actual.x-from.x || dx, actual.z-from.z || dz);
+      walking = Math.hypot(actual.x - from.x, actual.z - from.z) > .0005;
+    }
+    if (Math.hypot(next.x - hero.position.x, next.z - hero.position.z) < .045) {
+      hero.position.set(next.x, 0, next.z); route.shift(); if (!route.length) arrive();
+    }
   }
   const room = roomAt(hero.position.x, hero.position.z);
   if (room && room !== currentRoom) enterRoom(room);
@@ -595,24 +673,34 @@ function frame(now) {
   sun.position.set(view.focus.x - 5, 12, view.focus.z + 6); sun.target.position.set(view.focus.x, 0, view.focus.z);
   destinationMarker.scale.setScalar(reducedMotion ? 1 : 1 + Math.sin(elapsed * 4) * .10);
   let angle = facing - hero.rotation.y; angle = Math.atan2(Math.sin(angle), Math.cos(angle)); hero.rotation.y += angle * Math.min(1, dt * 10);
-  player.animate(action, walking, dt, reducedMotion, WALK_SPEED / 1.9);
+  player.animate(waveTimer && action === 'sit' ? 'sitwave' : waveTimer && action === 'lie' ? 'liewave' : action,
+    walking, dt, reducedMotion, WALK_SPEED / 1.9, clockDt);
   for (const resident of residents) {
     const near = Math.hypot(resident.root.position.x - hero.position.x, resident.root.position.z - hero.position.z) < 8;
-    resident.animate((resident.config.greeter && action === 'wave' && near) || (resident.config.scrubber && scrubbing > 0) || (resident.config.clerk && deskWave > 0) ? 'wave' : resident.config.action, false, dt, reducedMotion);
+    resident.animate(resident.config.fortuneTeller && fortuneSpeaking > 0 ? 'sitwave'
+      : (resident.config.greeter && action === 'wave' && near) || (resident.config.scrubber && scrubbing > 0) || (resident.config.clerk && deskWave > 0) ? 'wave'
+      : resident.config.action, false, dt, reducedMotion);
   }
   shadow.position.set(hero.position.x, .012, hero.position.z); shadow.scale.set(action === 'lie' ? 1.1 : 1, action === 'lie' ? 1.7 : 1, 1);
   if (action === 'lie') shadow.position.z -= Math.cos(hero.rotation.y) * .3;
   world.update(elapsed, reducedMotion);
   updateOcclusion(dt);
   localWalking = walking; social?.update(dt, reducedMotion);
-  updateTv(dt);
-  // Resting earns 온기: every 30 s sitting or lying (double in 불가마 and 소금방).
-  if ((action === 'sit' || action === 'lie') && !shop.playing) {
-    restTimer += dt;
-    if (restTimer >= REST_SECONDS) { restTimer = 0; const got = wallet.earn(['hot', 'salt', 'bath'].includes(currentRoom.id) ? 2 : 1); if (got) toast(`쉬는 동안 온기가 모였어요 +${got}♨`); }
+  updateTv(dt, clockDt);
+  // Resting earns 온기 every 30 seconds (doubled in hot, salt and bath rooms).
+  const resting = (action === 'sit' || action === 'lie') && !shop.playing;
+  if (resting) {
+    restTimer += clockDt;
+    if (restTimer >= REST_SECONDS) {
+      restTimer = 0;
+      const got = wallet.earn(['hot', 'salt', 'bath'].includes(currentRoom.id) ? 2 : 1);
+      // The wallet count itself and a gentle glint are enough confirmation; no toast.
+      if (got) pulseWallet();
+    }
   } else restTimer = Math.min(restTimer, REST_SECONDS * .5);
+  updateRestHint(resting);
   shop.setNearShop(currentRoom.id === 'shop' && !nearTowels());
-  updateTowelShelf(); updateSpots(dt);
+  updateTowelShelf(); updateSpots(clockDt);
   motes.visible = !reducedMotion; if (!reducedMotion) { motes.position.set(view.focus.x, 0, view.focus.z); motes.rotation.y = elapsed * .02; }
   renderer.render(scene, camera); raf = requestAnimationFrame(frame);
 }
@@ -634,7 +722,7 @@ placeTowelDecor(scene, TOWEL_DECOR).then(placed => { towelDecor = placed; viewpo
 document.querySelector('#chat-input').addEventListener('focus', () => { keys.clear(); stopJoystick(); });
 social = createSocial({
   scene, camera, kit, viewport, actorScale: ACTOR_SCALE, makeShadow: contactShadow,
-  getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
+  getLocal: () => ({ x: hero.position.x, y: hero.position.y, z: hero.position.z, facing: hero.rotation.y, action: waveTimer && action === 'sit' ? 'sitwave' : waveTimer && action === 'lie' ? 'liewave' : action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
   onTrade: payload => onTrade(payload),
   onGreet: payload => onGreet(payload),
   notify: text => toast(text)
@@ -754,8 +842,12 @@ function fly(from, to, emoji) {
 }
 const faceTo = p => { facing = Math.atan2(p.x - hero.position.x, p.z - hero.position.z); };
 function clearPick() { if (!picking) return; picking.buttons.forEach(b => b.remove()); clearTimeout(picking.timer); picking = null; }
+function gestureHello() {
+  if (action === 'sit' || action === 'lie') waveTimer = 1.5;
+  else setAction('wave');
+}
 function greet(remote) {
-  clearPick(); setAction('wave'); faceTo(remote.character.root.position);
+  clearPick(); gestureHello(); faceTo(remote.character.root.position);
   const wait = greetLog.wait(remote.id);
   if (wait) { toast(`${remote.name}님에게는 ${Math.ceil(wait / 1000)}초 뒤에 다시 인사할 수 있어요`); return; }
   greetLog.sent(remote.id); social.sendGreet(remote.id, 'hello', Math.random().toString(36).slice(2, 10));
@@ -765,7 +857,7 @@ function greet(remote) {
 function startGreet() {
   const near = social ? greetTargets(social.remotes, hero.position, currentRoom.id) : [];
   if (near.length === 1) { greet(near[0]); return; }
-  setAction('wave'); clearPick(); if (!near.length) return;
+  gestureHello(); clearPick(); if (!near.length) return;
   picking = { timer: setTimeout(clearPick, 8000), buttons: near.map(remote => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'greet-pick'; b.textContent = '👋'; b.setAttribute('aria-label', `${remote.name}님에게 인사`);
     b.addEventListener('click', event => { event.stopPropagation(); greet(remote); }); remote.label.prepend(b); return b;
@@ -773,7 +865,7 @@ function startGreet() {
   toast('누구에게 인사할까요? 이름 위 👋를 눌러요');
 }
 function highFive(remote) {
-  setAction('wave'); faceTo(remote.character.root.position); player.celebrate(); fly(hero.position, remote.character.root.position, '💖');
+  gestureHello(); faceTo(remote.character.root.position); if (action !== 'lie') player.celebrate(); fly(hero.position, remote.character.root.position, '💖');
   const got = greetLog.reward(remote.id) ? wallet.earn(1) : 0;
   toast(`${remote.name}님과 하이파이브! 🙌${got ? ` 온기 +${got}♨` : ''}`);
 }
@@ -791,10 +883,14 @@ const fortuneDialog = document.querySelector('#fortune-dialog'), fortuneForm = d
 function showFortune(birth) {
   const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null); if (!f) return;
   const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
-  fortuneResult.innerHTML = `<p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
+  fortuneResult.innerHTML = `<p class="fortune-voice"><span aria-hidden="true">🔮</span> 사주 선생님이 들려주는 오늘의 이야기</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
   const b = fortuneResult.querySelectorAll('b');
   b[0].textContent = `${f.mine}(${f.element})`; b[1].textContent = `${f.today}(${f.todayElement})`; b[2].textContent = f.color; b[3].textContent = f.number;
-  fortuneResult.querySelector('h3').textContent = f.title; fortuneResult.querySelector('.fortune-text').textContent = f.text;
+  fortuneResult.querySelector('h3').textContent = f.title;
+  fortuneResult.querySelector('.fortune-text').textContent = `“${f.text} 오늘은 ${f.color} 계열이 잘 어울리겠네요. 행운의 숫자는 ${f.number}이에요.”`;
+  // The teacher gestures while reading. The dialog itself is the speech bubble;
+  // no extra modal/toast is placed over an already-crowded 3D screen.
+  fortuneSpeaking = 2.3;
   fortuneResult.hidden = false;
 }
 document.querySelector('#fortune-open').addEventListener('click', () => {
@@ -852,6 +948,7 @@ function keepSeatClear(dt) {
   if (seatRecheck < .8) return;
   seatRecheck = 0;
   const seats = soak ? POOL_SEATS[soak.kind] : currentRoom?.id === 'scrub' && scrubbing > 0 ? SCRUB_SLOTS
+    : seatedChair ? CHAIR_SEATS.filter(s => s.room === seatedChair.room && s.kind === seatedChair.kind).map(s => [s.x,s.z])
     : currentRoom?.id === 'lobby' && action === 'sit' && nearTv() ? TV_SEATS.map(s => [s.x, s.z]) : null;
   if (!seats) return;
   // Stable tie-break: only the lexicographically later visitor changes seats.
@@ -859,10 +956,13 @@ function keepSeatClear(dt) {
   if (!other.some(p => !p.moving && Math.hypot(p.x - hero.position.x, p.z - hero.position.z) < SEAT_CLEARANCE && (!p.uid || p.uid < (social?.id || '')))) return;
   const seat = freeSeat(seats, [hero.position.x, hero.position.z], other);
   if (seat) {
-    hero.position.set(seat[0], 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
-    toast('다른 손님과 겹치지 않도록 빈자리로 이동했어요 ♨');
+    if (seatedChair) seatedChair = CHAIR_SEATS.find(s => s.x === seat[0] && s.z === seat[1]) || seatedChair;
+    hero.position.set(seat[0], seatedChair?.y || 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
+    // Quiet relocation: don't throw another toast each time a guest sits down.
   } else if (soak) {
     setAction('stand'); toast('탕이 만석이에요. 잠시 후 다시 이용해 주세요.');
+  } else if (seatedChair) {
+    setAction('stand'); toast('의자가 만석이에요. 가까운 빈자리를 이용해 주세요.');
   } else if (currentRoom?.id === 'lobby') {
     setAction('stand'); toast('TV 앞 방석이 만석이에요. 잠시 후 다시 와 주세요.');
   } else {
@@ -934,6 +1034,19 @@ spotButton.addEventListener('click', () => {
   }
   else if (spot.id === 'locker') { outfitButton.click(); tour?.done('locker'); }
   else if (spot.id === 'fortune') document.querySelector('#fortune-open').click();
+  else if (spot.id === 'chair') {
+    const selected = CHAIR_SEATS.find(s => s.id === spot.chair);
+    if (!selected) return;
+    const nearby = CHAIR_SEATS.filter(s => s.room === selected.room && s.kind === selected.kind);
+    const free = freeSeat(nearby.map(s => [s.x,s.z]), [selected.x,selected.z]);
+    if (!free) { toast('여긴 만석이에요. 빈 의자를 찾아주세요.'); return; }
+    const chair = nearby.find(s => s.x === free[0] && s.z === free[1]);
+    route.length = 0; activeDestination = null; destinationMarker.visible = false;
+    setAction('sit'); seatedChair = chair;
+    hero.position.set(chair.x,chair.y,chair.z); target.copy(hero.position); view.focus.set(chair.x,0,chair.z);
+    facing = chair.face; status.textContent = '의자에 앉아 쉬는 중이에요 ♨';
+    spotButton.hidden = true;
+  }
   else if (spot.id === 'scrub') {
     if (Date.now() < scrubReady) { toast(`세신은 ${Math.ceil((scrubReady - Date.now()) / 60000)}분 뒤에 또 받을 수 있어요`); return; }
     const bed = freeSeat(SCRUB_SLOTS, spot.bed);

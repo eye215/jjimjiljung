@@ -486,12 +486,13 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     character.celebrate = () => { cheer = 1.6; celebrateBurst(); };
     // Shared pose animation for the player, NPCs and remote visitors. `action` is
     // the posture (stand, sit, lie, wave); a snack in progress layers on top of it.
-    character.animate = (action, walking, dt, reducedMotion, speed = 1) => {
+    character.animate = (action, walking, dt, reducedMotion, speed = 1, snackDt = dt) => {
       const damp = (object, key, to, rate = 9) => { object[key] = THREE.MathUtils.damp(object[key], to, rate, dt); };
       character.elapsed += dt;
       if (action === 'egg' || action === 'drink') action = 'stand';
-      const elapsed = character.elapsed, sleep = action === 'lie', sitting = action === 'sit', cycle = elapsed * 9 * speed;
-      const eating = sleep ? null : snackPose(dt);
+      const elapsed = character.elapsed, sleep = action === 'lie' || action === 'liewave',
+        sitting = action === 'sit' || action === 'sitwave', greeting = ['wave','sitwave','liewave'].includes(action), cycle = elapsed * 9 * speed;
+      const eating = sleep ? null : snackPose(snackDt);
       cheer = Math.max(0, cheer - dt); const cheering = cheer > 0 && !eating && !sleep;
       if (sleep && character.snack) character.stopSnack();
       updateBursts(dt);
@@ -503,7 +504,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       for (let i = 0; i < 2; i++) {
         damp(legs[i].rotation, 'x', sitting ? -1.32 : sleep ? .45 : walking ? Math.sin(cycle + i * Math.PI) * .48 : 0);
         damp(legs[i].rotation, 'z', sitting ? (i === 0 ? -.25 : .25) : 0);
-        const waving = action === 'wave' && i === 1;
+        const waving = greeting && i === 1;
         // Both hands cradle the snack and lift it to the mouth together.
         damp(arms[i].rotation, 'x', eating ? -1.3 - eating.mouth * .5 : cheering ? -2.7 : waving ? -2.35 : sitting ? -.5 : sleep ? -.18 : walking ? -Math.sin(cycle + i * Math.PI) * .35 : 0, eating ? 14 : 9);
         damp(arms[i].rotation, 'z', eating ? (i === 0 ? .5 : -.5) : waving ? -.4 + (reducedMotion ? 0 : Math.sin(elapsed * 7) * .24) : i === 0 ? -.14 : .14, eating ? 14 : 9);
@@ -511,7 +512,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       if (!reducedMotion) { head.rotation.z = Math.sin(elapsed * 1.3) * .025; head.position.y = HEAD_Y + Math.sin(elapsed * 2) * .008 + (eating?.face === 'chew' ? Math.abs(Math.sin(elapsed * 14)) * .012 : 0); }
       else { head.rotation.z = 0; head.position.y = HEAD_Y; }
       const blink = !reducedMotion && (elapsed + character.blinkOffset) % 4.7 > 4.52;
-      character.setExpression(sleep || (blink && !eating) ? 'sleep' : eating ? eating.face : action === 'wave' || cheering ? 'happy' : 'normal');
+      character.setExpression((sleep && !greeting) || (blink && !eating) ? 'sleep' : eating ? eating.face : greeting || cheering ? 'happy' : 'normal');
     };
     return character;
   }
@@ -700,7 +701,10 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
     const character = { snack: null };
     const snacks = attachSnacks(character, rig);
     const { snackRoot, snackPose, updateBursts, celebrateBurst } = snacks;
-    snackRoot.scale.setScalar(.7); active.hold.add(snackRoot);
+    // A hand bone on the imported Mixamo rig can pivot behind the shoulder while
+    // drinking. The cup now has its own chest-to-mouth anchor, still reached by
+    // the right hand but never carried behind the model's shoulder.
+    snackRoot.scale.setScalar(.7); body.add(snackRoot);
     // Kept for callers that look for a cap or pillow; the cap is part of the sheep body now.
     const cap = new THREE.Group(), pillow = new THREE.Group(); pillow.position.set(0, 0, PILLOW_FIT.z); pillow.visible = false; frame.add(pillow);
     const armProxy = () => ({ rotation: { x: 0, y: 0, z: 0 } });
@@ -719,7 +723,7 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
       // The new body takes over the current clip mix so the swap does not pop.
       for (const name of Object.values(CLIPS)) { next.weights[name] = active.weights[name]; next.actions[name].time = active.actions[name].time; }
       active.model.visible = false; next.model.visible = true; active = next;
-      active.hold.add(snackRoot); character.materials.cloth = active.material;
+      character.materials.cloth = active.material;
       const shown = expression; expression = ''; character.setExpression(shown);
     };
     character.setExpression = next => { if (next === expression) return; expression = next; active.setFace(next); };
@@ -779,17 +783,19 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
     }
     let lie = 0, wave = 0, sat = 0, seat = 0;
     const proxy = (b, target, x) => { q1.copy(b.rest.get(x)).invert().multiply(x.quaternion); e1.setFromQuaternion(q1); target.rotation.x = e1.x; target.rotation.y = e1.y; target.rotation.z = e1.z; };
-    character.animate = (action, walking, dt, reducedMotion, speed = 1) => {
+    character.animate = (action, walking, dt, reducedMotion, speed = 1, snackDt = dt) => {
       character.elapsed += dt;
       if (action === 'egg' || action === 'drink') action = 'stand';
-      const b = active, elapsed = character.elapsed, sleep = action === 'lie', sitting = action === 'sit';
-      const eating = sleep ? null : snackPose(dt);
+      const b = active, elapsed = character.elapsed,
+        greeting = action === 'wave' || action === 'sitwave' || action === 'liewave',
+        sleep = action === 'lie' || action === 'liewave', sitting = action === 'sit' || action === 'sitwave';
+      const eating = sleep ? null : snackPose(snackDt);
       cheer = Math.max(0, cheer - dt); const cheering = cheer > 0 && !eating && !sleep;
       if (sleep && character.snack) character.stopSnack();
       updateBursts(dt);
       lie = THREE.MathUtils.damp(lie, sleep ? 1 : 0, 7, dt);
       sat = sitting ? sat + dt : 0;
-      const waving = !eating && !sleep && !walking && action === 'wave';
+      const waving = !eating && !walking && greeting;
       wave = THREE.MathUtils.damp(wave, waving ? 1 : 0, 10, dt);
       pillow.visible = lie > .5;
       // Standing cheer uses the Cheer clip; a seated cheer and a wave are posed below.
@@ -833,11 +839,23 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
       body.position.y = (lift * (1 - lie) - (b.profile.hipY - SEAT_Y) * seat * (1 - lie) + LIE_LIFT * lie) * unit;
       const breath = reducedMotion ? 0 : Math.sin(elapsed * 2) * .008 * Math.max(0, 1 - total);
       body.scale.set(1 - breath * .5, 1 + breath, 1 - breath * .5);
+      if (eating) {
+        // Convert skinned bone targets into the rigid body coordinate system.
+        // Anchoring the cup here instead of to Mixamo's hand prevents the
+        // shoulder-strapped cup effect across both outfits and standing/sitting.
+        body.updateMatrixWorld(true);
+        b.chestTarget.getWorldPosition(v1); body.worldToLocal(v1);
+        b.mouthTarget.getWorldPosition(v2); body.worldToLocal(v2);
+        snackRoot.position.copy(v1).lerp(v2, Math.min(1, eating.mouth));
+        snackRoot.position.x -= .07;
+        snackRoot.position.y -= .085;
+        snackRoot.rotation.x = character.snack?.kind === 'drink' ? -Math.min(1, eating.mouth) * .55 : 0;
+      }
       rig.position.y = THREE.MathUtils.damp(rig.position.y, cheering && !sitting && !reducedMotion ? Math.abs(Math.sin(cheer * 9)) * .12 : 0, 18, dt);
       proxy(b, arms[0], b.upperArms[0]); proxy(b, arms[1], b.upperArms[1]); proxy(b, legs[0], b.upLegs[0]); proxy(b, legs[1], b.upLegs[1]);
       const blink = !reducedMotion && (elapsed + character.blinkOffset) % 4.7 > 4.52;
       // Seated (after a moment) the face settles into a relaxed, eyes-closed smile.
-      const face = sleep ? 'sleep' : eating ? eating.face : waving || cheering ? 'happy' : sitting && sat > 1.5 ? 'relax' : blink ? 'sleep' : 'normal';
+      const face = sleep && !waving ? 'sleep' : eating ? eating.face : waving || cheering ? 'happy' : sitting && sat > 1.5 ? 'relax' : blink ? 'sleep' : 'normal';
       character.setExpression(face);
     };
     character.setExpression('normal');
