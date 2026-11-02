@@ -22,6 +22,6 @@ const { pathToFileURL } = require('node:url');
   assert.equal(warmthHint({roomId:'bath',action:'stand',nearbySpot:'hotpool'}).headline,'♨ 이용하면 8초 뒤 온기 +2');
   assert.equal(warmthHint({roomId:'lobby',action:'stand',adReady:true}).headline,'📺 광고를 끝까지 보면 온기 +3♨');
   assert.equal(rest('salt',12,DAILY_EARN_CAP-1).headline,'♨ 18초 뒤 온기 +1','Cannot promise more than daily cap permits');
-  assert.match(rest('salt',12,DAILY_EARN_CAP).headline,/모두 모았어요/,'No fake countdown after hitting daily cap');
+  assert.match(rest('salt',12,DAILY_EARN_CAP).headline,/활동 온기 한도에 도달했어요/,'No fake countdown after hitting daily cap');
   console.log('PASS contextual warmth guide: rest, hot/salt 2x, baths, scrub, TV, spending tip, cap, no resets');
 })().catch(error => { console.error(error); process.exitCode = 1; });
