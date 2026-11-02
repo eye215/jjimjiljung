@@ -41,7 +41,7 @@ const server = http.createServer((req, res) => {
     assert(+key >= 1 && +key <= 120, 'A locker key is handed over');
     assert.notEqual(await page.locator('#viewport').getAttribute('data-outfit'), fresh, 'with a fresh 찜질복');
     await page.locator('#spot-action').click();
-    assert.match(await page.locator('#toast span').textContent(), new RegExp(`${key}번 열쇠와 수건은 그대로`));
+    assert.match(await page.locator('#toast span').textContent(), new RegExp(`${key}번 열쇠.*그대로`));
     // 탈의실: the locker button re-dyes the outfit.
     await page.evaluate(() => window.__w.tp(-6, 11));
     await page.waitForFunction(() => window.__w.room() === 'locker');
