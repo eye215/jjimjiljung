@@ -73,7 +73,7 @@
 <button type="button" id="fortune-open" hidden aria-hidden="true" tabindex="-1"></button>
 <dialog id="fortune-dialog" aria-labelledby="fortune-title">
 <div class="places-heading"><div><span class="places-eyebrow">사주방</span><h2 id="fortune-title">오늘의 운세</h2></div><button id="fortune-close" aria-label="운세 닫기">×</button></div>
-<form id="fortune-form"><label>생년월일<input id="fortune-date" type="date" required min="1900-01-01" max="2030-12-31"></label><label>태어난 시간 <small>(몰라도 괜찮아요)</small><input id="fortune-time" type="time"></label><label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.5"><input id="fortune-consent" type="checkbox" required style="width:18px;min-width:18px;margin-top:2px"> <span>[필수] AI 운세 생성에 필요한 사주 정보의 AI 전송 및 운세 결과 저장에 동의합니다. <button type="button" id="fortune-privacy-open" class="link-button">자세히 보기</button></span></label><button type="submit" id="fortune-go">동의하고 운세 보기</button></form>
+<form id="fortune-form"><label>생년월일<input id="fortune-date" type="date" required min="1900-01-01" max="2030-12-31"></label><label>태어난 시간 <small>(몰라도 괜찮아요)</small><input id="fortune-time" type="time"></label><label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.5"><input id="fortune-consent" type="checkbox" required style="width:18px;min-width:18px;margin-top:2px"> <span>[필수] AI 운세 생성에 필요한 사주 정보의 AI 전송 및 운세 결과 저장에 동의합니다. <button type="button" id="fortune-privacy-open" class="link-button">자세히 보기</button></span></label><button type="submit" id="fortune-go" disabled>동의하고 운세 보기</button></form>
 <section id="fortune-result" hidden aria-live="polite"></section>
 <p class="places-footnote">재미로 보는 운세예요. 생년월일·태어난 시간은 이 기기에만 저장됩니다. 운세 생성 시 기기에서 계산한 사주 정보만 AI 서비스로 전송됩니다. <button type="button" id="fortune-forget" class="link-button">생년월일 지우기</button></p>
 </dialog>
@@ -131,5 +131,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-47').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-48').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>
