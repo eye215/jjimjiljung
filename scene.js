@@ -114,12 +114,16 @@ function updateWarmthGuide(dt) {
   warmthTick += dt;
   if (warmthTick < .2) return;
   warmthTick = 0;
+  let nearbySpot = spot?.id || '';
+  // Don't advertise a cooldown activity as if the next reward were available.
+  if ((nearbySpot === 'scrub' && Date.now() < scrubReady) ||
+      (['hotpool', 'coldpool', 'shower'].includes(nearbySpot) && Date.now() < (bathReady[nearbySpot] || 0))) nearbySpot = '';
   const guide = warmthHint({
     roomId: currentRoom?.id, action, restTimer,
     earnedToday: wallet.snapshot().earnedToday,
     soak: soak && { kind: soak.kind, done: soak.done, seconds: soak.t },
     showerSeconds: shower, scrubSeconds: scrubbing,
-    nearbySpot: spot?.id, adReady: nearTv() && tvAds.state === 'ready'
+    nearbySpot, adReady: nearTv() && tvAds.state === 'ready'
   });
   warmthGuideEl.hidden = !guide;
   if (guide) {
