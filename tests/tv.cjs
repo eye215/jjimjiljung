@@ -102,7 +102,11 @@ const FAKE_ADS = `(function () {
       await page.evaluate(() => { window.__timeShift += 121000; });
       await page.waitForFunction(() => window.__tv.state().tv === 'ready');
       await page.locator('#tv-ad').click();
-      await page.waitForFunction(points => window.__tv.state().points === points, expected);
+      await page.waitForFunction(() => {
+        const s=window.__tv.state();return s.playing===false && (s.tv==='cooldown'||s.tv==='done'||s.tv==='idle');
+      }, null, {timeout:30000});
+      const actual = await state(page);
+      assert.equal(actual.points, expected, 'Each completed ad should grant exactly 10 온기; ad state='+JSON.stringify(actual));
     }
     await page.evaluate(() => { window.__timeShift += 121000; });
     await page.waitForFunction(() => window.__tv.state().tv === 'done');
