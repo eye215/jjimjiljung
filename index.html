@@ -72,12 +72,12 @@
 </dialog>
 <button type="button" id="fortune-open" hidden aria-hidden="true" tabindex="-1"></button>
 <dialog id="fortune-dialog" aria-labelledby="fortune-title">
+<div class="places-heading"><div><span class="places-eyebrow">사주방</span><h2 id="fortune-title">잠시 쉬어가는 중</h2></div><button id="fortune-close" aria-label="운세 닫기">×</button></div>
 <section id="fortune-maintenance" role="status" style="text-align:center;padding:24px 12px 28px;color:#5b423b">
 <div aria-hidden="true" style="font-size:48px;margin-bottom:12px">🚧</div>
 <h3 style="font-size:22px;margin:0 0 12px">사주방은 아직 공사 중이에요</h3>
 <p style="font-size:14px;line-height:1.7;margin:0">더 나은 운세 서비스를 준비하고 있어요.<br>조금만 기다려 주세요! ♨</p>
 </section>
-<div class="places-heading"><div><span class="places-eyebrow">사주방</span><h2 id="fortune-title">오늘의 운세</h2></div><button id="fortune-close" aria-label="운세 닫기">×</button></div>
 <form id="fortune-form" hidden><label>생년월일<input id="fortune-date" type="date" required min="1900-01-01" max="2030-12-31"></label><label>태어난 시간 <small>(몰라도 괜찮아요)</small><input id="fortune-time" type="time"></label><label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.5"><input id="fortune-consent" type="checkbox" required style="width:18px;min-width:18px;margin-top:2px"> <span>[필수] AI 운세 생성에 필요한 사주 정보의 AI 전송 및 운세 결과 저장에 동의합니다. <button type="button" id="fortune-privacy-open" class="link-button">자세히 보기</button></span></label><button type="submit" id="fortune-go" disabled>동의하고 운세 보기</button></form>
 <section id="fortune-result" hidden aria-live="polite"></section>
 <p class="places-footnote" hidden>재미로 보는 운세예요. 생년월일·태어난 시간은 이 기기에만 저장됩니다. 운세 생성 시 기기에서 계산한 사주 정보만 AI 서비스로 전송됩니다. <button type="button" id="fortune-forget" class="link-button">생년월일 지우기</button></p>
