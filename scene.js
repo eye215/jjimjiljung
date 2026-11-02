@@ -7,7 +7,7 @@ import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-37';
 import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-37';
 import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-37';
 import { buildWorld } from './environment.js?v=rpg-37';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, roomAt } from './world.js?v=rpg-37';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, roomAt } from './world.js?v=rpg-38';
 import { createTvAds } from './ads.js?v=rpg-37';
 import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-37';
 import { createSocial } from './social.js?v=rpg-37';
@@ -149,10 +149,14 @@ const tvAds = createTvAds({
 });
 tvReady = true; shop.render();
 function goToTv() {
-  if (Math.hypot(hero.position.x - TV_SEAT.x, hero.position.z - TV_SEAT.z) < .3) { setAction('sit'); return; }
-  moveTo(TV_SEAT.x, TV_SEAT.z); activeDestination = TV_SEAT; status.textContent = 'TV 앞 방석으로 걸어가는 중이에요.';
+  const seat = freeSeat(TV_SEATS.map(s => [s.x, s.z]), [hero.position.x, hero.position.z]);
+  if (!seat) { toast('TV 앞 방석이 모두 찼어요. 잠시 후 다시 와 주세요 📺'); return; }
+  const selected = TV_SEATS.find(s => s.x === seat[0] && s.z === seat[1]);
+  if (Math.hypot(hero.position.x - selected.x, hero.position.z - selected.z) < .3) { setAction('sit'); return; }
+  moveTo(selected.x, selected.z); activeDestination = selected; status.textContent = '빈 TV 방석으로 걸어가는 중이에요.';
 }
-const nearTv = () => currentRoom?.id === 'lobby' && Math.hypot(hero.position.x - TV_SEAT.x, hero.position.z - TV_SEAT.z) < .8;
+const nearTv = () => currentRoom?.id === 'lobby' &&
+  TV_SEATS.some(s => Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < .9);
 const tvPoint = new THREE.Vector3();
 function updateTv(dt) {
   const seated = action === 'sit' && nearTv();
@@ -841,7 +845,8 @@ function keepSeatClear(dt) {
   seatRecheck += dt;
   if (seatRecheck < .8) return;
   seatRecheck = 0;
-  const seats = soak ? POOL_SEATS[soak.kind] : currentRoom?.id === 'scrub' && scrubbing > 0 ? SCRUB_SLOTS : null;
+  const seats = soak ? POOL_SEATS[soak.kind] : currentRoom?.id === 'scrub' && scrubbing > 0 ? SCRUB_SLOTS
+    : currentRoom?.id === 'lobby' && action === 'sit' && nearTv() ? TV_SEATS.map(s => [s.x, s.z]) : null;
   if (!seats) return;
   // Stable tie-break: only the lexicographically later visitor changes seats.
   const other = occupiedPositions();
@@ -852,6 +857,8 @@ function keepSeatClear(dt) {
     toast('다른 손님과 겹치지 않도록 빈자리로 이동했어요 ♨');
   } else if (soak) {
     setAction('stand'); toast('탕이 만석이에요. 잠시 후 다시 이용해 주세요.');
+  } else if (currentRoom?.id === 'lobby') {
+    setAction('stand'); toast('TV 앞 방석이 만석이에요. 잠시 후 다시 와 주세요.');
   } else {
     scrubbing = 0; setAction('stand');
     hero.position.set(8.8, 0, 12.8); target.copy(hero.position); view.focus.set(8.8, 0, 12.8);
@@ -961,8 +968,8 @@ document.querySelector('#tour-restart').addEventListener('click', () => {
   goToPlace(DESTINATIONS.entrance);
   toast('안내를 1단계부터 다시 시작해요. 열쇠·수건·찜질복·온기는 그대로예요 ♨');
 });
-if (lockerKey) tour.done('desk');
-if (outfit.hasTowel) tour.done('towel');
+// Do not auto-mark steps based on old possessions. Replay must remain at step 1
+// even for a returning visitor who already owns a key, outfit and sheep cap.
 setInterval(() => tour.render(), 600);
 if (!outfit.hasTowel && !tour.active) {
   const nudge = setInterval(() => {
