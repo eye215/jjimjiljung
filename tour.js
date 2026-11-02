@@ -36,6 +36,7 @@ export function createTour({ storage = globalThis.localStorage, isNew, el, onGo,
   const save = () => { try { storage.setItem(KEY, JSON.stringify({ done: state.done, off: state.off })); } catch { /* storage may be unavailable */ } };
   save();
   const text = el.querySelector('span'), go = el.querySelector('[data-tour-go]'), close = el.querySelector('[data-tour-close]');
+  let arrivedAt = null;
   const next = () => (state.off ? null : ALL.find(s => !state.done.includes(s.id)) || null);
   function render() {
     const step = next();
@@ -44,20 +45,32 @@ export function createTour({ storage = globalThis.localStorage, isNew, el, onGo,
     const intro = INTRO.includes(step), list = intro ? INTRO : EXPLORE, n = list.filter(s => state.done.includes(s.id)).length;
     text.textContent = `${step.text} · ${n + 1}/${list.length}`;
     el.dataset.step = step.id;
+    const arrived = arrivedAt === step.id;
+    go.disabled = arrived;
+    go.textContent = arrived ? '도착 ✓' : state.done.length ? '다음 장소 가기' : '가기';
+    go.setAttribute('aria-label', arrived ? '해당 장소에 도착했어요. 활동을 마치면 다음 장소가 안내돼요.' : go.textContent);
   }
   function done(id) {
     if (state.off || state.done.includes(id) || !ALL.some(s => s.id === id)) return;
     const before = next();
-    state.done.push(id); save();
+    state.done.push(id); arrivedAt = null; save();
     const after = next();
     if (before?.id === 'lobby' && id === 'lobby') toast('입장 완료! 이제 찜질방 곳곳을 둘러봐요 ♨');
     else if (!after && before) toast('찜질방을 한 바퀴 다 둘러봤어요! 이제 마음껏 쉬어요 ♨');
     render();
   }
-  go.addEventListener('click', () => { const step = next(); if (step) onGo(step.id); });
+  function arrived(id) {
+    if (next()?.id !== id) return;
+    arrivedAt = id; render();
+  }
+  function retry(id) {
+    if (arrivedAt !== id) return;
+    arrivedAt = null; render();
+  }
+  go.addEventListener('click', () => { const step = next(); if (step && arrivedAt !== step.id) onGo(step.id); });
   close.addEventListener('click', () => { state.off = true; save(); render(); });
   // Replay only the tour. Existing account, key, outfits, towels, snack bag and warmth
   // are never touched by a replay or by updates to the tutorial.
-  function restart() { state.done.length = 0; state.off = false; save(); render(); }
-  return { done, render, restart, get active() { return !!next(); }, get step() { return next()?.id || null; }, get fresh() { return isNew && state.fresh; } };
+  function restart() { state.done.length = 0; state.off = false; arrivedAt = null; save(); render(); }
+  return { done, arrived, retry, render, restart, get active() { return !!next(); }, get step() { return next()?.id || null; }, get fresh() { return isNew && state.fresh; } };
 }
