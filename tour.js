@@ -1,13 +1,13 @@
 // 첫 방문 안내: a newcomer starts at the 입구 and is led through the 찜질방 one step at a
-// time: key at the desk → 목욕탕 → 탈의실 (change) → 양머리 at the towel shelf → 중앙 휴게실,
+// time: key, towel and outfit → changing room → sheep cap → bath → central lounge,
 // then every other room and feature once. Each step can also be done out of order; the
 // nudge always shows the first one still open. Progress stays on this device.
 const KEY = 'jjimjiljung-tour-v1';
 export const INTRO = Object.freeze([
-  { id: 'desk', text: '🔑 입구 카운터에서 열쇠 받기' },
-  { id: 'bath', text: '♨ 목욕탕에서 몸 녹이기' },
+  { id: 'desk', text: '🔑 입구에서 열쇠·수건·찜질복 받기' },
   { id: 'locker', text: '👕 탈의실에서 찜질복 갈아입기' },
-  { id: 'towel', text: '🐑 매점 수건으로 양머리 만들기' },
+  { id: 'towel', text: '🐑 받은 수건으로 양머리 만들기' },
+  { id: 'bath', text: '♨ 목욕탕에서 몸 녹이기' },
   { id: 'lobby', text: '🏠 중앙 휴게실로 가기' }
 ]);
 export const EXPLORE = Object.freeze([
@@ -56,5 +56,8 @@ export function createTour({ storage = globalThis.localStorage, isNew, el, onGo,
   }
   go.addEventListener('click', () => { const step = next(); if (step) onGo(step.id); });
   close.addEventListener('click', () => { state.off = true; save(); render(); });
-  return { done, render, get active() { return !!next(); }, get step() { return next()?.id || null; }, get fresh() { return isNew && state.fresh; } };
+  // Replay only the tour. Existing account, key, outfits, towels, snack bag and warmth
+  // are never touched by a replay or by updates to the tutorial.
+  function restart() { state.done.length = 0; state.off = false; save(); render(); }
+  return { done, render, restart, get active() { return !!next(); }, get step() { return next()?.id || null; }, get fresh() { return isNew && state.fresh; } };
 }
