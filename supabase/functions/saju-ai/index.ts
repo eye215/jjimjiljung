@@ -55,7 +55,17 @@ Deno.serve(async (request) => {
         temperature: 0.7,
       }),
     });
-    if (!response.ok) return respond({ error: "AI unavailable" }, 502);
+    if (!response.ok) {
+      const status = response.status;
+      console.error("NVIDIA completion failed", { upstream_status: status, model: "meta/llama-3.3-70b-instruct" });
+      const guidance = status === 401 || status === 403 ? "NVIDIA API key or access denied"
+        : status === 402 ? "NVIDIA credits unavailable"
+        : status === 404 ? "NVIDIA model unavailable"
+        : status === 429 ? "NVIDIA request limit reached"
+        : status >= 500 ? "NVIDIA service temporarily unavailable"
+        : "NVIDIA request rejected";
+      return respond({ error: guidance, upstream_status: status }, 502);
+    }
     const result = await response.json();
     const text = String(result?.choices?.[0]?.message?.content || "").trim().slice(0, 600);
     if (!text) return respond({ error: "Empty AI response" }, 502);
