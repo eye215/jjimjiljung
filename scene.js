@@ -91,13 +91,15 @@ const residents = [
   { x: 14.45, z: 12.4, y: 0, face: -Math.PI / 2, action: 'stand', scrubber: true },
   { x: 14.7, z: 4.8, y: 0, face: -Math.PI / 2, action: 'stand', clerk: true },
   { x: 1.5, z: 12.3, y: 0, face: -.4, action: 'sit' },
-  { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' }
+  { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' },
+  { x: -11.5, z: 9.5, y: .12, face: 0, action: 'sit', fortuneTeller: true }
 ].map((config, index) => {
   const actor = kit.createCharacter(outfitColors(randomOutfit(seeded(index * 977 + 31))));
   actor.root.position.set(config.x, config.y, config.z); actor.root.rotation.y = config.face; actor.root.scale.setScalar(ACTOR_SCALE);
   scene.add(actor.root); actor.config = config; if (config.action !== 'lie') contactShadow().position.set(config.x, .012, config.z);
   return actor;
 });
+let fortuneSpeaking = 0;
 
 // A few translucent motes near the player, kept subtle and disabled for reduced motion.
 const motePositions = new Float32Array(40 * 3); for (let i = 0; i < 40; i++) { motePositions[i * 3] = (Math.random() - .5) * 12; motePositions[i * 3 + 1] = Math.random() * 3 + .4; motePositions[i * 3 + 2] = (Math.random() - .5) * 10; }
@@ -629,6 +631,7 @@ function frame(now) {
   // Negative dt makes exponential damping diverge and spins the limbs wildly.
   const dt = THREE.MathUtils.clamp((now - lastTime) / 1000, 0, .05); lastTime = now; elapsed += dt;
   waveTimer = Math.max(0, waveTimer - dt);
+  fortuneSpeaking = Math.max(0, fortuneSpeaking - dt);
   let walking = false;
   let inputX = joystickInput.x + (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
   let inputZ = joystickInput.z + (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0);
@@ -671,7 +674,9 @@ function frame(now) {
     walking, dt, reducedMotion, WALK_SPEED / 1.9);
   for (const resident of residents) {
     const near = Math.hypot(resident.root.position.x - hero.position.x, resident.root.position.z - hero.position.z) < 8;
-    resident.animate((resident.config.greeter && action === 'wave' && near) || (resident.config.scrubber && scrubbing > 0) || (resident.config.clerk && deskWave > 0) ? 'wave' : resident.config.action, false, dt, reducedMotion);
+    resident.animate(resident.config.fortuneTeller && fortuneSpeaking > 0 ? 'sitwave'
+      : (resident.config.greeter && action === 'wave' && near) || (resident.config.scrubber && scrubbing > 0) || (resident.config.clerk && deskWave > 0) ? 'wave'
+      : resident.config.action, false, dt, reducedMotion);
   }
   shadow.position.set(hero.position.x, .012, hero.position.z); shadow.scale.set(action === 'lie' ? 1.1 : 1, action === 'lie' ? 1.7 : 1, 1);
   if (action === 'lie') shadow.position.z -= Math.cos(hero.rotation.y) * .3;
@@ -875,10 +880,14 @@ const fortuneDialog = document.querySelector('#fortune-dialog'), fortuneForm = d
 function showFortune(birth) {
   const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null); if (!f) return;
   const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
-  fortuneResult.innerHTML = `<p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
+  fortuneResult.innerHTML = `<p class="fortune-voice"><span aria-hidden="true">🔮</span> 사주 선생님이 들려주는 오늘의 이야기</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
   const b = fortuneResult.querySelectorAll('b');
   b[0].textContent = `${f.mine}(${f.element})`; b[1].textContent = `${f.today}(${f.todayElement})`; b[2].textContent = f.color; b[3].textContent = f.number;
-  fortuneResult.querySelector('h3').textContent = f.title; fortuneResult.querySelector('.fortune-text').textContent = f.text;
+  fortuneResult.querySelector('h3').textContent = f.title;
+  fortuneResult.querySelector('.fortune-text').textContent = `“${f.text} 오늘은 ${f.color} 계열이 잘 어울리겠네요. 행운의 숫자는 ${f.number}이에요.”`;
+  // The teacher gestures while reading. The dialog itself is the speech bubble;
+  // no extra modal/toast is placed over an already-crowded 3D screen.
+  fortuneSpeaking = 2.3;
   fortuneResult.hidden = false;
 }
 document.querySelector('#fortune-open').addEventListener('click', () => {
