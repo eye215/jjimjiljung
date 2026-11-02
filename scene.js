@@ -910,7 +910,7 @@ spotButton.addEventListener('click', () => {
     } else {
       issuedTowel = true;
       try { localStorage.setItem(ISSUED_TOWEL_KEY, '1'); } catch { /* optional */ }
-      toast(`어서 오세요! ${lockerKey}번 열쇠와 수건은 그대로예요. 푹 쉬다 가세요 ♨`);
+      toast(`어서 오세요! ${lockerKey}번 열쇠는 그대로예요. 수건도 준비되어 있어요. 푹 쉬다 가세요 ♨`);
     }
   }
   else if (BATH[spot.id]) {
