@@ -49,12 +49,20 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   await place('lobby');await step('hot');await checkLayout('mobile-lobby');
   await page.setViewportSize({width:1280,height:800});await checkLayout('desktop-lobby');await page.setViewportSize({width:390,height:844});
   await place('hot');await step('tv');await place('tv');await page.locator('[data-tour-go]').click();await step('egg');
-  await page.locator('[data-tour-go]').click();await page.locator('#game [data-tap]').click();await page.locator('#game-result').waitFor();await page.locator('#game [data-game-close]').click();await done('egg');await step('ice');
-  await place('ice');await step('drink');
-  // Cancellation must not complete the tour, but finishing the mini-game must.
+  // Starting then abandoning an egg does NOT complete the tour.
+  await page.locator('[data-tour-go]').click();await page.locator('#game-close').click();
+  assert(!(await state()).done.includes('egg'),'Canceled egg must remain pending');
+  assert.equal(await page.locator('[data-tour-go]').isDisabled(),false,'Canceled egg unlocks retry');
+  // A completed crack counts immediately on its result screen, before the 3D eating clip ends.
+  await page.locator('[data-tour-go]').click();await page.locator('#game [data-tap]').click();
+  await page.locator('#game-result').waitFor({state:'visible'});await done('egg');await step('drink');
+  await page.locator('#game [data-game-close]').click();
+  // Sikhye directly follows egg. Cancel doesn't count; completing a result does.
   await page.locator('[data-tour-go]').click();await page.locator('#game-close').click();assert(!(await state()).done.includes('drink'));
-  await page.locator('[data-tour-go]').click();await page.locator('#game [data-hold]').waitFor();await page.locator('#game-result').waitFor({state:'visible'});await page.locator('#game [data-game-close]').click();
-  await done('drink');await step('salt');await place('salt');await step('fortune');
+  await page.locator('[data-tour-go]').click();await page.locator('#game [data-hold]').waitFor();
+  await page.locator('#game-result').waitFor({state:'visible'});await done('drink');await step('ice');
+  await page.locator('#game [data-game-close]').click();
+  await place('ice');await step('salt');await place('salt');await step('fortune');
   await tp(-11.5,11.8);await page.locator('#spot-action',{hasText:'운세'}).click();await page.locator('#fortune-dialog[open]').waitFor();await page.locator('#fortune-close').click();await step('scrub');
   await tp(11.5,11);await page.locator('#spot-action',{hasText:'세신'}).click();await page.evaluate(()=>window.__tourQA.finishTimedActivity());await done('scrub');await page.locator('[data-action="stand"]').click();await step('sleep');
   await place('sleep');await page.locator('[data-action="lie"]').click();await done('sleep');assert.equal((await state()).done.length,14);assert.equal((await state()).step,null);
