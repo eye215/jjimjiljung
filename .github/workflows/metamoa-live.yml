@@ -1,0 +1,56 @@
+name: Sync live visitors to Metamoa
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: metamoa-live-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Send aggregate active users only
+        env:
+          METAMOA_KEY: ${{ secrets.METAMOA_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, urllib.request, urllib.error
+          key = os.environ.get("METAMOA_KEY", "")
+          if not key:
+              sys.exit("Missing METAMOA_KEY GitHub Actions secret")
+          public_key = "sb_publishable_qe5dZItMX3X_znG6ClPn0g_hQoR1U_m"
+          url = "https://xojeavzrmdizganxjygj.supabase.co/rest/v1/rpc/metamoa_active_count"
+          request = urllib.request.Request(
+              url, data=b"{}", method="POST",
+              headers={"apikey": public_key, "Content-Type":"application/json"}
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=15) as response:
+                  count = json.load(response)
+          except urllib.error.HTTPError as exc:
+              sys.exit(f"Count lookup failed: HTTP {exc.code}")
+          if type(count) is not int or not (0 <= count <= 100000):
+              sys.exit("Invalid active visitor count")
+          print(f"Active visitors counted: {count}")
+          request = urllib.request.Request(
+              "https://metamoa.com/api/live/jjimjiljung",
+              data=json.dumps({"count":count}).encode("utf-8"),
+              method="POST",
+              headers={"Authorization":"Bearer "+key,"Content-Type":"application/json"},
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=15) as response:
+                  if response.status != 204:
+                      sys.exit(f"Unexpected Metamoa response: {response.status}")
+                  print("Metamoa live count sent successfully (204)")
+          except urllib.error.HTTPError as exc:
+              sys.exit(f"Metamoa live sync rejected: HTTP {exc.code}")
+          PY
