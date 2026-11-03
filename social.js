@@ -27,6 +27,25 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
   };
   let nickname = ''; try { nickname = cleanNickname(localStorage.getItem('jjimjiljung-nickname') || ''); } catch { /* storage may be unavailable */ }
   let link = null, status = 'solo', presence = [], unread = 0, lastSent = 0, lastSignature = '';
+  // Presence for external aggregate counts: only authenticated, visible, recently active
+  // visitors. Local/automated/test sessions are never reported.
+  let lastUserActivity = Date.now(), lastPresencePing = 0;
+  const isTestSession = navigator.webdriver ||
+    ['localhost', '127.0.0.1'].includes(location.hostname) ||
+    ['test', 'qa', 'local'].some(key => new URLSearchParams(location.search).has(key)) ||
+    new URLSearchParams(location.search).get('net') === 'local';
+  const markActive = () => { lastUserActivity = Date.now(); };
+  document.addEventListener('pointerdown', markActive, { passive: true });
+  document.addEventListener('keydown', markActive);
+  function heartbeatActivePresence(force = false) {
+    const now = Date.now();
+    if (isTestSession || document.visibilityState !== 'visible' ||
+        !link?.heartbeat || status !== 'online' ||
+        now - lastUserActivity > 180000 || (!force && now - lastPresencePing < 60000)) return;
+    lastPresencePing = now;
+    link.heartbeat().catch(() => {}); // Noncritical telemetry must not disrupt play.
+  }
+
   const remotes = new Map(), seenMessages = new Set(), senderLimits = new Map();
   const limit = createRateLimit();
   const projected = new THREE.Vector3();
@@ -426,6 +445,7 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
     try {
       link = await connect({ id, presence: presencePayload(), onPresence, onStatus: next => { status = next; renderStatus(); if (next === 'online') lastSent = 0; }, onMessage: (event, payload) => event === 'state' ? onState(payload) : event === 'chatreq' || event === 'chatans' ? onChatSignal(event, payload) : event === 'trade' ? readTrade(payload) : event === 'greet' ? readGreet(payload) : null });
       selfLabel.hidden = false; link.track(presencePayload());
+      heartbeatActivePresence(true);
       if (link.stats) refreshVisitorStats(true);
       if (!ui.log.children.length) system(`${nickname}님, 찜질방에 오신 걸 환영해요! 다른 손님을 눌러 대화를 신청해 보세요`);
       restoreGroup();
@@ -469,6 +489,8 @@ export function createSocial({ scene, camera, kit, viewport, getLocal, makeShado
       const local = getLocal();
       // Send my state ~5×/s while moving or changing pose, and a heartbeat when idle.
       const now = performance.now();
+      if (local.walking) markActive();
+      heartbeatActivePresence();
       if (link && status === 'online') {
         const signature = `${local.action}|${local.walking}|${local.outfit}|${local.snack}`;
         const due = now - lastSent > (local.walking ? MOVE_INTERVAL : IDLE_INTERVAL) || signature !== lastSignature;
