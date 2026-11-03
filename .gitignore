@@ -1,9 +1,0 @@
-node_modules/
-test-results/
-
-# Generated Capacitor web build
-www/
-# Native dependencies and local Xcode state
-ios/App/Pods/
-ios/DerivedData/
-ios/*.xcworkspace/xcuserdata/
