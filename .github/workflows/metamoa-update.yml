@@ -1,0 +1,44 @@
+name: Publish Metamoa update
+
+on:
+  workflow_dispatch:
+    inputs:
+      text:
+        description: 'Update text (up to 200 characters and 3 lines)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish update securely
+        env:
+          METAMOA_KEY: ${{ secrets.METAMOA_KEY }}
+          UPDATE_TEXT: ${{ inputs.text }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, urllib.request, urllib.error
+          key = os.environ.get("METAMOA_KEY", "")
+          message = os.environ["UPDATE_TEXT"].strip()
+          if not key:
+              sys.exit("Missing METAMOA_KEY GitHub Actions secret.")
+          if not message or len(message) > 200 or len(message.splitlines()) > 3:
+              sys.exit("Update must be 1-200 characters and up to 3 lines.")
+          req = urllib.request.Request(
+              "https://metamoa.com/api/update/jjimjiljung",
+              data=json.dumps({"text": message}, ensure_ascii=False).encode("utf-8"),
+              headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=20) as res:
+                  if res.status != 201:
+                      sys.exit(f"Unexpected response: {res.status}")
+                  print("Metamoa update published (201).")
+          except urllib.error.HTTPError as exc:
+              sys.exit(f"Metamoa request failed: HTTP {exc.code}")
+          PY
