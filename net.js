@@ -91,6 +91,7 @@ export async function connectSupabase({ id, presence, onPresence, onMessage, onS
       record: () => one(client.rpc('record_visit')),
       read: () => one(client.rpc('get_visit_stats'))
     } : null,
+    heartbeat: uid ? () => one(client.rpc('metamoa_presence_heartbeat')) : null,
     track(next) { current = next; return channel.track(next).catch(() => {}); },
     send(event, payload) { return channel.send({ type: 'broadcast', event, payload }).catch(() => {}); },
     async leave() { await channel.untrack().catch(() => {}); await client.removeChannel(channel).catch(() => {}); }
