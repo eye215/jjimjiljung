@@ -52,5 +52,10 @@ jobs:
                       sys.exit(f"Unexpected Metamoa response: {response.status}")
                   print("Metamoa live count sent successfully (204)")
           except urllib.error.HTTPError as exc:
-              sys.exit(f"Metamoa live sync rejected: HTTP {exc.code}")
+              # Show only a bounded, sanitized response, never the bearer token.
+              raw = exc.read(2048).decode("utf-8", errors="replace")
+              safe = raw.replace(key, "[REDACTED]")
+              for line in safe.splitlines():
+                  print(line[:500])
+              sys.exit(f"Metamoa live sync rejected: HTTP {exc.code}; response-type={exc.headers.get('Content-Type', 'unknown')}")
           PY
