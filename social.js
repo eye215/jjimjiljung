@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
-import { connect } from './net.js?v=rpg-39';
+import { connect } from './net.js?v=metamoa-live-1';
 import { decodeOutfit, outfitColors, capOn } from './outfit.js?v=rpg-39';
 import { NAV_BOUNDS } from './navigation.js?v=rpg-39';
 import { cleanText, maskProfanity, cleanNickname, createRateLimit, readChat, suggestNickname, MAX_MESSAGE } from './chat-rules.js?v=rpg-39';
