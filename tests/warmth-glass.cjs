@@ -24,6 +24,7 @@ const server = http.createServer((req,res) => {
       await page.addInitScript(cap=>{
         localStorage.setItem('jjimjiljung-key','49');
         localStorage.setItem('jjimjiljung-tour-v1',JSON.stringify({done:[],off:true}));
+        localStorage.setItem('jjimjiljung-fortune-announcement-v1','shown');
         if(cap){
           const d=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
           localStorage.setItem('jjimjiljung-wallet-v1',JSON.stringify({points:16,bag:{egg:1,drink:2},free:{egg:d,drink:d},earnedDay:d,earned:60}));
