@@ -670,7 +670,7 @@ body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #
 @media (max-width:760px) {
   #tour {
     box-sizing:border-box;
-    bottom:calc(var(--safe-bottom) + 160px);
+    bottom:calc(var(--safe-bottom) + 304px);
     width:min(340px,calc(100vw - 28px));
     max-width:calc(100vw - 28px);
     padding:7px 9px 7px 12px;
@@ -695,6 +695,7 @@ body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #
   #tour .tour-close { flex:0 0 25px; width:25px; height:30px; }
   #spot-action { bottom:calc(var(--safe-bottom) + 242px); max-width:calc(100vw - 28px); }
   /* Keep the tour above the nearby action so first-time guests can see both. */
+  body:has(#spot-action:not([hidden])) #tour { bottom:calc(var(--safe-bottom) + 304px); }
   #toast { top:auto; bottom:calc(var(--safe-bottom) + 310px); width:max-content; max-width:calc(100vw - 32px); box-sizing:border-box; }
   #toast span { min-width:0; overflow-wrap:anywhere; }
   #toast button { flex:0 0 auto; max-width:42vw; white-space:normal; }
