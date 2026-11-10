@@ -38,6 +38,7 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('#fortune-reopen-dialog').evaluate(d => d.open), false);
     assert.equal(await page.evaluate(() => localStorage.getItem('jjimjiljung-fortune-announcement-v1')), 'shown');
     await page.reload(); await page.waitForSelector('#viewport[data-ready="true"]');
+    if (await page.locator('#join-dialog').evaluate(d => d.open)) await page.locator('#join-solo').click();
     assert.equal(await page.locator('#fortune-reopen-dialog').evaluate(d => d.open), false, 'Confirmed notice stays closed on return');
     // The places dialog lists the four new rooms.
     for (const id of ['entrance', 'locker', 'bath', 'scrub', 'fortune']) assert.equal(await page.locator(`[data-place="${id}"]`).count(), 1);
