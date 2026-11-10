@@ -118,7 +118,7 @@ const FAKE_ADS = `(function () {
     // The shop now suggests resting instead.
     await page.evaluate(() => window.__tv.spend());
     await page.locator('#wallet').click();
-    await page.locator('[data-snack="egg"] [data-buy]').click();
+    assert.equal(await page.locator('[data-snack="egg"] .short').isVisible(), true, 'Zero balance shows the short-of-온기 state');
     assert.match(await page.locator('#shop-tv p').textContent(), /불가마나 소금방에서 쉬면 온기가 두 배/, 'Rest tip once ads are used up');
     assert.equal(await page.locator('#shop-tv button').isVisible(), false);
     await page.locator('#shop-close').click();
