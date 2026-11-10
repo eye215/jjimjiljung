@@ -30,6 +30,8 @@ const server = http.createServer((req, res) => {
     });
     await page.goto(base); await page.waitForSelector('#viewport[data-ready="true"]');
     if (await page.locator('#join-dialog').evaluate(d => d.open)) await page.locator('#join-solo').click();
+    await page.waitForFunction(() => localStorage.getItem('jjimjiljung-fortune-announcement-v1') === 'shown');
+    assert.match(await page.locator('#toast span').textContent(), /사주방 공사가 끝났어요/);
     // The places dialog lists the four new rooms.
     for (const id of ['entrance', 'locker', 'bath', 'scrub', 'fortune']) assert.equal(await page.locator(`[data-place="${id}"]`).count(), 1);
     // 입구 카운터: first visit gives a locker key and a fresh outfit; the locker shows the number.
@@ -49,11 +51,17 @@ const server = http.createServer((req, res) => {
     const before = await page.locator('#viewport').getAttribute('data-outfit');
     await page.locator('#spot-action').click();
     assert.notEqual(await page.locator('#viewport').getAttribute('data-outfit'), before, 'Lockers change the outfit');
-    // 사주방: the spot opens today's fortune.
+    // 사주방: the spot opens the local fortune form and calculates without an AI request.
     await page.evaluate(() => window.__w.tp(-11.5, 11.8));
     await page.locator('#spot-action', { hasText: '운세' }).waitFor();
     await page.locator('#spot-action').click();
     await page.locator('#fortune-dialog[open]').waitFor();
+    assert.equal(await page.locator('#fortune-form').isVisible(), true, 'Birth date form is available');
+    assert.equal(await page.locator('#fortune-maintenance').count(), 0, 'Construction notice is gone');
+    await page.locator('#fortune-date').fill('1995-05-17');
+    await page.locator('#fortune-go').click();
+    assert.equal(await page.locator('#fortune-result').isVisible(), true, 'Local result appears');
+    assert.match(await page.locator('#fortune-result .fortune-text').textContent(), /[가-힣]/);
     await page.locator('#fortune-close').click();
     // 세신실: lie on the table; after the scrub you get 온기 once, then a 10-minute wait.
     await page.evaluate(() => window.__w.tp(11.5, 11));

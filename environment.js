@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
-import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-39';
-import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-39';
+import { ROOMS, DOORS, FURNITURE, WALL_THICKNESS } from './world.js?v=rpg-51';
+import { mat, mesh, box, tube, cylinder, random, mergeGeometries } from './character.js?v=rpg-51';
 
 // Procedural, cosy jjimjilbang built from the shared map data. Everything is
 // generated locally: textures are drawn on canvases and static props are merged
@@ -51,7 +51,7 @@ export function buildWorld({ scene, kit }) {
       const g = c.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#463a7a'); g.addColorStop(1, '#7d6bb3'); c.fillStyle = g; c.fillRect(0, 0, W, H);
       for (let i = 0; i < 18; i++) { c.globalAlpha = .4 + .6 * Math.abs(Math.sin(t * 2 + i)); c.fillStyle = '#fff6d4'; c.beginPath(); c.arc((i * 73) % W, (i * 41) % 120 + 8, 2, 0, 7); c.fill(); }
       c.globalAlpha = 1; c.fillStyle = '#fff1b8'; c.beginPath(); c.arc(W / 2, 78, 30, 0, 7); c.fill(); c.fillStyle = '#5a4a92'; c.beginPath(); c.arc(W / 2 + 13, 70, 26, 0, 7); c.fill();
-      c.fillStyle = '#fff6e8'; c.font = `800 24px ${FONT}`; c.fillText('오늘의 운세', W / 2, 140); c.font = `600 17px ${FONT}`; c.fillText('사주방 곧 오픈 ✦', W / 2, 172);
+      c.fillStyle = '#fff6e8'; c.font = `800 24px ${FONT}`; c.fillText('오늘의 운세', W / 2, 140); c.font = `600 17px ${FONT}`; c.fillText('사주방에서 만나요 ✦', W / 2, 172);
     }
   }
   const tiled = (texture, size) => { texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.userData.size = size; return texture; };
