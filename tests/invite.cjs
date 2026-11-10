@@ -23,6 +23,7 @@ const server = http.createServer((req, res) => {
   const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}), args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await context.addInitScript(() => localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown'));
     await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(base).origin });
     const errors = [];
     const ready = async page => {
@@ -69,6 +70,7 @@ const server = http.createServer((req, res) => {
     await offline.close(); await page.close();
     // 3. Arriving from an invite greets the visitor and tidies the address.
     const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await guest.addInitScript(() => localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown'));
     await guest.goto(base + '?from=' + encodeURIComponent('보들식혜'));
     await ready(guest);
     assert.match(await guest.locator('#join-intro').textContent(), /보들식혜님의 초대로/);

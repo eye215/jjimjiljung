@@ -16,6 +16,7 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
  const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
  try{
   const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  await context.addInitScript(()=>localStorage.setItem('jjimjiljung-fortune-announcement-v1','shown'));
   await context.route('**/*',r=>r.request().url().startsWith(base)?r.continue():r.abort());
   await context.addInitScript(()=>{if(!localStorage.getItem('jjimjiljung-wallet-v1'))localStorage.setItem('jjimjiljung-wallet-v1',JSON.stringify({points:100,bag:{egg:3,drink:3},free:{egg:'',drink:''}}));});
   if(process.argv.includes('--drink-only'))await context.addInitScript(()=>{localStorage.setItem('jjimjiljung-key','31');localStorage.setItem('jjimjiljung-tour-v1',JSON.stringify({done:['desk','bath','locker','towel','lobby','hot','tv','egg','ice'],off:false}));});

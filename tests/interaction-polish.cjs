@@ -25,6 +25,7 @@ const server = http.createServer((req, res) => {
     await page.addInitScript(() => {
       localStorage.setItem('jjimjiljung-key','30');
       localStorage.setItem('jjimjiljung-nickname','방문자');
+      localStorage.setItem('jjimjiljung-fortune-announcement-v1','shown');
       localStorage.setItem('jjimjiljung-wallet-v1',JSON.stringify({points:30,bag:{egg:2,drink:2},free:{egg:'2026-10-30',drink:'2026-10-30'}}));
     });
     await page.route('**/scene.js*', async request => {

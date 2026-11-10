@@ -1133,15 +1133,20 @@ if (invite.invitedBy) {
   if (document.querySelector('#join-dialog').open && joinText) joinText.textContent = `${invite.invitedBy}님의 초대로 왔어요! 이름을 정하고 함께 찜질해요 ♨`;
   else toast(`${invite.invitedBy}님이 초대했어요! 같이 찜질해요 ♨`);
 }
-// Show the reopening notice once on the first visit after this release.
+// Show the reopening notice once after the first entry dialog closes.
 const FORTUNE_ANNOUNCEMENT_KEY = 'jjimjiljung-fortune-announcement-v1';
+const fortuneReopenDialog = document.querySelector('#fortune-reopen-dialog');
+fortuneReopenDialog.addEventListener('cancel', event => event.preventDefault());
+document.querySelector('#fortune-reopen-confirm').addEventListener('click', () => {
+  fortuneReopenDialog.close();
+  try { localStorage.setItem(FORTUNE_ANNOUNCEMENT_KEY, 'shown'); } catch { /* private browsing may block storage */ }
+});
 let fortuneAnnouncementSeen = false;
 try { fortuneAnnouncementSeen = localStorage.getItem(FORTUNE_ANNOUNCEMENT_KEY) === 'shown'; } catch { /* private browsing may block storage */ }
 if (!fortuneAnnouncementSeen) {
   const openingTimer = setInterval(() => {
-    if (document.hidden || !document.body.classList.contains('room-ready') || document.querySelector('dialog[open]') || !toastBox.hidden) return;
+    if (document.hidden || !document.body.classList.contains('room-ready') || document.querySelector('dialog[open]')) return;
     clearInterval(openingTimer);
-    try { localStorage.setItem(FORTUNE_ANNOUNCEMENT_KEY, 'shown'); } catch { /* still show the notice */ }
-    toast('🔮 사주방 공사가 끝났어요! 오늘의 운세를 보러 가요.', '사주방 가기', () => goToPlace(DESTINATIONS.fortune), 12000);
+    fortuneReopenDialog.showModal();
   }, 600);
 }

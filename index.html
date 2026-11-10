@@ -78,6 +78,12 @@
 <section id="fortune-result" hidden aria-live="polite"></section>
 <p class="places-footnote">재미로 보는 운세예요. 생년월일·태어난 시간은 이 기기에만 저장되고 서버로 전송되지 않아요. <button type="button" id="fortune-forget" class="link-button">생년월일 지우기</button></p>
 </dialog>
+<dialog id="fortune-reopen-dialog" aria-labelledby="fortune-reopen-title" aria-describedby="fortune-reopen-copy" aria-modal="true">
+<div aria-hidden="true" class="fortune-reopen-icon">🔮</div>
+<h2 id="fortune-reopen-title">사주방 공사가 끝났어요</h2>
+<p id="fortune-reopen-copy">하루에 한번 오늘의 운세 보러 가요!</p>
+<button type="button" id="fortune-reopen-confirm">확인</button>
+</dialog>
 <dialog id="transfer-dialog" aria-labelledby="transfer-title">
 <div class="places-heading"><div><span class="places-eyebrow">이어하기</span><h2 id="transfer-title">다른 기기에서 이어하기</h2></div><button id="transfer-close" class="sheet-x" aria-label="닫기">×</button></div>
 <section class="transfer-box"><h3>이 기기 → 새 기기</h3><p>코드를 만들어 새 기기에 입력하세요. 10분 동안 한 번만 쓸 수 있어요.</p><button type="button" id="transfer-make" class="sheet-primary">코드 만들기</button><output id="transfer-code" hidden></output></section>

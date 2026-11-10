@@ -57,6 +57,7 @@ const FAKE_ADS = `(function () {
       window.Date = class extends RealDate { constructor(...args) { if (args.length) super(...args); else super(RealDate.now() + window.__timeShift); } static now() { return RealDate.now() + window.__timeShift; } };
       if (wallet) localStorage.setItem('jjimjiljung-wallet-v1', JSON.stringify(wallet));
       localStorage.setItem('jjimjiljung-nickname', '');
+      localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown');
     }, [mode, wallet]);
     await page.route('**/config.js*', async route => { const response = await route.fetch(); await route.fulfill({ response, body: (await response.text()).replace("ADSENSE_CLIENT = ''", `ADSENSE_CLIENT = '${client}'`) }); });
     await page.route('https://pagead2.googlesyndication.com/**', route => route.fulfill({ contentType: 'text/javascript', body: FAKE_ADS }));

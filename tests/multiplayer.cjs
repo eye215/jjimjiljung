@@ -25,6 +25,7 @@ const server = http.createServer((req, res) => {
     // Two visitors in one browser talk over BroadcastChannel (`?net=local`), which
     // exercises the same presence/state/chat code paths as Supabase Realtime.
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await context.addInitScript(() => localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown'));
     await context.route('**/scene.js*', async route => {
       const response = await route.fetch();
       await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), block: () => social.block([...social.remotes.keys()][0]), invite: () => social.createInviteToken(), openCard: () => { const r = [...social.remotes.values()].find(x => x.name === "율무"); if (r) openPerson(r); return !!r; }, group: () => social.group, forceGreetCooldown: () => greetLog.sent([...social.remotes.keys()][0]), teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });

@@ -30,6 +30,7 @@ const server = http.createServer((req, res) => {
   const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.addInitScript(() => localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown'));
     // Software WebGL can take several seconds per frame on a busy CI machine.
     page.setDefaultTimeout(120000);
     // Instrument only the test response, keeping debug state out of production.

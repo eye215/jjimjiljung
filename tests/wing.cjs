@@ -30,8 +30,15 @@ const server = http.createServer((req, res) => {
     });
     await page.goto(base); await page.waitForSelector('#viewport[data-ready="true"]');
     if (await page.locator('#join-dialog').evaluate(d => d.open)) await page.locator('#join-solo').click();
-    await page.waitForFunction(() => localStorage.getItem('jjimjiljung-fortune-announcement-v1') === 'shown');
-    assert.match(await page.locator('#toast span').textContent(), /사주방 공사가 끝났어요/);
+    await page.locator('#fortune-reopen-dialog[open]').waitFor();
+    assert.equal(await page.locator('#fortune-reopen-title').textContent(), '사주방 공사가 끝났어요');
+    assert.equal(await page.locator('#fortune-reopen-copy').textContent(), '하루에 한번 오늘의 운세 보러 가요!');
+    await page.screenshot({ path: path.join(output, 'fortune-reopen-mobile.png') });
+    await page.locator('#fortune-reopen-confirm').click();
+    assert.equal(await page.locator('#fortune-reopen-dialog').evaluate(d => d.open), false);
+    assert.equal(await page.evaluate(() => localStorage.getItem('jjimjiljung-fortune-announcement-v1')), 'shown');
+    await page.reload(); await page.waitForSelector('#viewport[data-ready="true"]');
+    assert.equal(await page.locator('#fortune-reopen-dialog').evaluate(d => d.open), false, 'Confirmed notice stays closed on return');
     // The places dialog lists the four new rooms.
     for (const id of ['entrance', 'locker', 'bath', 'scrub', 'fortune']) assert.equal(await page.locator(`[data-place="${id}"]`).count(), 1);
     // 입구 카운터: first visit gives a locker key and a fresh outfit; the locker shows the number.

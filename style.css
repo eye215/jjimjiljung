@@ -386,6 +386,12 @@ body.sleeping .room-badge{opacity:0}
 #fortune-dialog{color:var(--ink);border:0;border-radius:28px;padding:22px;width:400px;max-width:calc(100% - 24px);max-height:calc(100svh - 32px);overflow:auto;background:linear-gradient(180deg,rgba(255,252,248,.95),rgba(248,242,255,.92));box-shadow:0 30px 80px rgba(37,21,8,.3)}
 #fortune-dialog::backdrop{background:rgba(33,24,14,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 #fortune-close{border:0;background:rgba(107,70,54,.08);color:var(--ink);border-radius:50%;width:40px;height:40px;font-size:24px;line-height:1;flex-shrink:0}
+#fortune-reopen-dialog{width:min(360px,calc(100% - 32px));border:0;border-radius:28px;padding:28px 24px 24px;text-align:center;color:var(--ink);background:linear-gradient(180deg,rgba(255,252,248,.96),rgba(248,242,255,.94));box-shadow:0 24px 60px rgba(40,20,8,.22)}
+#fortune-reopen-dialog::backdrop{background:rgba(30,20,12,.28);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+.fortune-reopen-icon{font-size:42px;margin-bottom:12px}
+#fortune-reopen-title{font-size:22px;line-height:1.35;margin:0 0 8px;word-break:keep-all}
+#fortune-reopen-copy{font-size:15px;line-height:1.5;margin:0 0 22px;word-break:keep-all}
+#fortune-reopen-confirm{width:100%;min-height:48px;border:0;border-radius:16px;background:var(--hot);color:#fff;font-size:16px;font-weight:800}
 #fortune-form{display:grid;gap:10px;margin-top:14px}
 #fortune-form label{display:grid;gap:5px;font-size:14px;font-weight:700}#fortune-form small{font-weight:500;color:var(--ink-soft)}
 #fortune-form input{min-height:46px;border:0;border-radius:14px;padding:0 14px;font:inherit;font-size:16px;color:var(--ink);background:rgba(255,255,255,.85);box-shadow:inset 0 0 0 1px rgba(107,70,54,.12)}
