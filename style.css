@@ -688,8 +688,7 @@ body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #
   }
   #tour .tour-close { flex:0 0 25px; width:25px; height:30px; }
   #spot-action { bottom:calc(var(--safe-bottom) + 242px); max-width:calc(100vw - 28px); }
-  /* Only one actionable overlay at a time: a nearby action takes priority. */
-  body:has(#spot-action:not([hidden])) #tour { display:none!important; }
+  /* Keep the tour above the nearby action so first-time guests can see both. */
   #toast { top:auto; bottom:calc(var(--safe-bottom) + 310px); width:max-content; max-width:calc(100vw - 32px); box-sizing:border-box; }
   #toast span { min-width:0; overflow-wrap:anywhere; }
   #toast button { flex:0 0 auto; max-width:42vw; white-space:normal; }
