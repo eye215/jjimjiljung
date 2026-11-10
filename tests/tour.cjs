@@ -60,5 +60,5 @@ const { pathToFileURL } = require('node:url');
   // ✕ turns it off for good.
   storage = mem(); el = element(); tour = T.createTour({ storage, isNew: true, el, onGo: () => {} }); tour.render();
   el.parts['[data-tour-close]'].click(); assert.equal(el.hidden, true); assert.equal(T.loadTour(storage).off, true);
-  console.log('PASS: first tour receives key+towel+outfit → locker → sheep cap → bath → lobby; out-of-order saves, 14 steps, replay preserves user resources and progress persists across updates.');
+  console.log('PASS: first tour receives key+towel+outfit → locker → sheep cap → bath → lobby; out-of-order saves, 13 steps, replay preserves user resources and progress persists across updates.');
 })().catch(error => { console.error(error); process.exit(1); });

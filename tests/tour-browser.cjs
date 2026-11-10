@@ -64,11 +64,10 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   await page.locator('[data-tour-go]').click();await page.locator('#game [data-hold]').waitFor();
   await page.locator('#game-result').waitFor({state:'visible'});await done('drink');await step('ice');
   await page.locator('#game [data-game-close]').click();
-  await place('ice');await step('salt');await place('salt');await step('fortune');
-  await tp(-11.5,11.8);await page.locator('#spot-action',{hasText:'운세'}).click();await page.locator('#fortune-dialog[open]').waitFor();await page.locator('#fortune-close').click();await step('scrub');
+  await place('ice');await step('salt');await place('salt');await step('scrub');
   await tp(11.5,11);await page.locator('#spot-action',{hasText:'세신'}).click();await page.evaluate(()=>window.__tourQA.finishTimedActivity());await done('scrub');await page.locator('[data-action="stand"]').click();await step('sleep');
-  await place('sleep');await page.locator('[data-action="lie"]').click();await done('sleep');assert.equal((await state()).done.length,14);assert.equal((await state()).step,null);
-  await page.reload();await ready();assert.equal((await state()).done.length,14);assert.equal((await state()).step,null);
+  await place('sleep');await page.locator('[data-action="lie"]').click();await done('sleep');assert.equal((await state()).done.length,13);assert.equal((await state()).step,null);
+  await page.reload();await ready();assert.equal((await state()).done.length,13);assert.equal((await state()).step,null);
   const savedBag=await page.evaluate(()=>localStorage.getItem('jjimjiljung-wallet-v1'));
   const savedOutfit=await page.evaluate(()=>localStorage.getItem('jjimjiljung-outfit-v2'));
   // Explicit replay is allowed, but no save-data key except the tutorial changes.
@@ -84,6 +83,6 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   const moduleVersions=await page.evaluate(()=>{const byPath={};for(const e of performance.getEntriesByType('resource')){const u=new URL(e.name);if(u.pathname.endsWith('.js'))(byPath[u.pathname]??=new Set()).add(u.search);}return Object.entries(byPath).filter(([,v])=>v.size>1).map(([p,v])=>[p,[...v]]);});
   const report={layout,stats,frameMs:{mean:frames.reduce((a,b)=>a+b,0)/frames.length,p95:frames.slice().sort((a,b)=>a-b)[56]},moduleVersions,errors};fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));
   assert.deepEqual(errors,[]);assert.deepEqual(moduleVersions,[],'No duplicate module versions');assert(layout.every(x=>x.overlaps.length===0),'Tour must not cover controls: '+JSON.stringify(layout));
-  console.log('PASS browser tour: key+towel+outfit → locker → sheep cap → bath → lobby; immediate bath completion, 14 hooks, replay preserves belongings, legacy visitors unaffected');console.log(JSON.stringify(report));
+  console.log('PASS browser tour: key+towel+outfit → locker → sheep cap → bath → lobby; immediate bath completion, 13 hooks, replay preserves belongings, legacy visitors unaffected');console.log(JSON.stringify(report));
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});

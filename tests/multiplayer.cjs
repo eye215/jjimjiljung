@@ -86,6 +86,7 @@ const server = http.createServer((req, res) => {
     // immediately before the second greeting so the cooldown is deterministic.
     await a.evaluate(() => window.__mp.forceGreetCooldown());
     await a.locator('[data-action="wave"]').click();
+    await a.waitForFunction(() => /초 뒤에 다시 인사/.test(document.querySelector('#toast span').textContent), null, { timeout: 30000 });
     assert.match(await a.locator('#toast span').textContent(), /초 뒤에 다시 인사/, 'Same person: 30-second cooldown');
     // 3. No public chat: talking needs a request the other visitor accepts (server rules, local mock here).
     await a.locator('#chat-open').click();
