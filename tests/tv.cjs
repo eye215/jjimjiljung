@@ -57,12 +57,13 @@ const FAKE_ADS = `(function () {
       window.Date = class extends RealDate { constructor(...args) { if (args.length) super(...args); else super(RealDate.now() + window.__timeShift); } static now() { return RealDate.now() + window.__timeShift; } };
       if (wallet) localStorage.setItem('jjimjiljung-wallet-v1', JSON.stringify(wallet));
       localStorage.setItem('jjimjiljung-nickname', '');
+      localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown');
     }, [mode, wallet]);
     await page.route('**/config.js*', async route => { const response = await route.fetch(); await route.fulfill({ response, body: (await response.text()).replace("ADSENSE_CLIENT = ''", `ADSENSE_CLIENT = '${client}'`) }); });
     await page.route('https://pagead2.googlesyndication.com/**', route => route.fulfill({ contentType: 'text/javascript', body: FAKE_ADS }));
     await page.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwallet.earn = () => 0; /* isolate ad rewards from slow headless rest animation */ window.__tv = { state: () => ({ action, room: currentRoom.id, points: wallet.snapshot().points, ads: wallet.adStatus(), tv: tvAds.state, playing: adPlaying }), teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
+      await route.fulfill({ response, body: (await response.text()) + '\nwallet.earn = () => 0; /* isolate ad rewards from slow headless rest animation */ window.__tv = { state: () => ({ action, room: currentRoom.id, points: wallet.snapshot().points, ads: wallet.adStatus(), tv: tvAds.state, playing: adPlaying }), spend: () => { while (wallet.snapshot().points >= 5) wallet.buy("egg"); }, teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
     });
     await page.goto(base);
     await page.waitForSelector('#viewport[data-ready="true"]');
@@ -115,8 +116,9 @@ const FAKE_ADS = `(function () {
     await page.waitForFunction(() => window.__tv.state().tv === 'done');
     assert.match(await page.locator('#tv-ad').textContent(), /오늘 광고는 다 봤어요/);
     // The shop now suggests resting instead.
+    await page.evaluate(() => window.__tv.spend());
     await page.locator('#wallet').click();
-    await page.locator('[data-snack="egg"] [data-buy]').click();
+    assert.equal(await page.locator('[data-snack="egg"] .short').isVisible(), true, 'Zero balance shows the short-of-온기 state');
     assert.match(await page.locator('#shop-tv p').textContent(), /불가마나 소금방에서 쉬면 온기가 두 배/, 'Rest tip once ads are used up');
     assert.equal(await page.locator('#shop-tv button').isVisible(), false);
     await page.locator('#shop-close').click();

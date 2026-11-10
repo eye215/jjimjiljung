@@ -26,7 +26,7 @@ const { pathToFileURL } = require('node:url');
   tour.retry('towel'); assert.equal(el.parts['[data-tour-go]'].disabled, false, 'Canceling craft allows a retry');
   tour.done('towel'); assert.equal(tour.step, 'lobby', 'Using the towel before the bath is the new onboarding order');
   tour.done('lobby'); assert.equal(tour.step, 'hot'); assert.match(toasts.at(-1), /둘러봐요/);
-  assert.match(el.parts.span.textContent, /1\/9/, 'The explore list counts on its own');
+  assert.match(el.parts.span.textContent, /1\/8/, 'The explore list counts on its own');
   for (const s of T.EXPLORE) tour.done(s.id);
   assert.equal(tour.active, false); assert.equal(el.hidden, true); assert.match(toasts.at(-1), /한 바퀴/);
   // Progress survives a reload.
@@ -60,5 +60,5 @@ const { pathToFileURL } = require('node:url');
   // ✕ turns it off for good.
   storage = mem(); el = element(); tour = T.createTour({ storage, isNew: true, el, onGo: () => {} }); tour.render();
   el.parts['[data-tour-close]'].click(); assert.equal(el.hidden, true); assert.equal(T.loadTour(storage).off, true);
-  console.log('PASS: first tour receives key+towel+outfit → locker → sheep cap → bath → lobby; out-of-order saves, 14 steps, replay preserves user resources and progress persists across updates.');
+  console.log('PASS: first tour receives key+towel+outfit → locker → sheep cap → bath → lobby; out-of-order saves, 13 steps, replay preserves user resources and progress persists across updates.');
 })().catch(error => { console.error(error); process.exit(1); });

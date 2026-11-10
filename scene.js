@@ -1,20 +1,20 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement, avoidVisitors } from './navigation.js?v=rpg-39';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-39';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-39';
-import { createTowelGame } from './towel.js?v=rpg-39';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-39';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-39';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-39';
-import { buildWorld } from './environment.js?v=rpg-39';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, CHAIR_SEATS, roomAt } from './world.js?v=rpg-39';
-import { createTvAds } from './ads.js?v=rpg-39';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-39';
+import { planPath, stepMovement, avoidVisitors } from './navigation.js?v=rpg-51';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-51';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-51';
+import { createTowelGame } from './towel.js?v=rpg-51';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-51';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-51';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-51';
+import { buildWorld } from './environment.js?v=rpg-51';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, CHAIR_SEATS, roomAt } from './world.js?v=rpg-51';
+import { createTvAds } from './ads.js?v=rpg-51';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-51';
 import { createSocial } from './social.js?v=metamoa-live-1';
-import { createWallet, REST_SECONDS, DAILY_EARN_CAP } from './economy.js?v=rpg-39';
-import { createShop } from './shop.js?v=rpg-39';
-import { createInvite } from './invite.js?v=rpg-39';
-import { createTour, loadTour } from './tour.js?v=rpg-50';
+import { createWallet, REST_SECONDS, DAILY_EARN_CAP } from './economy.js?v=rpg-51';
+import { createShop } from './shop.js?v=rpg-51';
+import { createInvite } from './invite.js?v=rpg-51';
+import { createTour, loadTour } from './tour.js?v=rpg-51';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -878,153 +878,51 @@ function onGreet({ type, from, name, gid }) {
   toast(`${name}님이 인사했어요`, '👋 받아주기', () => { if (greetIn?.gid !== gid) return; greetIn = null; social.sendGreet(from, 'accept', gid); highFive(remote); }, GREET_EXPIRE);
 }
 
-// ---------- 사주방: today's fortune, computed in the browser ----------
-const fortuneDialog = document.querySelector('#fortune-dialog'), fortuneForm = document.querySelector('#fortune-form'), fortuneResult = document.querySelector('#fortune-result');
-const FORTUNE_DAILY_KEY = 'jjimjiljung-fortune-daily-v1';
-function todayInKorea() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
-const fortuneDebug = new URLSearchParams(location.search).has('debug');
-let fortuneLogClient = null;
-const fortuneAttemptId = () => crypto.randomUUID();
-async function recordFortuneStage(attempt, stage, detail = '', elapsed = 0) {
-  try {
-    if (!fortuneLogClient) return;
-    const { data: { session } } = await fortuneLogClient.auth.getSession();
-    if (!session) return;
-    await fortuneLogClient.from('fortune_debug_events').insert({
-      user_id: session.user.id, attempt_id: attempt, stage,
-      detail: String(detail).slice(0, 120),
-      elapsed_ms: Math.min(120000, Math.max(0, Math.round(elapsed)))
-    });
-  } catch { /* diagnostics must never interrupt the fortune */ }
+// ---------- 사주방: today's fortune, computed on this device ----------
+const fortuneDialog = document.querySelector('#fortune-dialog');
+const fortuneForm = document.querySelector('#fortune-form');
+const fortuneResult = document.querySelector('#fortune-result');
+function todayInKorea() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
-async function showFortuneDiagnostics() {
-  if (!fortuneLogClient) { alert('아직 인증 정보가 없어요. 운세 보기를 한 번 눌러주세요.'); return; }
-  const { data, error } = await fortuneLogClient.from('fortune_debug_events')
-    .select('created_at,attempt_id,stage,detail,elapsed_ms')
-    .order('created_at', { ascending: false }).limit(40);
-  const modal = document.createElement('dialog');
-  modal.style.cssText = 'width:min(92vw,440px);max-height:70dvh;overflow:auto;padding:22px;border-radius:20px;border:1px solid #ddd;background:#fff;color:#33271f;z-index:9999';
-  const title = document.createElement('h3'); title.textContent = '🔎 내 사주방 진단 로그'; modal.append(title);
-  const pre = document.createElement('pre');
-  pre.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.5';
-  pre.textContent = error ? '조회 실패: ' + error.code : (data?.length ? data.map(x => new Date(x.created_at).toLocaleTimeString('ko-KR') + ' | ' + x.stage + ' | ' + x.detail + ' | ' + x.elapsed_ms + 'ms').join('\\n') : '아직 기록이 없어요.');
-  modal.append(pre);
-  const close = document.createElement('button'); close.textContent = '닫기'; close.onclick = () => modal.close();
-  modal.append(close); document.body.append(modal); modal.addEventListener('close', () => modal.remove()); modal.showModal();
-}
-// Debug viewer disabled until owner account is verified; URL flags never grant admin access.
-let fortuneBusy = false;
-async function showFortune(birth) {
+function showFortune(birth) {
   const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
-  if (!f || fortuneBusy) return;
-  if (!document.querySelector('#fortune-consent')?.checked) { toast('개인정보 처리 안내를 확인하고 동의해 주세요.'); return; }
-  fortuneBusy = true;
-  const attempt = fortuneAttemptId(), started = performance.now();
+  if (!f) { toast('생년월일을 확인해 주세요.'); return; }
+  const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
   fortuneResult.hidden = false;
-  fortuneResult.innerHTML = `<div class="fortune-loading" role="status" aria-live="polite">
-    <div class="fortune-orbit" aria-hidden="true"><span>♨</span><i></i><b></b></div>
-    <p class="fortune-loading-kicker">TODAY'S FORTUNE</p>
-    <h3>오늘의 운세를 살펴보고 있어요</h3>
-    <p class="fortune-loading-copy">사주 선생님이 오늘의 기운을 읽고 있어요.<br>잠시만 기다려 주세요.</p>
-    <div class="fortune-progress"><i></i></div>
-    <p class="fortune-loading-step">사주 정보를 정리하고 있어요</p>
-  </div>`;
-  const loadingSteps = ['사주 정보를 정리하고 있어요', '오늘의 흐름을 살펴보고 있어요', '좋은 조언을 고르고 있어요'];
-  let loadingIndex = 0;
-  const loadingTimer = setInterval(() => {
-    const step = fortuneResult.querySelector('.fortune-loading-step');
-    if (step) step.textContent = loadingSteps[(++loadingIndex) % loadingSteps.length];
-  }, 2600);
-  try {
-    const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = await import('./config.js?v=rpg-40');
-    if (!window.supabase?.createClient) {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = './vendor/supabase.umd.js?v=2.117.3';
-        script.onload = resolve; script.onerror = reject;
-        document.head.appendChild(script);
-      });
-    }
-    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jjimjiljung-auth' }
-    });
-    fortuneLogClient = client;
-    let { data: { session } } = await client.auth.getSession();
-    if (!session) {
-      const signed = await client.auth.signInAnonymously();
-      if (signed.error) throw signed.error;
-      session = signed.data.session;
-    }
-    if (!session) throw Error('로그인 정보를 확인할 수 없어요.');
-    void recordFortuneStage(attempt, 'auth', 'session_ok', performance.now() - started);
-    void recordFortuneStage(attempt, 'request', 'saju-ai', performance.now() - started);
-    // AI is optional: never leave the guest waiting through a 65-second upstream timeout.
-    // If NVIDIA is slow/unreachable, show the fortune computed locally, clearly labelled.
-    let data;
-    let aiError = '';
-    try {
-      const response = await fetch(SUPABASE_URL + '/functions/v1/saju-ai', {
-        method: 'POST',
-        signal: AbortSignal.timeout(12000),
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: SUPABASE_PUBLISHABLE_KEY,
-          Authorization: 'Bearer ' + session.access_token
-        },
-        body: JSON.stringify({ pillar: f.mine + ' / ' + f.today })
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload?.text) throw Error('HTTP ' + response.status + (payload?.error ? ' ' + payload.error : ''));
-      data = payload;
-    } catch (error) {
-      aiError = String(error?.message || 'AI unavailable').slice(0, 100);
-      data = { title: f.title + ' · 기기에서 계산한 운세', text: f.text, local: true };
-    }
-    // Diagnostics are non-blocking and do not delay the result UI.
-    void recordFortuneStage(attempt, 'response', aiError ? 'local_fallback_' + aiError : 'ai_success', performance.now() - started);
-    const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
-    fortuneResult.innerHTML = `<p class="fortune-voice">🔮 사주 선생님이 들려주는 오늘의 이야기</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
-    const labels = fortuneResult.querySelectorAll('b');
-    labels[0].textContent = f.mine + '(' + f.element + ')';
-    labels[1].textContent = f.today + '(' + f.todayElement + ')';
-    labels[2].textContent = f.color;
-    labels[3].textContent = f.number;
-    fortuneResult.querySelector('h3').textContent = data.title || '오늘의 사주 이야기';
-    fortuneResult.querySelector('.fortune-text').textContent = data.text;
-    if (data.local) { const notice = document.createElement('p'); notice.className = 'fortune-local-notice'; notice.textContent = 'AI 연결이 지연되어 기기에서 계산한 기본 운세를 보여드려요.'; fortuneResult.append(notice); }
-    fortuneSpeaking = 2.3;
-    void recordFortuneStage(attempt, 'render', 'success', performance.now() - started);
-  } catch (error) {
-    await recordFortuneStage(attempt, 'error', String(error?.message || 'unknown').slice(0, 110), performance.now() - started);
-    fortuneResult.innerHTML = '<div class="fortune-error"><span aria-hidden="true">☁️</span><h3>운세를 잠시 불러오지 못했어요</h3><p></p><button type="button" class="fortune-retry">다시 시도하기</button></div>';
-    fortuneResult.querySelector('.fortune-error p').textContent = error?.message || '잠시 후 다시 시도해 주세요.';
-    fortuneResult.querySelector('.fortune-retry').addEventListener('click', () => showFortune(birth));
-  } finally {
-    clearInterval(loadingTimer);
-    fortuneBusy = false;
-  }
+  fortuneResult.innerHTML = `<p class="fortune-voice">🔮 오늘의 운세</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
+  const labels = fortuneResult.querySelectorAll('b');
+  labels[0].textContent = f.mine + '(' + f.element + ')';
+  labels[1].textContent = f.today + '(' + f.todayElement + ')';
+  labels[2].textContent = f.color;
+  labels[3].textContent = f.number;
+  fortuneResult.querySelector('h3').textContent = f.title;
+  fortuneResult.querySelector('.fortune-text').textContent = f.text;
+  fortuneSpeaking = 2.3;
 }
 document.querySelector('#fortune-open').addEventListener('click', () => {
   placesDialog.close();
-  // 사주방은 공사 중입니다. 운세 요청이나 개인정보 입력 화면을 열지 않습니다.
-  fortuneDialog.classList.add('fortune-maintenance-mode');
+  document.querySelector('#fortune-date').max = todayInKorea();
+  const saved = loadBirth();
+  document.querySelector('#fortune-date').value = saved?.date || '';
+  document.querySelector('#fortune-time').value = saved?.time || '';
   fortuneResult.hidden = true;
   fortuneDialog.showModal();
 });
 fortuneForm.addEventListener('submit', event => {
   event.preventDefault();
   const birth = { date: document.querySelector('#fortune-date').value, time: document.querySelector('#fortune-time').value };
-  if (!birth.date) return; saveBirth(birth); showFortune(birth);
+  if (!birth.date) return;
+  saveBirth(birth);
+  showFortune(birth);
 });
-const fortuneConsent = document.querySelector('#fortune-consent');
-const fortuneSubmit = document.querySelector('#fortune-go');
-function syncFortuneConsent() { fortuneSubmit.disabled = !fortuneConsent.checked; fortuneSubmit.style.opacity = fortuneSubmit.disabled ? '0.45' : '1'; }
-fortuneConsent.addEventListener('change', syncFortuneConsent);
-syncFortuneConsent();
-document.querySelector('#fortune-privacy-open').addEventListener('click', () => document.querySelector('#fortune-privacy-dialog').showModal());
-document.querySelector('#fortune-privacy-close').addEventListener('click', () => document.querySelector('#fortune-privacy-dialog').close());
 document.querySelector('#fortune-close').addEventListener('click', () => fortuneDialog.close());
-document.querySelector('#fortune-forget').addEventListener('click', () => { saveBirth(null); fortuneForm.reset(); fortuneResult.hidden = true; toast('생년월일을 지웠어요'); });
+document.querySelector('#fortune-forget').addEventListener('click', () => {
+  saveBirth(null);
+  fortuneForm.reset();
+  fortuneResult.hidden = true;
+  toast('생년월일을 지웠어요');
+});
 
 // ---------- South wing spots: 사물함 갈아입기, 사주방 운세, 세신 ----------
 const spotButton = document.querySelector('#spot-action');
@@ -1234,4 +1132,21 @@ if (invite.invitedBy) {
   const joinText = document.querySelector('#join-intro');
   if (document.querySelector('#join-dialog').open && joinText) joinText.textContent = `${invite.invitedBy}님의 초대로 왔어요! 이름을 정하고 함께 찜질해요 ♨`;
   else toast(`${invite.invitedBy}님이 초대했어요! 같이 찜질해요 ♨`);
+}
+// Show the reopening notice once after the first entry dialog closes.
+const FORTUNE_ANNOUNCEMENT_KEY = 'jjimjiljung-fortune-announcement-v1';
+const fortuneReopenDialog = document.querySelector('#fortune-reopen-dialog');
+fortuneReopenDialog.addEventListener('cancel', event => event.preventDefault());
+document.querySelector('#fortune-reopen-confirm').addEventListener('click', () => {
+  fortuneReopenDialog.close();
+  try { localStorage.setItem(FORTUNE_ANNOUNCEMENT_KEY, 'shown'); } catch { /* private browsing may block storage */ }
+});
+let fortuneAnnouncementSeen = false;
+try { fortuneAnnouncementSeen = localStorage.getItem(FORTUNE_ANNOUNCEMENT_KEY) === 'shown'; } catch { /* private browsing may block storage */ }
+if (!fortuneAnnouncementSeen) {
+  const openingTimer = setInterval(() => {
+    if (document.hidden || !document.body.classList.contains('room-ready') || document.querySelector('dialog[open]')) return;
+    clearInterval(openingTimer);
+    fortuneReopenDialog.showModal();
+  }, 600);
 }
