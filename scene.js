@@ -1,20 +1,21 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement, avoidVisitors } from './navigation.js?v=rpg-51';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-51';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-51';
-import { createTowelGame } from './towel.js?v=rpg-51';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-51';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-51';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-51';
-import { buildWorld } from './environment.js?v=rpg-51';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, CHAIR_SEATS, roomAt } from './world.js?v=rpg-51';
-import { createTvAds } from './ads.js?v=rpg-51';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-51';
-import { createSocial } from './social.js?v=metamoa-live-1';
-import { createWallet, REST_SECONDS, DAILY_EARN_CAP } from './economy.js?v=rpg-51';
-import { createShop } from './shop.js?v=rpg-51';
-import { createInvite } from './invite.js?v=rpg-51';
-import { createTour, loadTour } from './tour.js?v=rpg-51';
+import { planPath, stepMovement, avoidVisitors } from './navigation.js?v=rpg-54';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-54';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-54';
+import { createTowelGame } from './towel.js?v=rpg-54';
+import { fortune, analysisInput, loadBirth, saveBirth } from './saju.js?v=rpg-54';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-54';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-54';
+import { buildWorld } from './environment.js?v=rpg-54';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, CHAIR_SEATS, roomAt } from './world.js?v=rpg-54';
+import { createTvAds } from './ads.js?v=rpg-54';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-54';
+import { createSocial } from './social.js?v=rpg-54';
+import { createWallet, REST_SECONDS, DAILY_EARN_CAP } from './economy.js?v=rpg-54';
+import { createShop } from './shop.js?v=rpg-54';
+import { createInvite } from './invite.js?v=rpg-54';
+import { createTour, loadTour } from './tour.js?v=rpg-54';
+import { analyzeFortune, forgetFortuneAnalysis } from './net.js?v=rpg-54';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -878,29 +879,50 @@ function onGreet({ type, from, name, gid }) {
   toast(`${name}님이 인사했어요`, '👋 받아주기', () => { if (greetIn?.gid !== gid) return; greetIn = null; social.sendGreet(from, 'accept', gid); highFive(remote); }, GREET_EXPIRE);
 }
 
-// ---------- 사주방: today's fortune, computed on this device ----------
+// ---------- 사주방: compute locally; ask AI to interpret only the derived result ----------
 const fortuneDialog = document.querySelector('#fortune-dialog');
 const fortuneForm = document.querySelector('#fortune-form');
 const fortuneResult = document.querySelector('#fortune-result');
+let fortuneRequest = 0;
+const fortunePending = new Set();
 function todayInKorea() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
-function showFortune(birth) {
+async function showFortune(birth) {
   const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
   if (!f) { toast('생년월일을 확인해 주세요.'); return; }
   const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
   fortuneResult.hidden = false;
-  fortuneResult.innerHTML = `<p class="fortune-voice">🔮 오늘의 운세</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
+  fortuneResult.innerHTML = `<p class="fortune-voice">🔮 오늘의 운세</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><div class="fortune-ai" aria-live="polite"></div><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
   const labels = fortuneResult.querySelectorAll('b');
   labels[0].textContent = f.mine + '(' + f.element + ')';
   labels[1].textContent = f.today + '(' + f.todayElement + ')';
   labels[2].textContent = f.color;
   labels[3].textContent = f.number;
   fortuneResult.querySelector('h3').textContent = f.title;
-  fortuneResult.querySelector('.fortune-text').textContent = f.text;
+  const analysis = fortuneResult.querySelector('.fortune-ai');
+  analysis.textContent = 'AI가 오늘의 흐름을 해석하고 있어요…';
+  const request = ++fortuneRequest;
+  const button = document.querySelector('#fortune-go');
+  button.disabled = true;
   fortuneSpeaking = 2.3;
+  try {
+    const pending = analyzeFortune(analysisInput(f));
+    fortunePending.add(pending);
+    const lines = await pending.finally(() => fortunePending.delete(pending));
+    if (request !== fortuneRequest || !fortuneDialog.open) return;
+    analysis.replaceChildren(...lines.map(line => { const p = document.createElement('p'); p.textContent = line; return p; }));
+  } catch (error) {
+    if (request !== fortuneRequest || !fortuneDialog.open) return;
+    analysis.textContent = error.message || 'AI 해석을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
+    analysis.classList.add('fortune-ai-error');
+  } finally {
+    if (request === fortuneRequest) button.disabled = false;
+  }
 }
 document.querySelector('#fortune-open').addEventListener('click', () => {
+  fortuneRequest++;
+  document.querySelector('#fortune-go').disabled = false;
   placesDialog.close();
   document.querySelector('#fortune-date').max = todayInKorea();
   const saved = loadBirth();
@@ -916,12 +938,16 @@ fortuneForm.addEventListener('submit', event => {
   saveBirth(birth);
   showFortune(birth);
 });
-document.querySelector('#fortune-close').addEventListener('click', () => fortuneDialog.close());
+document.querySelector('#fortune-close').addEventListener('click', () => { fortuneRequest++; fortuneDialog.close(); });
 document.querySelector('#fortune-forget').addEventListener('click', () => {
+  fortuneRequest++;
+  document.querySelector('#fortune-go').disabled = false;
   saveBirth(null);
   fortuneForm.reset();
   fortuneResult.hidden = true;
-  toast('생년월일을 지웠어요');
+  Promise.allSettled([...fortunePending]).then(forgetFortuneAnalysis)
+    .then(() => toast('생년월일과 저장된 AI 해석을 지웠어요'))
+    .catch(() => toast('생년월일은 지웠어요. 서버 해석 삭제는 실패했어요.'));
 });
 
 // ---------- South wing spots: 사물함 갈아입기, 사주방 운세, 세신 ----------

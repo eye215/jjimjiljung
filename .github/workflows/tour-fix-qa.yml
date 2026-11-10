@@ -8,6 +8,7 @@ on:
       - '*.css'
       - 'tests/**'
       - 'supabase/migrations/**'
+      - 'supabase/functions/**'
       - '.github/workflows/tour-fix-qa.yml'
 jobs:
   checks:
@@ -28,6 +29,7 @@ jobs:
           node tests/navigation.cjs
           node tests/economy.cjs
           node tests/fortune.cjs
+          node tests/saju-ai.cjs
           node tests/chat.cjs
           node tests/channel-readiness.cjs
           node tests/head-model.cjs

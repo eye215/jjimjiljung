@@ -1,5 +1,5 @@
 // 사주방: today's fortune from the birth day pillar (日柱) and today's pillar (日辰),
-// computed in the browser for fun. The birth date never leaves the device.
+// computed in the browser for fun. Only the derived result may be sent for AI interpretation.
 export const STEMS = ['갑', '을', '병', '정', '무', '기', '경', '신', '임', '계'];
 export const BRANCHES = ['자', '축', '인', '묘', '진', '사', '오', '미', '신', '유', '술', '해'];
 const ELEMENTS = ['목', '화', '토', '금', '수'];
@@ -51,3 +51,11 @@ export function fortune(birth, hour, today = new Date()) {
 }
 export function loadBirth(storage = globalThis.localStorage) { try { return JSON.parse(storage.getItem(KEY) || 'null'); } catch { return null; } }
 export function saveBirth(value, storage = globalThis.localStorage) { try { if (value) storage.setItem(KEY, JSON.stringify(value)); else storage.removeItem(KEY); } catch { /* storage may be unavailable */ } }
+
+// Explicit allowlist: never include the birth date or time in an AI request.
+export function analysisInput(f) {
+  return {
+    mine: f.mine, element: f.element, today: f.today, todayElement: f.todayElement,
+    relation: f.relation, scores: { ...f.scores }, color: f.color, number: f.number
+  };
+}

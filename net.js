@@ -3,30 +3,52 @@
 //   connect({ id, presence, onPresence, onMessage, onStatus }) → { track, send, leave }
 // onPresence receives an array of presence payloads (one per visitor).
 // onStatus receives 'connecting' | 'online' | 'offline'.
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-51';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-54';
 
 const EVENTS = ['state', 'chat', 'trade', 'greet', 'chatreq', 'chatans'];
 
+let supabasePromise, clientPromise;
 function loadSupabase() {
   if (window.supabase?.createClient) return Promise.resolve(window.supabase);
-  return new Promise((resolve, reject) => {
+  return supabasePromise ||= new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = new URL('./vendor/supabase.umd.js?v=2.117.3', import.meta.url).href;
     script.onload = () => window.supabase?.createClient ? resolve(window.supabase) : reject(new Error('Supabase client missing'));
-    script.onerror = () => reject(new Error('Supabase client unavailable'));
+    script.onerror = () => { supabasePromise = null; reject(new Error('Supabase client unavailable')); };
     document.head.appendChild(script);
   });
 }
 
-export async function connectSupabase({ id, presence, onPresence, onMessage, onStatus, channelName = PUBLIC_CHANNEL }) {
-  onStatus('connecting');
-  const { createClient } = await loadSupabase();
-  // An invisible anonymous account (kept on this device) identifies the visitor to the
-  // group-chat functions and private channels; no email or password is ever asked.
-  const client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+function getClient() {
+  return clientPromise ||= loadSupabase().then(({ createClient }) => createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jjimjiljung-auth' },
     realtime: { params: { eventsPerSecond: 12 } }
-  });
+  })).catch(error => { clientPromise = null; throw error; });
+}
+
+export async function analyzeFortune(body) {
+  const client = await getClient();
+  const { data: { session } } = await client.auth.getSession();
+  if (!session && (await client.auth.signInAnonymously()).error) throw new Error('AI 연결에 실패했어요. 잠시 후 다시 시도해 주세요.');
+  const { data, error } = await client.functions.invoke('saju-ai', { body });
+  if (error || !Array.isArray(data?.lines) || data.lines.length !== 3 || data.lines.some(line => typeof line !== 'string' || !line.trim()))
+    throw new Error('AI 해석을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+  return data.lines;
+}
+
+export async function forgetFortuneAnalysis() {
+  const client = await getClient();
+  const { data: { session } } = await client.auth.getSession();
+  if (!session) return;
+  const { error } = await client.functions.invoke('saju-ai', { body: { action: 'forget' } });
+  if (error) throw error;
+}
+
+export async function connectSupabase({ id, presence, onPresence, onMessage, onStatus, channelName = PUBLIC_CHANNEL }) {
+  onStatus('connecting');
+  const client = await getClient();
+  // An invisible anonymous account (kept on this device) identifies the visitor to the
+  // group-chat functions and private channels; no email or password is ever asked.
   let uid = null;
   try {
     const { data } = await client.auth.getSession();
