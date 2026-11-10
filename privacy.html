@@ -39,6 +39,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px 6px;b
 <tr><th>익명 계정</th><td>이메일·비밀번호 없이 자동으로 만들어지는 익명 ID예요. 대화 신청 규칙과 방문 통계의 중복 집계를 방지하는 데 사용하며, 이 기기에 로그인 정보로 보관해요.</td></tr>
 <tr><th>방문 통계</th><td>오늘 방문자와 누적 방문자 수를 표시하기 위해 Supabase 익명 계정 ID별 최초 방문 시각과 한국 날짜별 방문 기록을 보관해요. 같은 계정은 하루에 한 번만 집계해요. 다른 손님에게는 집계된 숫자만 보여주며, 방문자 명단이나 개인별 방문 기록은 공개하지 않아요. 집계 시작 이전의 방문 수는 포함하지 않아요.</td></tr>
 <tr><th>기기 저장</th><td>닉네임, 찜질복 색·수건, 간식 가방·온기, 음악·채팅 표시 설정, 광고 시청 횟수, 인사한 상대 기록, 사물함 열쇠 번호, 운세용 생년월일(입력한 경우)을 이 기기의 브라우저(localStorage)에만 저장해요. 생년월일은 서버로 보내지 않아요.</td></tr>
+<tr><th>운세 AI 해석</th><td>생년월일·태어난 시간으로 계산한 일주·오행·운세 점수·행운색·숫자만 Supabase 서버를 거쳐 NVIDIA AI에 보내요. 생년월일·시간 자체는 전송하지 않아요. 세 줄 해석은 익명 ID와 날짜별로 Supabase에 보관해 같은 날 다시 볼 때 재사용하며, [생년월일 지우기]를 누르면 서버의 해석 기록도 삭제 요청해요.</td></tr>
 </table>
 <p>이름, 전화번호, 이메일, 위치 정보, 연락처는 받지 않아요.</p>
 </div>
@@ -47,6 +48,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px 6px;b
 <h2>2. 함께 쓰는 외부 서비스</h2>
 <ul>
 <li><b>Supabase</b>: 실시간 접속·채팅 전달에 사용해요. 전달 과정에서 IP 주소 등 접속 기록이 Supabase에 일시적으로 남을 수 있어요. <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Supabase 개인정보처리방침</a></li>
+<li><b>NVIDIA AI</b>: 사주방에서 [오늘의 운세 보기]를 누를 때 계산된 사주 결과만 보내 세 줄 해석을 만들어요. <a href="https://www.nvidia.com/en-us/about-nvidia/privacy-policy/" target="_blank" rel="noopener">NVIDIA 개인정보처리방침</a></li>
 <li><b>카카오</b>: <b>💛 친구 초대</b> 버튼을 누를 때에만 카카오 JavaScript SDK를 불러와 카카오톡 공유 화면을 열어요. <a href="https://www.kakao.com/policy/privacy" target="_blank" rel="noopener">카카오 개인정보처리방침</a></li>
 <li><b>Google 광고 (AdSense · H5 Games Ads)</b>: 아래 3번을 봐 주세요.</li>
 </ul>

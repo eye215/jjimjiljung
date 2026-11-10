@@ -24,6 +24,10 @@ const server = http.createServer((req, res) => {
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } }); page.setDefaultTimeout(120000);
     const errors = []; page.on('pageerror', error => errors.push(error.message));
+    await page.route('**/net.js*', async route => {
+      const response = await route.fetch();
+      await route.fulfill({ response, body: (await response.text()).replace('export async function analyzeFortune(body) {', 'export async function analyzeFortune(body) { window.__fortuneAiInput = body; return ["오늘은 차분히 흐름을 살펴봐요.", "가까운 사람과 마음을 나눠 보세요.", "작은 일 하나부터 시작해 보세요."];') });
+    });
     await page.route('**/scene.js*', async route => {
       const response = await route.fetch();
       await route.fulfill({ response, body: (await response.text()) + '\nwindow.__w = { tp: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); }, room: () => currentRoom.id, action: () => action, points: () => wallet.snapshot().points, pos: () => [hero.position.x, hero.position.z], soak: () => soak && { ...soak }, fast: () => { if (soak) soak.t = .05; if (shower) shower = .05; if (scrubbing > 0) scrubbing = .05; }, scrub: () => scrubbing };' });
@@ -59,7 +63,7 @@ const server = http.createServer((req, res) => {
     const before = await page.locator('#viewport').getAttribute('data-outfit');
     await page.locator('#spot-action').click();
     assert.notEqual(await page.locator('#viewport').getAttribute('data-outfit'), before, 'Lockers change the outfit');
-    // 사주방: the spot opens the local fortune form and calculates without an AI request.
+    // 사주방: local calculation, then three AI interpretation lines (mocked network boundary).
     await page.evaluate(() => window.__w.tp(-11.5, 11.8));
     await page.locator('#spot-action', { hasText: '운세' }).waitFor();
     await page.locator('#spot-action').click();
@@ -68,8 +72,11 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('#fortune-maintenance').count(), 0, 'Construction notice is gone');
     await page.locator('#fortune-date').fill('1995-05-17');
     await page.locator('#fortune-go').click();
-    assert.equal(await page.locator('#fortune-result').isVisible(), true, 'Local result appears');
-    assert.match(await page.locator('#fortune-result .fortune-text').textContent(), /[가-힣]/);
+    assert.equal(await page.locator('#fortune-result').isVisible(), true, 'Calculated result appears');
+    await page.locator('#fortune-result .fortune-ai p').nth(2).waitFor();
+    assert.equal(await page.locator('#fortune-result .fortune-ai p').count(), 3);
+    assert.equal(await page.evaluate(() => JSON.stringify(window.__fortuneAiInput).includes('1995')), false, 'Birth date is never sent for AI interpretation');
+    await page.screenshot({ path: path.join(output, 'fortune-three-line-mobile.png') });
     await page.locator('#fortune-close').click();
     // 세신실: lie on the table; after the scrub you get 온기 once, then a 10-minute wait.
     await page.evaluate(() => window.__w.tp(11.5, 11));
