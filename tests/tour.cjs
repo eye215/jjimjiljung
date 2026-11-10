@@ -26,7 +26,7 @@ const { pathToFileURL } = require('node:url');
   tour.retry('towel'); assert.equal(el.parts['[data-tour-go]'].disabled, false, 'Canceling craft allows a retry');
   tour.done('towel'); assert.equal(tour.step, 'lobby', 'Using the towel before the bath is the new onboarding order');
   tour.done('lobby'); assert.equal(tour.step, 'hot'); assert.match(toasts.at(-1), /둘러봐요/);
-  assert.match(el.parts.span.textContent, /1\/9/, 'The explore list counts on its own');
+  assert.match(el.parts.span.textContent, /1\/8/, 'The explore list counts on its own');
   for (const s of T.EXPLORE) tour.done(s.id);
   assert.equal(tour.active, false); assert.equal(el.hidden, true); assert.match(toasts.at(-1), /한 바퀴/);
   // Progress survives a reload.

@@ -79,7 +79,7 @@ const server = http.createServer((req, res) => {
     await page.locator('#fortune-time').fill('17:59');
     await page.locator('#fortune-go').click();
     await page.locator('#fortune-result').waitFor({state:'visible'});
-    assert.match(await page.locator('#fortune-result').textContent(),/사주 선생님이 들려주는 오늘의 이야기/);
+    assert.match(await page.locator('#fortune-result').textContent(),/오늘의 운세/);
     assert.match(await page.locator('#fortune-result').textContent(),/행운의 숫자/);
     assert.deepEqual(errors,[], 'No runtime errors on iPhone-sized viewport');
     console.log('PASS stats popover, chair sitting, snack blocking when reclining, standing snacks, sit/lie greetings and dynamic fortune teller');
