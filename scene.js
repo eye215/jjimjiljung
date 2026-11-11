@@ -1,21 +1,21 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement, avoidVisitors } from './navigation.js?v=rpg-51';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-51';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-51';
-import { createTowelGame } from './towel.js?v=rpg-51';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-51';
-import { requestSajuAI } from './net.js?v=rpg-54';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-51';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-51';
-import { buildWorld } from './environment.js?v=rpg-51';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, CHAIR_SEATS, roomAt } from './world.js?v=rpg-51';
-import { createTvAds } from './ads.js?v=rpg-51';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-51';
-import { createSocial } from './social.js?v=rpg-56';
-import { createWallet, REST_SECONDS, DAILY_EARN_CAP } from './economy.js?v=rpg-51';
-import { createShop } from './shop.js?v=rpg-51';
-import { createInvite } from './invite.js?v=rpg-51';
-import { createTour, loadTour } from './tour.js?v=rpg-51';
+import { planPath, stepMovement, avoidVisitors } from './navigation.js?v=rpg-60';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-60';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-60';
+import { createTowelGame } from './towel.js?v=rpg-60';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-60';
+import { requestSajuAI } from './net.js?v=rpg-60';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-60';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-60';
+import { buildWorld } from './environment.js?v=rpg-60';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, CHAIR_SEATS, roomAt } from './world.js?v=rpg-60';
+import { createTvAds } from './ads.js?v=rpg-60';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-60';
+import { createSocial } from './social.js?v=rpg-60';
+import { createWallet, REST_SECONDS, DAILY_EARN_CAP } from './economy.js?v=rpg-60';
+import { createShop } from './shop.js?v=rpg-60';
+import { createInvite } from './invite.js?v=rpg-60';
+import { createTour, loadTour } from './tour.js?v=rpg-60';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -910,10 +910,15 @@ const fortuneProgress = document.querySelector('#fortune-progress');
 const fortuneProgressText = document.querySelector('#fortune-progress-text');
 const fortuneProgressActions = document.querySelector('#fortune-progress-actions');
 function hideFortuneProgress() { fortuneProgress.hidden = true; }
+// 생년월일 정보 이용 동의 (kept on this device): without it the reading stays off.
+const fortuneConsent = document.querySelector('#fortune-consent');
+try { fortuneConsent.checked = localStorage.getItem('jjimjiljung-saju-consent') === '1'; } catch { /* storage may be unavailable */ }
+const syncFortuneGo = () => { document.querySelector('#fortune-go').disabled = !fortuneConsent.checked; };
+fortuneConsent.addEventListener('change', () => { try { localStorage.setItem('jjimjiljung-saju-consent', fortuneConsent.checked ? '1' : '0'); } catch { /* storage may be unavailable */ } syncFortuneGo(); });
 function cancelFortune() {
   ++fortuneRequestId;
   hideFortuneProgress();
-  document.querySelector('#fortune-go').disabled = false;
+  syncFortuneGo();
 }
 document.querySelector('#fortune-progress-cancel').addEventListener('click', cancelFortune);
 async function showAIFortune(birth) {
@@ -951,7 +956,7 @@ async function showAIFortune(birth) {
     retry.onclick = () => showAIFortune(birth);
     console.warn('AI fortune unavailable:', error?.message || 'network error');
   } finally {
-    button.disabled = false;
+    syncFortuneGo();
   }
 }
 function openFortuneDialog() {
@@ -967,6 +972,7 @@ function openFortuneDialog() {
 document.querySelector('#fortune-open').addEventListener('click', openFortuneDialog);
 function startFortuneFromForm(event) {
   event?.preventDefault();
+  if (!fortuneConsent.checked) { toast('생년월일 정보 이용에 동의해야 운세를 볼 수 있어요'); return; }
   const dateInput = document.querySelector('#fortune-date');
   if (!dateInput.value || !dateInput.checkValidity()) {
     dateInput.reportValidity();

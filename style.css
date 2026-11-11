@@ -758,3 +758,6 @@ body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #
 #fortune-progress[data-state="error"] .fortune-orbit:after,
 #fortune-progress[data-state="error"] .fortune-progress{display:none}
 #fortune-result .fortune-text{white-space:pre-wrap;line-height:1.7;margin-top:8px}
+
+/* 사주방 정보 이용 동의: unchecked keeps the fortune button off. */
+.fortune-consent{display:flex;gap:10px;align-items:flex-start;margin:4px 0 2px;font-size:13px;line-height:1.45;color:var(--ink);text-align:left}.fortune-consent input{flex:none;width:20px;height:20px;margin:1px 0 0;accent-color:var(--hot)}.fortune-consent small{display:block;opacity:.7;font-size:11.5px}#fortune-go:disabled{opacity:.45}

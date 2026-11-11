@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta name="metamoa-site-verification" content="45A1ZU7LzI3YVpjU0T7S9g">
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="400"><meta property="og:image:height" content="210"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-57">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="400"><meta property="og:image:height" content="210"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-60">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -74,7 +74,7 @@
 <button type="button" id="fortune-open" hidden aria-hidden="true" tabindex="-1"></button>
 <dialog id="fortune-dialog" aria-labelledby="fortune-title">
 <div class="places-heading"><div><span class="places-eyebrow">사주방</span><h2 id="fortune-title">오늘의 운세</h2></div><button id="fortune-close" aria-label="운세 닫기">×</button></div>
-<form id="fortune-form"><label>생년월일<input id="fortune-date" type="date" required min="1900-01-01"></label><label>태어난 시간 <small>(몰라도 괜찮아요)</small><input id="fortune-time" type="time"></label><button type="button" id="fortune-go">오늘의 운세 보기</button></form>
+<form id="fortune-form"><label>생년월일<input id="fortune-date" type="date" required min="1900-01-01"></label><label>태어난 시간 <small>(몰라도 괜찮아요)</small><input id="fortune-time" type="time"></label><label class="fortune-consent"><input type="checkbox" id="fortune-consent"><span>생년월일·태어난 시간을 운세 분석에 쓰는 데 동의해요 <small>(AI 운세는 일주·오행·태어난 시간이 상담 서버로 전송돼요)</small></span></label><button type="button" id="fortune-go">오늘의 운세 보기</button></form>
 <section id="fortune-result" hidden aria-live="polite"></section>
 <div id="fortune-progress" class="fortune-progress-overlay" role="status" aria-live="polite" hidden>
   <div class="fortune-progress-card">
@@ -139,5 +139,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-59').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-60').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>
