@@ -196,6 +196,39 @@ export function smoothTexture(texture, edit = null, threshold = 26, passes = 2, 
 }
 // Smooth plush surfaces (user's settings): colour comes only from the map; no normal,
 // bump or displacement map may dent the face; full mipmaps and anisotropic filtering.
+// Sleeves must follow the arm (user's fixSleeveClipping, limited to the white sleeve cloth
+// at shoulder height so the head and hair are never pulled): a sleeve vertex with under .3
+// arm weight gets .6 on its own side's upper-arm bone. Run once per shared geometry.
+export function fixSleeveClipping(skinnedMesh) {
+  const geom = skinnedMesh.geometry, skinIndices = geom.attributes.skinIndex, skinWeights = geom.attributes.skinWeight, positions = geom.attributes.position, skeleton = skinnedMesh.skeleton;
+  if (!skinIndices || !skinWeights || !skeleton || geom.userData.sleevesFixed) return;
+  const image = skinnedMesh.material.map?.image, uv = geom.attributes.uv; let texel = null;
+  if (image && uv) {
+    const c = document.createElement('canvas'); c.width = image.width; c.height = image.height; const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(image, 0, 0);
+    const px = ctx.getImageData(0, 0, c.width, c.height).data;
+    texel = i => { const u = Math.min(c.width - 1, Math.floor(uv.getX(i) * c.width)), v = Math.min(c.height - 1, Math.floor(uv.getY(i) * c.height)), k = (v * c.width + u) * 4; return [px[k] / 255, px[k + 1] / 255, px[k + 2] / 255]; };
+  }
+  const armIndices = [], side = {};
+  skeleton.bones.forEach((bone, idx) => {
+    const name = bone.name.toLowerCase();
+    if (name.includes('arm') || name.includes('shoulder')) armIndices.push(idx);
+    if (/leftarm$/.test(name)) side.left = idx; if (/rightarm$/.test(name)) side.right = idx;
+  });
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i), y = positions.getY(i);
+    if (!(y > .55 && y < .78 && Math.abs(x) > .2)) continue;
+    if (texel) { const [r, , b] = texel(i); if ((r - b) / Math.max(r, .001) > .1 || r < .3) continue; }
+    let armWeightSum = 0, low = 0;
+    for (let j = 0; j < 4; j++) { if (armIndices.includes(skinIndices.getComponent(i, j))) armWeightSum += skinWeights.getComponent(i, j); if (skinWeights.getComponent(i, j) < skinWeights.getComponent(i, low)) low = j; }
+    const arm = x > 0 ? side.left : side.right;
+    if (armWeightSum >= .3 || arm == null) continue;
+    for (let j = 0; j < 4; j++) skinWeights.setComponent(i, j, skinWeights.getComponent(i, j) * .4);
+    skinIndices.setComponent(i, low, arm); skinWeights.setComponent(i, low, .6 + skinWeights.getComponent(i, low));
+    let t = 0; for (let j = 0; j < 4; j++) t += skinWeights.getComponent(i, j);
+    for (let j = 0; j < 4; j++) skinWeights.setComponent(i, j, skinWeights.getComponent(i, j) / t);
+  }
+  skinIndices.needsUpdate = skinWeights.needsUpdate = true; geom.userData.sleevesFixed = true;
+}
 export function setupCharacterMaterials(model, renderer) {
   model.traverse(child => {
     if (!child.isMesh || !child.material) return;
@@ -588,7 +621,16 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     const skinLinear = new THREE.Color(profile.skin).toArray().map(v => v.toFixed(4)).join(', ');
     material.onBeforeCompile = shader => {
       Object.assign(shader.uniforms, uniforms);
-      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vRest;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRest = position;');
+      // vFaceN: a smooth normal from the head's centre at eye height, skinned like the real
+      // normal. Under expressions the recessed baked eye sockets shade like smooth cheek, so the
+      // closed or smiling eyes no longer sit in a dent.
+      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vRest;\nvarying vec3 vFaceN;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRest = position;')
+        .replace('#include <defaultnormal_vertex>', `#include <defaultnormal_vertex>
+  vec3 faceDir = normalize(position - vec3(0., ${profile.eyes.y.toFixed(3)}, -.05));
+  #ifdef USE_SKINNING
+    faceDir = (skinMatrix * vec4(faceDir, 0.)).xyz;
+  #endif
+  vFaceN = normalize(normalMatrix * faceDir);`);
       shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>
 #define CLOTH_TOP ${CLOTH_TOP.toFixed(3)}
 #define HEM ${HEM.toFixed(3)}
@@ -597,6 +639,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
 #define MOUTH vec3(${profile.mouth.x.toFixed(3)}, ${(profile.mouth.y - .012).toFixed(3)}, ${(profile.mouth.z - .02).toFixed(3)})
 #define BAKED_MOUTH vec3(${profile.mouth.x.toFixed(3)}, ${profile.mouth.y.toFixed(3)}, ${profile.mouth.z.toFixed(3)})
 varying vec3 vRest;
+varying vec3 vFaceN;
 uniform vec3 uTop;
 uniform vec3 uBottom;
 uniform vec3 uTowel;
@@ -624,6 +667,11 @@ vec3 hideEye(vec3 c, vec3 centre, float turn) {
   float radius = length(q);
   if (abs(dot(d, n)) > .12) return c;
   return mix(c, SKIN, 1. - smoothstep(.72, 1., radius));
+}
+float eyeArea(vec3 centre, float turn) {
+  vec3 d = vRest - centre; vec3 n = vec3(sin(turn), 0., cos(turn)), t = vec3(cos(turn), 0., -sin(turn));
+  if (abs(dot(d, n)) > .12) return 0.;
+  return 1. - smoothstep(.85, 1.35, length(vec2(dot(d, t), d.y) / vec2(.083, .079)));
 }
 vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
   vec3 d = vRest - centre; vec3 n = vec3(sin(turn), 0., cos(turn)), t = vec3(cos(turn), 0., -sin(turn));
@@ -654,10 +702,16 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
           diffuseColor.rgb = mix(c, tint * clamp(mix(.95, lum / .72, .25), .6, 1.05), cloth);
           diffuseColor.rgb = mix(diffuseColor.rgb, uTowel * clamp(lum / .78, .4, 1.08), hat);
         }`);
+      shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        if (uEyeOn > .5) { float ea = max(eyeArea(EYE, .4), eyeArea(EYE * vec3(-1., 1., 1.), -.4)); normal = normalize(mix(normal, normalize(vFaceN) * faceDirection, ea)); }`);
     };
-    material.customProgramCacheKey = () => 'plush-dye-v9-' + profile.hat;
+    material.customProgramCacheKey = () => 'plush-dye-v10-' + profile.hat;
+    fixSleeveClipping(skinned);
     skinned.material = material;
     setupCharacterMaterials(model, renderer);
+    // Inner cloth faces get light too (no black holes in sleeves); no white sheen rim, which
+    // made the outer hair look grey.
+    material.side = THREE.DoubleSide; material.sheen = 0; material.needsUpdate = true;
     // Rigid things follow a bone; they are placed in the bind pose, in model units.
     function attach(boneObject, object, point) {
       model.updateMatrixWorld(true);
