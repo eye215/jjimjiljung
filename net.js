@@ -18,15 +18,41 @@ function loadSupabase() {
   });
 }
 
+// Use the same persisted anonymous session for the sauna and the AI fortune room.
+let sharedClient;
+async function getSharedClient() {
+  if (!sharedClient) {
+    const { createClient } = await loadSupabase();
+    sharedClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jjimjiljung-auth' },
+      realtime: { params: { eventsPerSecond: 12 } }
+    });
+  }
+  return sharedClient;
+}
+
+export async function requestSajuAI(pillar) {
+  const client = await getSharedClient();
+  let { data: { session } } = await client.auth.getSession();
+  if (!session) {
+    const signed = await client.auth.signInAnonymously();
+    if (signed.error) throw new Error('익명 인증을 연결하지 못했어요.');
+    session = signed.data.session;
+  }
+  if (!session) throw new Error('사주 상담에 연결하지 못했어요.');
+  const { data, error } = await client.functions.invoke('saju-ai', { body: { pillar } });
+  if (error) {
+    const body = await error.context?.json?.().catch(() => null);
+    throw new Error(body?.error || 'AI 상담 서버가 잠시 응답하지 않아요.');
+  }
+  if (typeof data?.text !== 'string' || !data.text.trim()) throw new Error('AI의 답변이 비어 있어요.');
+  return data;
+}
+
 export async function connectSupabase({ id, presence, onPresence, onMessage, onStatus, channelName = PUBLIC_CHANNEL }) {
   onStatus('connecting');
-  const { createClient } = await loadSupabase();
-  // An invisible anonymous account (kept on this device) identifies the visitor to the
-  // group-chat functions and private channels; no email or password is ever asked.
-  const client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jjimjiljung-auth' },
-    realtime: { params: { eventsPerSecond: 12 } }
-  });
+  // A persisted anonymous account is reused by social features and fortune AI.
+  const client = await getSharedClient();
   let uid = null;
   try {
     const { data } = await client.auth.getSession();
