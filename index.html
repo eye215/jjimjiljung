@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta name="metamoa-site-verification" content="45A1ZU7LzI3YVpjU0T7S9g">
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="400"><meta property="og:image:height" content="210"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-54">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="400"><meta property="og:image:height" content="210"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-55">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -76,7 +76,21 @@
 <div class="places-heading"><div><span class="places-eyebrow">사주방</span><h2 id="fortune-title">오늘의 운세</h2></div><button id="fortune-close" aria-label="운세 닫기">×</button></div>
 <form id="fortune-form"><label>생년월일<input id="fortune-date" type="date" required min="1900-01-01"></label><label>태어난 시간 <small>(몰라도 괜찮아요)</small><input id="fortune-time" type="time"></label><button type="submit" id="fortune-go">오늘의 운세 보기</button></form>
 <section id="fortune-result" hidden aria-live="polite"></section>
-<section id="fortune-ai-section" hidden aria-live="polite"><h3 id="fortune-ai-status"></h3><p id="fortune-ai" hidden></p></section>
+<div id="fortune-progress" class="fortune-progress-overlay" role="status" aria-live="polite" hidden>
+  <div class="fortune-progress-card">
+    <div class="fortune-loading">
+      <div class="fortune-orbit" aria-hidden="true"><span>🔮</span><i></i><b></b></div>
+      <p class="fortune-loading-kicker">JJIMJILJUNG · SAJU</p>
+      <h3>오늘의 운세</h3>
+      <p id="fortune-progress-text" class="fortune-loading-copy">사주 선생님이 사주를 살펴보고 있어요~</p>
+      <div class="fortune-progress"><i></i></div>
+    </div>
+    <div id="fortune-progress-actions" class="fortune-progress-actions" hidden>
+      <button id="fortune-progress-retry" type="button" class="fortune-retry">다시 시도</button>
+      <button id="fortune-progress-cancel" type="button" class="fortune-progress-close">닫기</button>
+    </div>
+  </div>
+</div>
 <p class="places-footnote">재미로 보는 운세예요. 입력한 생년월일·시간은 이 기기에 저장돼요. AI 운세를 누르면 계산된 일주·오행과 태어난 시간이 상담 서버로 전송되며, 그날의 AI 결과가 서버에 보관돼요. <button type="button" id="fortune-forget" class="link-button">생년월일 지우기</button></p>
 </dialog>
 <dialog id="fortune-reopen-dialog" aria-labelledby="fortune-reopen-title" aria-describedby="fortune-reopen-copy" aria-modal="true">
