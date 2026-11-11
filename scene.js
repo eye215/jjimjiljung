@@ -886,49 +886,58 @@ const fortuneResult = document.querySelector('#fortune-result');
 function todayInKorea() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
-function showFortune(birth) {
+function showFortune(birth, ai) {
   const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
   if (!f) { toast('생년월일을 확인해 주세요.'); return; }
   const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
-  fortuneResult.hidden = false;
-  fortuneResult.innerHTML = `<p class="fortune-voice">🔮 오늘의 운세</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
+  fortuneResult.innerHTML = `<p class="fortune-voice">🔮 AI 사주 선생님의 오늘의 운세</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
   const labels = fortuneResult.querySelectorAll('b');
   labels[0].textContent = f.mine + '(' + f.element + ')';
   labels[1].textContent = f.today + '(' + f.todayElement + ')';
   labels[2].textContent = f.color;
   labels[3].textContent = f.number;
-  fortuneResult.querySelector('h3').textContent = f.title;
-  fortuneResult.querySelector('.fortune-text').textContent = f.text;
+  fortuneResult.querySelector('h3').textContent = ai.title || '오늘의 사주 이야기';
+  fortuneResult.querySelector('.fortune-text').textContent = ai.text;
+  fortuneResult.hidden = false;
   fortuneSpeaking = 2.3;
 }
 let fortuneRequestId = 0;
+const fortuneProgress = document.querySelector('#fortune-progress');
+const fortuneProgressText = document.querySelector('#fortune-progress-text');
+const fortuneProgressActions = document.querySelector('#fortune-progress-actions');
+function hideFortuneProgress() { fortuneProgress.hidden = true; }
+function cancelFortune() {
+  ++fortuneRequestId;
+  hideFortuneProgress();
+  document.querySelector('#fortune-go').disabled = false;
+}
+document.querySelector('#fortune-progress-cancel').addEventListener('click', cancelFortune);
 async function showAIFortune(birth) {
   const requestId = ++fortuneRequestId;
-  const slot = document.querySelector('#fortune-ai');
-  const status = document.querySelector('#fortune-ai-status');
   const button = document.querySelector('#fortune-go');
-  slot.hidden = false;
-  slot.textContent = '';
-  status.textContent = '🔮 AI 선생님이 사주를 살펴보고 있어요…';
+  fortuneResult.hidden = true;
+  // Show a modal-style progress popup immediately; do not show the result card early.
+  fortuneProgress.hidden = false;
+  fortuneProgress.dataset.state = 'loading';
+  fortuneProgressActions.hidden = true;
+  fortuneProgressText.textContent = '사주 선생님이 사주를 살펴보고 있어요~';
   button.disabled = true;
   try {
     const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
-    if (!f) return;
+    if (!f) throw new Error('생년월일을 확인해 주세요.');
     const result = await requestSajuAI(f.mine + ' / ' + f.element + ' / ' + (birth.time || '출생시각 미상'));
     if (requestId !== fortuneRequestId) return;
-    slot.textContent = result.text;
-    status.textContent = result.cached ? '✨ 오늘 이미 받은 AI 운세예요' : '✨ AI가 들려주는 오늘의 운세';
-    fortuneSpeaking = 2.3;
+    // Dismiss loading first; reveal the AI-generated fortune in the original card.
+    hideFortuneProgress();
+    showFortune(birth, result);
+    fortuneResult.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   } catch (error) {
     if (requestId !== fortuneRequestId) return;
-    status.textContent = 'AI 상담을 연결하지 못했어요. 기본 운세는 그대로 볼 수 있어요.';
-    slot.textContent = '';
-    const retry = document.createElement('button');
-    retry.type = 'button';
-    retry.className = 'fortune-ai-retry';
-    retry.textContent = '다시 시도';
-    retry.addEventListener('click', () => showAIFortune(birth));
-    slot.append(retry);
+    fortuneProgress.dataset.state = 'error';
+    fortuneProgressText.textContent = 'AI 선생님 연결이 잠시 원활하지 않아요.';
+    fortuneProgressActions.hidden = false;
+    const retry = document.querySelector('#fortune-progress-retry');
+    retry.onclick = () => showAIFortune(birth);
     console.warn('AI fortune unavailable:', error?.message || 'network error');
   } finally {
     if (requestId === fortuneRequestId) button.disabled = false;
@@ -940,9 +949,8 @@ document.querySelector('#fortune-open').addEventListener('click', () => {
   const saved = loadBirth();
   document.querySelector('#fortune-date').value = saved?.date || '';
   document.querySelector('#fortune-time').value = saved?.time || '';
-  ++fortuneRequestId;
+  cancelFortune();
   fortuneResult.hidden = true;
-  document.querySelector('#fortune-ai-section').hidden = true;
   fortuneDialog.showModal();
 });
 fortuneForm.addEventListener('submit', event => {
@@ -950,17 +958,14 @@ fortuneForm.addEventListener('submit', event => {
   const birth = { date: document.querySelector('#fortune-date').value, time: document.querySelector('#fortune-time').value };
   if (!birth.date) return;
   saveBirth(birth);
-  showFortune(birth);
-  document.querySelector('#fortune-ai-section').hidden = false;
   showAIFortune(birth);
 });
-document.querySelector('#fortune-close').addEventListener('click', () => { ++fortuneRequestId; fortuneDialog.close(); });
+document.querySelector('#fortune-close').addEventListener('click', () => { cancelFortune(); fortuneDialog.close(); });
 document.querySelector('#fortune-forget').addEventListener('click', () => {
-  ++fortuneRequestId;
+  cancelFortune();
   saveBirth(null);
   fortuneForm.reset();
   fortuneResult.hidden = true;
-  document.querySelector('#fortune-ai-section').hidden = true;
   toast('생년월일을 지웠어요');
 });
 
