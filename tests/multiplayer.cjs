@@ -25,9 +25,10 @@ const server = http.createServer((req, res) => {
     // Two visitors in one browser talk over BroadcastChannel (`?net=local`), which
     // exercises the same presence/state/chat code paths as Supabase Realtime.
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await context.addInitScript(() => localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown'));
     await context.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), block: () => social.block([...social.remotes.keys()][0]), invite: () => social.createInviteToken(), openCard: () => { const r = [...social.remotes.values()].find(x => x.name === "율무"); if (r) openPerson(r); return !!r; }, group: () => social.group, teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
+      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__mp = { state: () => ({ status: social.status, count: social.count, remotes: [...social.remotes.values()].map(r => ({ name: r.name, placed: r.placed, x: r.character.root.position.x, z: r.character.root.position.z, action: r.action, outfit: r.outfit, snack: r.character.snack?.kind || null })), me: [hero.position.x, hero.position.z] }), ask: () => social.requestChat([...social.remotes.keys()][0]), block: () => social.block([...social.remotes.keys()][0]), invite: () => social.createInviteToken(), openCard: () => { const r = [...social.remotes.values()].find(x => x.name === "율무"); if (r) openPerson(r); return !!r; }, group: () => social.group, forceGreetCooldown: () => greetLog.sent([...social.remotes.keys()][0]), teleport: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });
     });
     await context.addInitScript(() => localStorage.setItem('jjimjiljung-wallet-v1', JSON.stringify({ points: 50, bag: { egg: 5, drink: 5 }, free: { egg: '', drink: '' } })));
     const errors = [];
@@ -81,7 +82,11 @@ const server = http.createServer((req, res) => {
     await b.locator('#toast button').click();
     await a.waitForFunction(() => /율무님과 하이파이브/.test(document.querySelector('#toast span').textContent), null, { timeout: 30000 });
     assert.match(await a.locator('#toast span').textContent(), /온기 \+1/, 'First greeting with a partner today gives 온기');
+    // CI may spend >30s rendering two 3D scenes. Set the test clock anchor
+    // immediately before the second greeting so the cooldown is deterministic.
+    await a.evaluate(() => window.__mp.forceGreetCooldown());
     await a.locator('[data-action="wave"]').click();
+    await a.waitForFunction(() => /초 뒤에 다시 인사/.test(document.querySelector('#toast span').textContent), null, { timeout: 30000 });
     assert.match(await a.locator('#toast span').textContent(), /초 뒤에 다시 인사/, 'Same person: 30-second cooldown');
     // 3. No public chat: talking needs a request the other visitor accepts (server rules, local mock here).
     await a.locator('#chat-open').click();
@@ -160,7 +165,20 @@ const server = http.createServer((req, res) => {
     guest.on('pageerror', error => errors.push('guest: ' + error.message));
     await guest.addInitScript(() => localStorage.setItem('jjimjiljung-nickname', '찜질손님'));
     await guest.goto(base + '&from=%EB%B3%B4%EB%A6%AC&join=' + token);
-    await guest.waitForSelector('#viewport[data-ready="true"]', { timeout: 120000 });
+    try {
+      await guest.waitForSelector('#viewport[data-ready="true"]', { timeout: 120000 });
+    } catch (error) {
+      const diagnostics = await guest.evaluate(() => ({
+        ready: document.querySelector('#viewport')?.dataset.ready,
+        joinDialogOpen: document.querySelector('#join-dialog')?.open,
+        documentState: document.readyState,
+        viewportExists: !!document.querySelector('#viewport'),
+        scripts: [...document.scripts].filter(s => s.type === 'module').map(s => s.src),
+      })).catch(e => ({ evaluationError: e.message }));
+      console.error('Invite guest startup diagnostics:', JSON.stringify({ diagnostics, errors }));
+      await guest.screenshot({ path: path.join(output, 'multiplayer-guest-startup-failure.png') }).catch(() => {});
+      throw error;
+    }
     await guest.waitForFunction(() => window.__mp.group()?.size >= 2, null, { timeout: 60000 });
     assert.equal(new URL(guest.url()).searchParams.has('join'), false, 'The token leaves the address bar');
     await guest.close();

@@ -38,11 +38,22 @@ export const DOORS = Object.freeze([
 // Furniture is centred on x/z with an axis-aligned footprint w (x) by d (z).
 // `face` is the direction the front of the item looks towards.
 // Only `solid` pieces block walking; mats and cushions can be walked over.
+// Fixed resting locations leave enough space for different visitors to avoid overlapping.
+export const SCRUB_BEDS = Object.freeze([
+  { x: 10.1, z: 9.0 }, { x: 12.75, z: 9.0 },
+  { x: 10.1, z: 11.35 }, { x: 12.75, z: 11.35 },
+  { x: 11.4, z: 13.7 }
+].map(Object.freeze));
+export const POOL_SEATS = Object.freeze({
+  hotpool: Object.freeze([[-.35, 10.85], [.85, 10.85], [-.35, 12.15], [.85, 12.15]].map(Object.freeze)),
+  coldpool: Object.freeze([[4.85, 11.3], [5.95, 11.3], [4.85, 12.65], [5.95, 12.65]].map(Object.freeze))
+});
+
 export const FURNITURE = Object.freeze([
   // Central lobby
   { type: 'tv', x: -7.4, z: 3.4, w: .75, d: 2.8, face: 'e', solid: true },
   { type: 'mat', x: -4.6, z: 2.4, w: 1.3, d: 1.3 }, { type: 'mat', x: -4.6, z: 4.6, w: 1.3, d: 1.3 },
-  { type: 'mat', x: -2.5, z: 3.5, w: 1.3, d: 1.3 },
+  { type: 'mat', x: -2.5, z: 3.5, w: 1.3, d: 1.3 }, { type: 'mat', x: -2.5, z: 5.4, w: 1.3, d: 1.3 },
   { type: 'tree', x: -6, z: 5.9, w: 1.4, d: 1.4, solid: true }, { type: 'tree', x: 6.4, z: -2.5, w: 1.4, d: 1.4, solid: true },
   { type: 'table', x: 3.8, z: 2.6, w: 1.9, d: 1.05, solid: true }, { type: 'table', x: 5.3, z: 5.2, w: 1.5, d: 1.05, solid: true },
   { type: 'cushion', x: 3.8, z: 1.55, w: .8, d: .7 }, { type: 'cushion', x: 3.8, z: 3.65, w: .8, d: .7 },
@@ -84,12 +95,25 @@ export const FURNITURE = Object.freeze([
   { type: 'hotpool', x: .6, z: 11.6, w: 3.2, d: 3, solid: true }, { type: 'coldpool', x: 5.4, z: 12, w: 2.6, d: 2.6, solid: true },
   { type: 'shower', x: -.6, z: 7.4, w: 1.6, d: .45, face: 's', solid: true }, { type: 'shower', x: 6.6, z: 7.4, w: 1.6, d: .45, face: 's', solid: true },
   // 세신실 (beds are low and walkable, like the 수면실 mats)
-  { type: 'scrubbed', x: 11.5, z: 10, w: 2.2, d: .95 }, { type: 'scrubbed', x: 11.5, z: 13.2, w: 2.2, d: .95 },
+  ...SCRUB_BEDS.map(({ x, z }) => ({ type: 'scrubbed', x, z, w: 2.2, d: .95 })),
   { type: 'pot', x: 14.5, z: 7.5, w: .7, d: .7, solid: true },
   // 사주방
   { type: 'fortunetable', x: -11.5, z: 10.6, w: 1.4, d: 1, solid: true },
   { type: 'cushion', x: -11.5, z: 11.7, w: .8, d: .7 }, { type: 'cushion', x: -11.5, z: 9.5, w: .8, d: .7 },
   { type: 'nightlamp', x: -14.5, z: 7.5, w: .5, d: .5, solid: true }, { type: 'nightlamp', x: -14.5, z: 14.5, w: .5, d: .5, solid: true }
+].map(Object.freeze));
+
+// Sit-able fixed furnishings. Approach points remain on clear floor while the
+// character is snapped onto the seat only after confirming vacancy.
+export const CHAIR_SEATS = Object.freeze([
+  {id:'lobby-b1',room:'lobby',kind:'bench',x:-1.1,z:6.35,y:.32,ax:-1.1,az:5.48,face:Math.PI},
+  {id:'lobby-b2',room:'lobby',kind:'bench',x:.7,z:6.35,y:.32,ax:.7,az:5.48,face:Math.PI},
+  {id:'locker-b1',room:'locker',kind:'bench',x:-5.25,z:11,y:.32,ax:-5.25,az:10.2,face:Math.PI},
+  {id:'locker-b2',room:'locker',kind:'bench',x:-4.0,z:11,y:.32,ax:-4.0,az:10.2,face:Math.PI},
+  {id:'ice-b1',room:'ice',kind:'icebench',x:-10.25,z:-6.2,y:.2,ax:-10.25,az:-7.05,face:Math.PI},
+  {id:'ice-b2',room:'ice',kind:'icebench',x:-9.0,z:-6.2,y:.2,ax:-9.0,az:-7.05,face:Math.PI},
+  {id:'shop-s1',room:'shop',kind:'stool',x:9.5,z:2.2,y:.42,ax:9.5,az:1.15,face:Math.PI/2},
+  {id:'shop-s2',room:'shop',kind:'stool',x:11.7,z:2.2,y:.42,ax:11.7,az:1.15,face:-Math.PI/2}
 ].map(Object.freeze));
 
 export const SPAWN = Object.freeze({ x: 0, z: 3 });
@@ -110,7 +134,10 @@ export const DESTINATIONS = Object.freeze({
 });
 
 // The mat in front of the lobby TV, facing the screen (west).
-export const TV_SEAT = Object.freeze({ id: 'tv', name: 'TV 앞 방석', x: -4.6, z: 2.4, facing: -Math.PI / 2, action: 'sit', arrival: 'TV 앞에 앉았어요. 광고를 보면 온기를 받을 수 있어요 📺' });
+export const TV_SEATS = Object.freeze([
+  [-4.6, 2.4], [-4.6, 4.6], [-2.5, 3.5], [-2.5, 5.4]
+].map(([x, z], index) => Object.freeze({ id: 'tv', name: `TV 시청 자리 ${index + 1}`, x, z, facing: -Math.PI / 2, action: 'sit', arrival: 'TV 앞 방석에 앉았어요. 광고를 보면 온기를 받을 수 있어요 📺' })));
+export const TV_SEAT = TV_SEATS[0];
 
 // Meshy towel props placed around the rooms (props.js). `y` is the surface they
 // rest on, `turn` a rotation about y, `size` the longest side in metres and
@@ -148,8 +175,8 @@ export const SPOTS = Object.freeze([
   { id: 'hotpool', room: 'bath', x: .6, z: 9.7, r: 1.5, label: '♨ 온탕에 들어가기', pool: [.6, 11.6] },
   { id: 'coldpool', room: 'bath', x: 5.4, z: 10.3, r: 1.3, label: '🧊 냉탕에 들어가기', pool: [5.4, 12] },
   { id: 'shower', room: 'bath', x: -.6, z: 8.1, r: 1, label: '🚿 샤워하기' }, { id: 'shower', room: 'bath', x: 6.6, z: 8.1, r: 1, label: '🚿 샤워하기' },
-  { id: 'scrub', room: 'scrub', x: 11.5, z: 10, r: 2.4, label: '🧽 세신 받기', bed: [11.5, 10] },
-  { id: 'scrub', room: 'scrub', x: 11.5, z: 13.2, r: 2.4, label: '🧽 세신 받기', bed: [11.5, 13.2] }
+  ...SCRUB_BEDS.map(({ x, z }, i) => ({ id: 'scrub', room: 'scrub', x, z, r: 1.85, label: `🧽 세신 ${i + 1}번 자리`, bed: [x, z] })),
+  ...CHAIR_SEATS.map(s => ({id:'chair',room:s.room,x:s.ax,z:s.az,r:.82,label:'🪑 빈 의자에 앉기',chair:s.id}))
 ].map(Object.freeze));
 
 export function roomAt(x, z) {

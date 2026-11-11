@@ -82,6 +82,7 @@ window.__tw = {
 };` });
     });
     await context.addInitScript(() => { if (!localStorage.getItem('jjimjiljung-nickname')) localStorage.setItem('jjimjiljung-nickname', '보리'); });
+    await context.addInitScript(() => localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown'));
     const errors = [];
     const open = async name => {
       const page = await context.newPage(); page.setDefaultTimeout(120000);

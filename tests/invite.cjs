@@ -23,6 +23,7 @@ const server = http.createServer((req, res) => {
   const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}), args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await context.addInitScript(() => localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown'));
     await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(base).origin });
     const errors = [];
     const ready = async page => {
@@ -64,14 +65,19 @@ const server = http.createServer((req, res) => {
     await offline.locator('#toast').waitFor({ state: 'visible' });
     assert.match(await offline.locator('#toast span').textContent(), /링크를 복사/);
     assert.match(await offline.evaluate(() => navigator.clipboard.readText()), /^https:\/\/jjimjiljung\.yullul\.com\/\?from=/);
+    // Release headless WebGL contexts before testing incoming deep links.
+    // Four simultaneous 3D canvases can starve software rendering on CI.
+    await offline.close(); await page.close();
     // 3. Arriving from an invite greets the visitor and tidies the address.
     const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await guest.addInitScript(() => localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown'));
     await guest.goto(base + '?from=' + encodeURIComponent('보들식혜'));
     await ready(guest);
     assert.match(await guest.locator('#join-intro').textContent(), /보들식혜님의 초대로/);
     assert.equal(new URL(guest.url()).searchParams.has('from'), false, 'Invite parameter is removed from the address');
-    const rude = await browser.newPage();
-    await rude.goto(base + '?from=' + encodeURIComponent('씨발'));
+    // Reuse the guest page so only one character canvas is active.
+    await guest.goto(base + '?from=' + encodeURIComponent('씨발'));
+    const rude = guest;
     await ready(rude);
     assert.doesNotMatch(await rude.locator('#join-intro').textContent(), /씨발/, 'Rude invite names are ignored');
     assert.deepEqual(errors, [], 'No JS errors');

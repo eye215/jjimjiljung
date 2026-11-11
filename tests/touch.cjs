@@ -28,6 +28,7 @@ const server = http.createServer((req, res) => {
       await route.fulfill({ response, body: (await response.text()) + '\nwindow.__cam = () => ({ yaw: view.yaw, pitch: view.pitch, zoom: view.zoom, camera: camera.position.toArray() });' });
     });
     const page = await context.newPage(); page.setDefaultTimeout(120000);
+    await page.addInitScript(() => localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown'));
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto(base);
     await page.waitForSelector('#viewport[data-ready="true"]');

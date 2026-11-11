@@ -23,6 +23,7 @@ const server = http.createServer((req, res) => {
   const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}), args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await page.addInitScript(() => localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown'));
     await page.route('**/scene.js*', async route => {
       const response = await route.fetch();
       await route.fulfill({ response, body: (await response.text()) + '\nwindow.__sleepTest = { state: () => ({ ...sleep.state, music: sleep.music.playing, muted: sleep.music.muted, heroVisible: hero.visible, cameraY: camera.position.y, room: currentRoom.id, action }), skip: seconds => { sleep.state.still = seconds; }, teleport: (x, z) => { route.length = 0; activeDestination = null; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); } };' });

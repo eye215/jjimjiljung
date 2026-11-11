@@ -23,6 +23,7 @@ const server = http.createServer((req, res) => {
   const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}), args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await page.addInitScript(() => localStorage.setItem('jjimjiljung-fortune-announcement-v1', 'shown'));
     page.setDefaultTimeout(120000);
     await page.route('**/scene.js*', async route => {
       const response = await route.fetch();
@@ -93,8 +94,12 @@ const server = http.createServer((req, res) => {
     await page.locator('#game-result').waitFor({ state: 'visible', timeout: 120000 });
     assert.match(await page.locator('#game-result').textContent(), /원샷|띵|시간/);
     await page.locator('#game [data-game-close]').click();
+    // Result animation keeps the finished cup for 1.8 s. The same snack cannot
+    // restart until that cup is put away; otherwise the next click is ignored.
+    await page.waitForFunction(() => window.__shopTest.state().snack === null);
     // Closing a game midway puts the cup away.
     await page.locator('[data-action="drink"]').click();
+    await page.locator('#game').waitFor({ state: 'visible' });
     await page.waitForFunction(() => window.__shopTest.state().snack?.style === 'oneshot');
     await page.locator('#game-close').click();
     assert.equal((await state()).snack, null, 'Closing the game puts the snack away');

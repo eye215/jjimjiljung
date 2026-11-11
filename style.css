@@ -232,6 +232,7 @@ body:not(.room-ready) #dress{display:none}
 #toast{width:max-content;max-width:calc(100% - 24px)}#toast span{white-space:normal;word-break:keep-all;line-height:1.4}
 #towel-nudge,#tour{position:absolute;z-index:4;left:50%;transform:translateX(-50%);bottom:205px;display:flex;align-items:center;gap:10px;height:48px;padding:0 6px 0 16px;border-radius:999px;color:var(--ink);font-size:14px;font-weight:700;white-space:nowrap;background:var(--lg-fill);-webkit-backdrop-filter:var(--lg-blur);backdrop-filter:var(--lg-blur);box-shadow:var(--lg-shadow),inset 0 0 0 .75px rgba(255,255,255,.7);animation:toast .4s ease-out}
 #towel-nudge button,#tour [data-tour-go]{height:36px;padding:0 15px;border:0;border-radius:999px;background:var(--hot);color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 14px rgba(242,104,60,.3)}
+#tour [data-tour-go]:disabled{background:rgba(112,103,95,.18);color:#8b8076;box-shadow:none;cursor:default;opacity:.85}
 @media(max-width:760px){#towel-nudge,#tour{bottom:206px}}@media(max-height:500px) and (orientation:landscape){#towel-nudge,#tour{bottom:120px}}
 #tour{gap:8px;padding-right:4px;max-width:calc(100vw - 32px)}#tour span{overflow:hidden;text-overflow:ellipsis}#tour .tour-close{width:30px;height:30px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--ink);opacity:.55;font-size:13px}
 body.sleeping #towel-nudge,body.towel-playing #towel-nudge,body:not(.room-ready) #towel-nudge,body.chat-open #towel-nudge{display:none}
@@ -385,6 +386,12 @@ body.sleeping .room-badge{opacity:0}
 #fortune-dialog{color:var(--ink);border:0;border-radius:28px;padding:22px;width:400px;max-width:calc(100% - 24px);max-height:calc(100svh - 32px);overflow:auto;background:linear-gradient(180deg,rgba(255,252,248,.95),rgba(248,242,255,.92));box-shadow:0 30px 80px rgba(37,21,8,.3)}
 #fortune-dialog::backdrop{background:rgba(33,24,14,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 #fortune-close{border:0;background:rgba(107,70,54,.08);color:var(--ink);border-radius:50%;width:40px;height:40px;font-size:24px;line-height:1;flex-shrink:0}
+#fortune-reopen-dialog{width:min(360px,calc(100% - 32px));border:0;border-radius:28px;padding:28px 24px 24px;text-align:center;color:var(--ink);background:linear-gradient(180deg,rgba(255,252,248,.96),rgba(248,242,255,.94));box-shadow:0 24px 60px rgba(40,20,8,.22)}
+#fortune-reopen-dialog::backdrop{background:rgba(30,20,12,.28);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+.fortune-reopen-icon{font-size:42px;margin-bottom:12px}
+#fortune-reopen-title{font-size:22px;line-height:1.35;margin:0 0 8px;word-break:keep-all}
+#fortune-reopen-copy{font-size:15px;line-height:1.5;margin:0 0 22px;word-break:keep-all}
+#fortune-reopen-confirm{width:100%;min-height:48px;border:0;border-radius:16px;background:var(--hot);color:#fff;font-size:16px;font-weight:800}
 #fortune-form{display:grid;gap:10px;margin-top:14px}
 #fortune-form label{display:grid;gap:5px;font-size:14px;font-weight:700}#fortune-form small{font-weight:500;color:var(--ink-soft)}
 #fortune-form input{min-height:46px;border:0;border-radius:14px;padding:0 14px;font:inherit;font-size:16px;color:var(--ink);background:rgba(255,255,255,.85);box-shadow:inset 0 0 0 1px rgba(107,70,54,.12)}
@@ -455,5 +462,299 @@ body.sleeping #spot-action,body.playing #spot-action,body.towel-playing #spot-ac
 .report-actions{display:flex;gap:8px;margin-top:12px}.report-actions button{flex:1;min-height:46px;border:0;border-radius:999px;font-weight:800;font-size:15px}
 #report-cancel{background:rgba(107,70,54,.08);color:var(--ink)}
 /* 첫 방문 안내 sits above the context button when both show. */
+/* Keep the tour above the joystick and towel button, using the same safe-area
+   offset as the other floating nudges. Preserve the compact landscape layout. */
+@media(min-height:501px){#tour{bottom:calc(var(--safe-bottom) + 232px)}}
 body:has(#spot-action:not([hidden])) #tour{bottom:calc(var(--safe-bottom) + 292px)}
 body.sleeping #tour,body.playing #tour,body.towel-playing #tour,body.chat-open #tour{display:none}
+
+/* ==========================================================================
+   Calm iOS-inspired liquid glass · November 2026
+   One material hierarchy: translucent HUD, stronger sheets, one accent.
+   Movement, on-screen game controls and existing modals keep their positions.
+   ========================================================================== */
+:root{
+  --ios-ink:#493a32;
+  --ios-muted:#78685d;
+  --ios-edge:rgba(255,255,255,.76);
+  --ios-surface:linear-gradient(155deg,rgba(255,255,255,.75),rgba(249,245,239,.48) 65%,rgba(244,234,224,.52));
+  --ios-panel:linear-gradient(150deg,rgba(255,255,255,.88),rgba(250,246,240,.73));
+  --ios-raised:linear-gradient(145deg,rgba(255,255,255,.84),rgba(255,252,246,.64));
+  --ios-glow:inset 0 1px 0 rgba(255,255,255,.92),inset 0 0 0 .75px rgba(255,255,255,.62),0 5px 20px rgba(60,40,26,.10);
+  --ios-pop:inset 0 1px 0 rgba(255,255,255,.92),inset 0 0 0 1px rgba(255,255,255,.73),0 18px 46px rgba(54,33,18,.20);
+  --ios-frost:blur(24px) saturate(170%);
+  --ios-bright-frost:blur(36px) saturate(165%);
+  --lg-fill:var(--ios-surface);
+  --lg-thick:var(--ios-panel);
+  --lg-blur:var(--ios-frost);
+  --glass:var(--ios-surface);
+  --glass-ring:var(--ios-glow);
+  --lg-shadow:var(--ios-glow);
+  --ink:var(--ios-ink);
+  --ink-soft:var(--ios-muted);
+}
+/* Lightweight top HUD, no heavy opaque overlapping capsules. */
+.brand,.quiet-button,.room-badge,#wallet,.online-pill,#joystick,#chat-open,
+.controls,.scene-hint,.glass-round,#cap-toggle,#towel-open,#towel-nudge,
+#tour,#shop-open,#spot-action,#sleep-bar{
+  background:var(--ios-surface);
+  border:1px solid var(--ios-edge);
+  -webkit-backdrop-filter:var(--ios-frost);
+  backdrop-filter:var(--ios-frost);
+  box-shadow:var(--ios-glow);
+  color:var(--ios-ink);
+  text-shadow:none;
+}
+.brand{font-weight:790;letter-spacing:-.035em}
+.brand-icon{box-shadow:inset 0 1px 0 rgba(255,255,255,.84),0 3px 9px rgba(215,117,76,.19)}
+.quiet-button.icon-button{box-shadow:var(--ios-glow)}
+.quiet-button:active,.glass-round:active{filter:brightness(1.06)}
+.room-badge{gap:6px;font-weight:730}
+.room-badge span{color:var(--ios-muted)}
+#wallet{gap:11px;font-variant-numeric:tabular-nums;transition:box-shadow .24s,background .24s}
+#wallet.warmth-earned{background:linear-gradient(150deg,rgba(255,253,224,.96),rgba(255,233,184,.76));box-shadow:inset 0 0 0 1px rgba(255,244,197,.9),0 0 0 4px rgba(255,226,152,.18),0 8px 22px rgba(197,138,60,.24)}
+.online-pill{opacity:.94}
+#invite{background:linear-gradient(160deg,rgba(255,230,143,.9),rgba(255,195,94,.81));border:1px solid rgba(255,255,255,.72);box-shadow:var(--ios-glow);color:#66441f}
+.controls{border-radius:30px;padding:5px;background:var(--ios-surface)}
+.actions>button{border-radius:24px;color:var(--ios-ink);transition:background .16s,transform .16s}
+.actions>button:active{transform:scale(.96)}
+.actions>button.selected{background:var(--ios-raised);box-shadow:inset 0 0 0 1px rgba(255,255,255,.9),0 3px 12px rgba(97,65,43,.10);color:#c56143}
+.actions>button b{font-weight:690}
+#joystick{border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.7),rgba(246,239,228,.42) 72%)}
+#joystick-knob{border:1px solid rgba(255,255,255,.97);background:linear-gradient(160deg,rgba(255,255,255,.95),rgba(239,227,209,.82))}
+#chat-open{color:var(--ios-ink)}
+/* Reuse the existing hint to show the warmth countdown; never spawn a banner. */
+.scene-hint{
+  z-index:5;
+  max-width:min(372px,calc(100vw - 26px));
+  padding:7px 13px;
+  white-space:normal;
+  word-break:keep-all;
+  text-align:center;
+  font-size:11.8px;
+  line-height:1.4;
+  font-weight:700;
+  color:var(--ios-ink);
+  background:var(--ios-surface);
+  pointer-events:none;
+}
+.scene-hint.warmth-active{
+  background:linear-gradient(155deg,rgba(255,249,229,.89),rgba(250,237,211,.72));
+  border-color:rgba(255,251,231,.85);
+  box-shadow:var(--ios-glow),inset 0 0 0 1px rgba(251,224,174,.3);
+  color:#6c4e32;
+}
+/* Short lived one-at-a-time messages. Avoid the wallet and room name rows. */
+#toast{
+  top:calc(var(--safe-top) + 155px);
+  left:50%;right:auto;
+  width:max-content;
+  max-width:min(370px,calc(100vw - 28px));
+  padding:10px 13px;
+  border:1px solid var(--ios-edge);
+  border-radius:20px;
+  background:var(--ios-panel);
+  box-shadow:var(--ios-pop);
+  -webkit-backdrop-filter:var(--ios-bright-frost);
+  backdrop-filter:var(--ios-bright-frost);
+  font-size:12.5px;
+  line-height:1.4;
+  font-weight:700;
+  color:var(--ios-ink);
+  text-align:center;
+  z-index:11;
+}
+#toast[data-actionable=true]{text-align:left}
+#toast button{min-height:36px;border-radius:999px;box-shadow:none}
+#towel-nudge,#tour{min-height:48px;height:auto;max-width:calc(100vw - 28px);padding:6px 7px 6px 14px;white-space:normal;word-break:keep-all;background:var(--ios-panel)}
+#tour span{font-weight:710;line-height:1.33}
+#tour [data-tour-go],#towel-nudge button{flex-shrink:0}
+#spot-action,#towel-open{background:var(--ios-panel);border:1px solid var(--ios-edge)}
+/* Primary sheets are more opaque to keep labels readable over 3D objects. */
+#shop-dialog,#places-dialog,#join-dialog,#fortune-dialog,#transfer-dialog,#report-dialog,
+#towel-game,#game,.glass-card,#person-card,#chatreq-card,#trade-card{
+  color:var(--ios-ink);
+  background:var(--ios-panel);
+  border:1px solid var(--ios-edge);
+  -webkit-backdrop-filter:var(--ios-bright-frost);
+  backdrop-filter:var(--ios-bright-frost);
+  box-shadow:var(--ios-pop);
+}
+#shop-dialog,#places-dialog,#join-dialog,#fortune-dialog,#transfer-dialog,#report-dialog{border-radius:30px}
+#shop-dialog::backdrop,#places-dialog::backdrop,#join-dialog::backdrop,#fortune-dialog::backdrop,
+#transfer-dialog::backdrop,#report-dialog::backdrop{background:rgba(28,22,18,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.places-heading h2{color:var(--ios-ink)}
+.places-list button,.shop-items article,.shop-games button,.transfer-box,
+#fortune-result,.fortune-entry{
+  border:1px solid rgba(255,255,255,.72);
+  background:var(--ios-raised);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.78),0 4px 12px rgba(77,51,30,.06);
+}
+.places-list button:active,.shop-games button:active{transform:scale(.985)}
+.fortune-entry small,.places-list small,.shop-items p{color:var(--ios-muted)}
+#chat-form{border:1px solid var(--ios-edge);background:var(--ios-panel);box-shadow:var(--ios-pop);-webkit-backdrop-filter:var(--ios-bright-frost);backdrop-filter:var(--ios-bright-frost)}
+#chat.history #chat-log{background:rgba(31,25,22,.25);border:1px solid rgba(255,255,255,.35);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+#chat-note{background:var(--ios-panel);color:var(--ios-ink);border:1px solid var(--ios-edge)}
+#tv-ad{background:var(--ios-panel);border:1px solid var(--ios-edge);-webkit-backdrop-filter:var(--ios-frost);backdrop-filter:var(--ios-frost);box-shadow:var(--ios-glow)}
+/* Material safety: readable fallback on older iOS browsers or reduced transparency. */
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+  .brand,.quiet-button,.room-badge,#wallet,.online-pill,#joystick,#chat-open,.controls,
+  .scene-hint,#toast,#tour,#towel-nudge,.glass-round,#shop-dialog,#places-dialog,
+  #join-dialog,#fortune-dialog,#transfer-dialog,#report-dialog,#game,#towel-game,
+  .glass-card,#spot-action,#towel-open,#chat-form{background:rgba(255,250,243,.94)}
+}
+@media(prefers-reduced-transparency:reduce){
+  .brand,.quiet-button,.room-badge,#wallet,.online-pill,#joystick,#chat-open,.controls,
+  .scene-hint,#toast,#tour,.glass-round,#shop-dialog,#places-dialog,#join-dialog,
+  #fortune-dialog,#transfer-dialog,#report-dialog,#game,#towel-game,.glass-card,
+  #spot-action,#towel-open,#chat-form{background:rgba(255,250,243,.95);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
+@media(max-width:760px){
+  #toast{top:calc(var(--safe-top) + 150px);font-size:12px}
+  .controls{border-radius:28px}
+  .scene-hint{max-width:calc(100vw - 24px);font-size:11px;padding:7px 11px}
+  #tour{font-size:12.5px}
+  .room-badge span{display:none}
+}
+@media(max-height:500px) and (orientation:landscape){
+  .scene-hint{display:none}
+  #toast{top:calc(var(--safe-top) + 55px);max-width:calc(100vw - 36px)}
+}
+
+/* Online chip expands to a small inline visitor stats popover, not another modal. */
+#visitor-stats{
+  position:absolute;z-index:9;
+  top:calc(var(--safe-top,0px) + 166px);
+  left:14px;width:min(310px,calc(100vw - 28px));
+  padding:15px 16px 12px;
+  background:var(--ios-panel);color:var(--ios-ink);
+  border:1px solid var(--ios-edge);border-radius:25px;
+  -webkit-backdrop-filter:var(--ios-bright-frost);backdrop-filter:var(--ios-bright-frost);
+  box-shadow:var(--ios-pop);
+}
+#visitor-stats header{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:760}
+#visitor-stats-close{background:rgba(255,255,255,.57);border:1px solid rgba(255,255,255,.8);border-radius:50%;width:31px;height:31px;font-size:20px;color:var(--ios-ink)}
+#visitor-stats dl{margin:12px 0 8px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+#visitor-stats dl div{padding:12px 6px;text-align:center;background:rgba(255,255,255,.48);border:1px solid rgba(255,255,255,.75);border-radius:16px}
+#visitor-stats dt{font-size:10px;color:var(--ios-muted);margin-bottom:6px}
+#visitor-stats dd{margin:0;font-size:16px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+#visitor-stats-note{font-size:10px;line-height:1.5;color:var(--ios-muted);margin:6px 2px 0;word-break:keep-all}
+@media(max-width:760px){#visitor-stats{top:calc(var(--safe-top,0px) + 140px);left:12px}}
+/* A resting visitor cannot consume food while lying down. Wave stays available. */
+.actions [data-action="egg"]:disabled,.actions [data-action="drink"]:disabled{opacity:.32;filter:grayscale(.45);cursor:not-allowed}
+
+/* Compact single-line tour: reserve room for the label before actions. */
+#tour{width:min(560px,calc(100vw - 24px));max-width:calc(100vw - 24px);box-sizing:border-box;min-width:0;height:44px;min-height:44px;padding:0 7px 0 12px;gap:7px;border-radius:24px;border:.5px solid rgba(255,255,255,.42);box-shadow:0 3px 12px rgba(55,35,22,.10);}
+#tour span{display:block;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap!important;word-break:normal;line-height:1.2;font-size:12px;font-weight:650;}
+#tour [data-tour-go]{flex:0 0 auto;height:30px;min-width:48px;padding:0 10px;font-size:12px;white-space:nowrap;box-shadow:0 2px 6px rgba(242,104,60,.15)}
+#tour .tour-close{flex:0 0 22px;width:22px;height:28px;font-size:12px;}
+
+/* Thin stroke throughout the in-game HUD, not just the tour. */
+:root{--ios-edge:rgba(255,255,255,.30);--ios-glow:inset 0 0 0 .5px rgba(255,255,255,.30)}
+#hud button,#hud .glass,#hud .pill,#hud .chip,#hud .badge,#tour,#towel-nudge,#actions,#action-bar,#controls button,#joystick,#chat-open,#online-chip,#spot-action,#towel-open{border-width:.5px!important;outline-width:.5px;}
+#tour{border:.5px solid rgba(255,255,255,.30)!important;box-shadow:0 2px 8px rgba(55,35,22,.08)!important;}
+
+/* Tour copy: show at most two readable lines on mobile. */
+#tour{height:auto;min-height:44px;max-height:64px;padding-top:6px;padding-bottom:6px;}
+#tour span{display:-webkit-box!important;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;white-space:normal!important;overflow:hidden;text-overflow:ellipsis;line-height:1.3;max-height:2.6em;overflow-wrap:anywhere;}
+
+/* iPhone: tour should be a small floating chip, not a full-width banner. */
+@media(max-width:760px){
+ #tour{width:min(330px,calc(100vw - 36px));max-width:calc(100vw - 36px);min-height:40px;max-height:58px;padding:5px 6px 5px 11px;gap:5px;border-radius:22px;}
+ #tour span{font-size:12px;line-height:1.25;max-height:2.5em;}
+ #tour [data-tour-go]{min-width:44px;height:29px;padding:0 9px;font-size:11px;}
+ #tour .tour-close{width:19px;flex-basis:19px;font-size:11px;}
+}
+
+/* Mobile HUD collision fixes: notifications, tour and context action get separate lanes. */
+@media (max-width:760px) {
+  #tour {
+    box-sizing:border-box;
+    bottom:calc(var(--safe-bottom) + 304px);
+    width:min(340px,calc(100vw - 28px));
+    max-width:calc(100vw - 28px);
+    padding:7px 9px 7px 12px;
+    min-height:44px;
+    max-height:none;
+    height:auto;
+    gap:7px;
+    border-radius:20px;
+    white-space:normal;
+  }
+  #tour span { flex:1 1 auto; min-width:0; max-height:none; line-height:1.3; -webkit-line-clamp:2; }
+  #tour [data-tour-go] {
+    flex:0 0 auto;
+    min-width:74px;
+    max-width:112px;
+    height:34px;
+    padding:0 10px;
+    white-space:nowrap;
+    overflow:visible;
+    font-size:12px;
+  }
+  #tour .tour-close { flex:0 0 25px; width:25px; height:30px; }
+  #spot-action { bottom:calc(var(--safe-bottom) + 242px); max-width:calc(100vw - 28px); }
+  /* Keep the tour above the nearby action so first-time guests can see both. */
+  body:has(#spot-action:not([hidden])) #tour { bottom:calc(var(--safe-bottom) + 304px); }
+  #toast { top:auto; bottom:calc(var(--safe-bottom) + 310px); width:max-content; max-width:calc(100vw - 32px); box-sizing:border-box; }
+  #toast span { min-width:0; overflow-wrap:anywhere; }
+  #toast button { flex:0 0 auto; max-width:42vw; white-space:normal; }
+  body:has(#toast:not([hidden])) #tour { display:none!important; }
+  .actions { width:100%; justify-content:space-around; }
+  .actions>button { flex:1 1 0; width:auto; min-width:0; }
+}
+
+
+/* 사주방 AI 분석 중: 잔잔한 점괘 애니메이션 */
+#fortune-result:has(.fortune-loading){padding:28px 18px;text-align:center;min-height:250px;display:grid;place-items:center}
+.fortune-loading{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.fortune-orbit{position:relative;width:92px;height:92px;margin:0 auto 4px;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle,#fff8f0 0 38%,#f8e7e4 39% 67%,transparent 68%)}
+.fortune-orbit:before,.fortune-orbit:after{content:"";position:absolute;inset:5px;border:1px solid #f3a17f80;border-radius:50%;animation:fortune-orbit 5s linear infinite}
+.fortune-orbit:after{inset:14px;border-color:#d4a6c8a0;animation-direction:reverse;animation-duration:7s}
+.fortune-orbit span{font-size:40px;color:#e98261;animation:fortune-breathe 1.8s ease-in-out infinite;z-index:1}
+.fortune-orbit i,.fortune-orbit b{position:absolute;width:9px;height:9px;border-radius:50%;background:#f39b78;top:5px;left:41px;transform-origin:5px 41px;animation:fortune-orbit 3.5s linear infinite}
+.fortune-orbit b{width:6px;height:6px;background:#b99bc8;top:15px;left:43px;transform-origin:3px 31px;animation-duration:4.5s;animation-direction:reverse}
+.fortune-loading-kicker{margin:0;color:#dc876c;font-size:9px;font-weight:800;letter-spacing:2px}
+.fortune-loading h3{margin:2px 0 0;font-size:18px;color:var(--ink)}
+.fortune-loading-copy{margin:0;color:var(--ink-soft);font-size:13px;line-height:1.7}
+.fortune-progress{width:min(190px,75%);height:4px;margin-top:8px;overflow:hidden;border-radius:9px;background:#eadbd5}
+.fortune-progress i{display:block;width:38%;height:100%;border-radius:9px;background:linear-gradient(90deg,#f5a27f,#d9a9c8);animation:fortune-progress 2.2s ease-in-out infinite}
+.fortune-loading-step{margin:2px 0 0;color:#a28c83;font-size:11px}
+.fortune-error{text-align:center;padding:16px 4px}
+.fortune-error>span{font-size:34px}
+.fortune-error h3{font-size:17px;margin:8px 0;color:var(--ink)}
+.fortune-error p{font-size:12px;line-height:1.6;color:var(--ink-soft);overflow-wrap:anywhere}
+.fortune-retry{border:0;border-radius:22px;padding:11px 22px;background:var(--hot);color:white;font-weight:800}
+@keyframes fortune-orbit{to{transform:rotate(360deg)}}
+@keyframes fortune-breathe{50%{transform:translateY(-4px) scale(1.08);opacity:.72}}
+@keyframes fortune-progress{0%{transform:translateX(-110%)}100%{transform:translateX(360%)}}
+@media(prefers-reduced-motion:reduce){.fortune-orbit:before,.fortune-orbit:after,.fortune-orbit span,.fortune-orbit i,.fortune-orbit b,.fortune-progress i{animation:none}}
+
+/* A separate, accessible AI interpretation beneath the deterministic daily fortune. */
+#fortune-ai-section{margin-top:12px;padding:14px 16px;background:rgba(240,230,255,.74);border:1px solid rgba(132,96,179,.14);border-radius:20px}
+#fortune-ai-status{font-size:15px;line-height:1.45;margin:0 0 8px;color:var(--ink)}
+#fortune-ai{font-size:14.5px;line-height:1.7;white-space:pre-wrap;margin:0;color:var(--ink)}
+.fortune-ai-retry{border:0;background:#e7d8ff;padding:9px 14px;border-radius:12px;font:inherit;font-weight:700;color:var(--ink)}
+#fortune-go:disabled{opacity:.6;cursor:wait}
+
+/* Fortune consultation: loading is an overlay, never a premature result card. */
+#fortune-progress[hidden],#fortune-progress-actions[hidden]{display:none!important}
+#fortune-progress.fortune-progress-overlay{
+  position:fixed;inset:0;z-index:20;display:grid;place-items:center;
+  padding:20px;background:rgba(39,27,23,.56);
+  -webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px)
+}
+.fortune-progress-card{
+  width:min(100%,330px);padding:26px 22px 22px;border-radius:28px;
+  background:linear-gradient(155deg,#fffaf5,#f9ebfc);
+  box-shadow:0 22px 70px rgba(43,22,30,.25);
+  text-align:center;border:1px solid rgba(255,255,255,.7)
+}
+#fortune-progress .fortune-loading{gap:10px}
+#fortune-progress .fortune-progress{margin-inline:auto}
+.fortune-progress-actions{display:flex;justify-content:center;gap:10px;margin-top:18px}
+.fortune-progress-close{padding:11px 18px;border:0;border-radius:20px;background:#eee6ed;color:var(--ink);font-weight:700}
+#fortune-progress[data-state="error"] .fortune-orbit:before,
+#fortune-progress[data-state="error"] .fortune-orbit:after,
+#fortune-progress[data-state="error"] .fortune-progress{display:none}
+#fortune-result .fortune-text{white-space:pre-wrap;line-height:1.7;margin-top:8px}

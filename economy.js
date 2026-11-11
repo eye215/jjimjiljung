@@ -6,7 +6,7 @@ export const SNACKS = Object.freeze({
 });
 export const WELCOME_POINTS = 10, DAILY_EARN_CAP = 60, REST_SECONDS = 30;
 // Rewarded TV ads: separate from the daily earning cap.
-export const AD_REWARD = 3, AD_DAILY = 3, AD_GAP_MS = 120000;
+export const AD_REWARD = 10, AD_DAILY = 3, AD_GAP_MS = 120000;
 const KEY = 'jjimjiljung-wallet-v1';
 
 // Days roll over at midnight Korea time, wherever the visitor is.

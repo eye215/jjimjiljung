@@ -1,20 +1,21 @@
 import * as THREE from './vendor/three.module.min.js';
-import { planPath, stepMovement } from './navigation.js?v=rpg-35';
-import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-35';
-import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-35';
-import { createTowelGame } from './towel.js?v=rpg-35';
-import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-35';
-import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-35';
-import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-35';
-import { buildWorld } from './environment.js?v=rpg-35';
-import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TOWEL_SPOT, TOWEL_DECOR, SPOTS, roomAt } from './world.js?v=rpg-35';
-import { createTvAds } from './ads.js?v=rpg-35';
-import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-35';
-import { createSocial } from './social.js?v=rpg-35';
-import { createWallet, REST_SECONDS } from './economy.js?v=rpg-35';
-import { createShop } from './shop.js?v=rpg-35';
-import { createInvite } from './invite.js?v=rpg-35';
-import { createTour, loadTour } from './tour.js?v=rpg-35';
+import { planPath, stepMovement, avoidVisitors } from './navigation.js?v=rpg-51';
+import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-51';
+import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-51';
+import { createTowelGame } from './towel.js?v=rpg-51';
+import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-51';
+import { requestSajuAI } from './net.js?v=rpg-54';
+import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-51';
+import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-51';
+import { buildWorld } from './environment.js?v=rpg-51';
+import { ROOMS, DESTINATIONS, SPAWN, TV_SEAT, TV_SEATS, TOWEL_SPOT, TOWEL_DECOR, SPOTS, SCRUB_BEDS, POOL_SEATS, CHAIR_SEATS, roomAt } from './world.js?v=rpg-51';
+import { createTvAds } from './ads.js?v=rpg-51';
+import { createSleepMode, GALAXY_DELAY } from './sleep.js?v=rpg-51';
+import { createSocial } from './social.js?v=rpg-56';
+import { createWallet, REST_SECONDS, DAILY_EARN_CAP } from './economy.js?v=rpg-51';
+import { createShop } from './shop.js?v=rpg-51';
+import { createInvite } from './invite.js?v=rpg-51';
+import { createTour, loadTour } from './tour.js?v=rpg-51';
 
 // Everything, including textures and the pinned renderer, is served by Pages.
 // No model, font, analytics, or CDN request is needed to enter the room.
@@ -88,16 +89,18 @@ const residents = [
   { x: 3.2, z: -8.5, y: .05, face: -.5, action: 'sit' },
   { x: 9.5, z: -11.05, y: .1, face: 0, action: 'lie' },
   { x: 14.5, z: -1.7, y: 0, face: -Math.PI / 2, action: 'stand', greeter: true },
-  { x: 13.4, z: 11.6, y: 0, face: -Math.PI / 2, action: 'stand', scrubber: true },
+  { x: 14.45, z: 12.4, y: 0, face: -Math.PI / 2, action: 'stand', scrubber: true },
   { x: 14.7, z: 4.8, y: 0, face: -Math.PI / 2, action: 'stand', clerk: true },
   { x: 1.5, z: 12.3, y: 0, face: -.4, action: 'sit' },
-  { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' }
+  { x: -12.6, z: 1.7, y: .07, face: 0, action: 'lie' },
+  { x: -11.5, z: 9.5, y: .12, face: 0, action: 'sit', fortuneTeller: true }
 ].map((config, index) => {
   const actor = kit.createCharacter(outfitColors(randomOutfit(seeded(index * 977 + 31))));
   actor.root.position.set(config.x, config.y, config.z); actor.root.rotation.y = config.face; actor.root.scale.setScalar(ACTOR_SCALE);
   scene.add(actor.root); actor.config = config; if (config.action !== 'lie') contactShadow().position.set(config.x, .012, config.z);
   return actor;
 });
+let fortuneSpeaking = 0;
 
 // A few translucent motes near the player, kept subtle and disabled for reduced motion.
 const motePositions = new Float32Array(40 * 3); for (let i = 0; i < 40; i++) { motePositions[i * 3] = (Math.random() - .5) * 12; motePositions[i * 3 + 1] = Math.random() * 3 + .4; motePositions[i * 3 + 2] = (Math.random() - .5) * 10; }
@@ -108,6 +111,8 @@ const motes = new THREE.Points(motesGeometry, new THREE.PointsMaterial({ color: 
 let soak = null;
 let social = null, localWalking = false, snackSig = '', snackSerial = 0, restTimer = 0;
 let action = 'stand', facing = 0, elapsed = 0, contextLost = false, raf = 0, lastTime = 0;
+// Short hand gesture layered over the current seated or reclining posture.
+let waveTimer = 0, seatedChair = null;
 const target = new THREE.Vector3(START.x, 0, START.z);
 const route = [];
 let activeDestination = null, currentRoom = null, tour = null;
@@ -117,15 +122,26 @@ const messages = { stand: '어서 와요, 푹 쉬다 가요.', sit: '따끈따�
 // ---------- 매점 wallet, toasts and shop ----------
 const wallet = createWallet();
 const toastBox = document.querySelector('#toast'), toastText = toastBox.querySelector('span'), toastButton = toastBox.querySelector('button');
-let toastTimer2 = 0, toastAction = null;
+let toastTimer2 = 0, toastAction = null, lastToast = '', lastToastAt = 0;
 function toast(text, label = '', onClick = null, ms = 0) {
-  toastText.textContent = text; toastButton.hidden = !label; toastButton.textContent = label; toastAction = onClick;
-  toastBox.hidden = false; clearTimeout(toastTimer2); toastTimer2 = setTimeout(() => { toastBox.hidden = true; }, ms || (label ? 5000 : 2600));
+  // Keep one calm notification at a time. Identical transient notifications should
+  // not keep popping up, but actionable prompts (e.g. accept a greeting) are never deduped.
+  const now = performance.now();
+  if (!label && text === lastToast && now - lastToastAt < 7000) return;
+  lastToast = text; lastToastAt = now;
+  toastText.textContent = text; toastButton.hidden = !label;
+  toastBox.dataset.actionable = String(!!label);
+  toastButton.textContent = label; toastAction = onClick;
+  toastBox.hidden = false; clearTimeout(toastTimer2);
+  toastTimer2 = setTimeout(() => { toastBox.hidden = true; }, ms || (label ? 5000 : 1900));
 }
 toastButton.addEventListener('click', () => { toastBox.hidden = true; toastAction?.(); });
 let tvReady = false;
 const shop = createShop({
   wallet, toast,
+  onGameComplete: kind => tour?.done(kind),
+  onGameCancel: kind => tour?.retry(kind),
+  canSnack: () => action !== 'lie',
   tv: { worth: () => tvReady && tvAds.worthVisiting, go: () => goToTv() },
   eat: (kind, style) => eat(kind, style),
   play: (kind, style) => eat(kind, style),
@@ -149,17 +165,21 @@ const tvAds = createTvAds({
 });
 tvReady = true; shop.render();
 function goToTv() {
-  if (Math.hypot(hero.position.x - TV_SEAT.x, hero.position.z - TV_SEAT.z) < .3) { setAction('sit'); return; }
-  moveTo(TV_SEAT.x, TV_SEAT.z); activeDestination = TV_SEAT; status.textContent = 'TV 앞 방석으로 걸어가는 중이에요.';
+  const seat = freeSeat(TV_SEATS.map(s => [s.x, s.z]), [hero.position.x, hero.position.z]);
+  if (!seat) { toast('TV 앞 방석이 모두 찼어요. 잠시 후 다시 와 주세요 📺'); return; }
+  const selected = TV_SEATS.find(s => s.x === seat[0] && s.z === seat[1]);
+  if (Math.hypot(hero.position.x - selected.x, hero.position.z - selected.z) < .3) { setAction('sit'); return; }
+  moveTo(selected.x, selected.z); activeDestination = selected; status.textContent = '빈 TV 방석으로 걸어가는 중이에요.';
 }
-const nearTv = () => currentRoom?.id === 'lobby' && Math.hypot(hero.position.x - TV_SEAT.x, hero.position.z - TV_SEAT.z) < .8;
+const nearTv = () => currentRoom?.id === 'lobby' &&
+  TV_SEATS.some(s => Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < .9);
 const tvPoint = new THREE.Vector3();
-function updateTv(dt) {
+function updateTv(dt, clockDt = dt) {
   const seated = action === 'sit' && nearTv();
   if (seated !== tvSeated) {
     tvSeated = seated; tvButton.hidden = !seated;
     // Swing the camera round behind the sitter so the TV fills the view.
-    if (seated) { tvCheck = 0; tvTurn = 1.6; tvAds.prepare(); } else { tvTurn = 0; tvAds.leave(); }
+    if (seated) { tour?.done('tv'); tvCheck = 0; tvTurn = 1.6; tvAds.prepare(); } else { tvTurn = 0; tvAds.leave(); }
   }
   if (tvTurn > 0) {
     tvTurn -= dt; const goal = TV_SEAT.facing + Math.PI + .3;
@@ -169,7 +189,7 @@ function updateTv(dt) {
   world.tv.setMode(seated && tvAds.state === 'ready' ? 'ad' : 'channel');
   if (!seated) return;
   // Re-check each second (cooldowns end, midnight resets); retry "no ad" every 30 s.
-  tvCheck += dt;
+  tvCheck += clockDt;
   if (tvCheck > 1 && ['idle', 'cooldown', 'done'].includes(tvAds.state)) { tvCheck = 0; tvAds.prepare(); }
   else if (tvCheck > 30 && tvAds.state === 'none') { tvCheck = 0; tvAds.retry(); }
   // Pin the button to the TV screen.
@@ -216,40 +236,59 @@ function resize() {
 }
 
 function updateActionButtons() {
-  for (const button of actionButtons) { const selected = button.dataset.action === action || button.dataset.action === player.snack?.kind; button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected)); }
+  for (const button of actionButtons) {
+    const kind = button.dataset.action;
+    const selected = kind === action || kind === player.snack?.kind;
+    button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected));
+    if (kind === 'egg' || kind === 'drink') {
+      button.disabled = action === 'lie';
+      button.setAttribute('aria-label', action === 'lie' ? '누워서는 먹을 수 없어요. 먼저 앉거나 일어나세요.' : kind === 'egg' ? '계란 먹기' : '식혜 마시기');
+    }
+  }
 }
 function setAction(next) {
   if (!messages[next]) return;
+  if (seatedChair && next !== 'sit') {
+    // The chair is a solid navigation obstacle. Step outside before walking.
+    hero.position.set(seatedChair.ax,0,seatedChair.az); seatedChair = null;
+  }
   if (soak && next !== 'sit') leaveSoak();
   interruptSnack();
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick();
-  action = next; target.copy(hero.position); status.textContent = messages[next];
+  action = next; waveTimer = 0; target.copy(hero.position); status.textContent = messages[next];
   updateActionButtons();
   // Turn towards the camera for poses, so faces and snacks are visible.
   if (next !== 'stand' && next !== 'lie') facing = next === 'sit' && nearTv() ? TV_SEAT.facing : view.yaw;
   // On a 수면실 mat, lie along the bed with the head on its pillow.
   if (next === 'lie') facing = currentRoom?.id === 'sleep' ? 0 : view.yaw + Math.PI / 2;
+  if (next === 'stand' || next === 'lie') seatedChair = null;
   player.sitStyle = currentRoom?.id === 'hot' || currentRoom?.id === 'salt' ? 'cross' : 'relaxed';
   hint.textContent = next === 'stand' ? walkHint : '다시 걷고 싶으면 바닥을 톡 눌러요 ↗';
 }
 actionButtons.forEach(button => button.addEventListener('click', () => {
   const kind = button.dataset.action;
-  if (kind === 'egg' || kind === 'drink') { if (player.snack?.kind !== kind && !shop.playing) shop.choose(kind); } else if (kind === 'wave') startGreet(); else setAction(kind);
+  if (kind === 'egg' || kind === 'drink') { if (action !== 'lie' && player.snack?.kind !== kind && !shop.playing) shop.choose(kind); } else if (kind === 'wave') startGreet(); else setAction(kind);
 }));
 // ---------- Snacks: eaten in the current pose (sitting or standing) ----------
 function interruptSnack() { if (player.snack) { player.stopSnack(); snackSig = ''; } }
 function eat(kind, style = 'normal') {
-  // The plush eats sitting down (its drinking clip is a seated one).
-  if (kit.plush ? action !== 'sit' : action === 'lie' || action === 'wave') setAction(kit.plush ? 'sit' : action === 'lie' ? 'sit' : 'stand'); else interruptSnack();
+  // Preserve the current standing or seated pose. Never eat while lying.
+  if (action === 'lie') return null;
+  if (action === 'wave') setAction('stand');
+  else interruptSnack();
   route.length = 0; activeDestination = null; destinationMarker.visible = false; stopJoystick(); keys.clear();
   facing = view.yaw; snackSig = `${kind}:${style}:${++snackSerial}`;
   const serial = snackSig;
+  let startedSnack;
   player.startSnack(kind, { style, onDone: finished => {
     if (snackSig === serial) snackSig = '';
     updateActionButtons();
-    if (finished) tour?.done(kind);
+    // The one-shot game finishes externally, then puts its cup away via stopSnack.
+    // Preserve cancellation semantics, but count a genuinely finished game in the tour.
+    if (finished || (kind === 'drink' && style === 'oneshot' && startedSnack?.finished)) tour?.done(kind);
     if (finished) status.textContent = kind === 'egg' ? '냠, 다 먹었다! 고소하고 든든해요.' : '캬~ 속까지 시원해요.';
   } });
+  startedSnack = player.snack;
   status.textContent = kind === 'egg' ? (style === 'forehead' ? '이마로 톡! 계란 깨기 도전…' : '톡톡, 맥반석 계란 까는 중…') : style === 'oneshot' ? '살얼음 식혜 원샷 도전!' : '살얼음 식혜 한 모금…';
   hint.textContent = '걸으면 간식을 내려놓아요';
   updateActionButtons();
@@ -272,7 +311,7 @@ outfitButton.addEventListener('click', () => {
 });
 capButton.addEventListener('click', () => {
   applyOutfit({ ...outfit, wear: !outfit.wear });
-  toast(outfit.wear ? '🐑 양머리를 썼어요' : '🐑 양머리를 벗었어요');
+  // The visible towel change and pressed state already confirm this action.
 });
 applyOutfit(outfit);
 
@@ -281,6 +320,7 @@ const towelOpen = document.querySelector('#towel-open');
 let openTowelOnArrival = false;
 const towelGame = createTowelGame({
   onOpen: () => { setAction('stand'); if (nearTowels()) facing = TOWEL_SPOT.facing; keys.clear(); },
+  onClose: () => tour?.retry('towel'),
   onDone: (color, wear) => {
     applyOutfit({ ...addTowel(outfit, color), wear }); tour?.done('towel');
     player.celebrate(); toast(wear ? '🐑 양머리 완성! 잘 어울려요' : '🐑 양머리 완성! 옷 버튼 위 🐑로 언제든 써요');
@@ -311,6 +351,8 @@ function arrive() {
   const place = activeDestination;
   destinationMarker.visible = false;
   if (place) { setAction(place.action || 'stand'); if (place.facing != null) facing = place.facing; activeDestination = place; status.textContent = place.arrival; }
+  const arrivalSteps = { entrance: 'desk', locker: 'locker', bath: 'bath', fortune: 'fortune', scrub: 'scrub', sleep: 'sleep' };
+  if (place && arrivalSteps[place.id]) tour?.arrived(arrivalSteps[place.id]);
   if (place?.id === 'tv') tour?.done('tv');
   if (place?.id === 'shop' && openShopOnArrival) { openShopOnArrival = false; shop.openShop(); }
   if (place?.id === 'towel') { facing = TOWEL_SPOT.facing; if (openTowelOnArrival) { openTowelOnArrival = false; towelGame.open(); } }
@@ -322,11 +364,11 @@ function enterRoom(room) {
   currentRoom = room; viewport.dataset.room = room.id;
   // The lobby step only counts once the intro has led there (a newcomer walks through it earlier).
   if (room.id !== 'lobby' || tour?.step === 'lobby') tour?.done(room.id === 'lobby' ? 'lobby' : ['hot', 'ice', 'salt'].includes(room.id) ? room.id : '');
+  if (['locker', 'bath', 'fortune', 'scrub', 'sleep'].includes(room.id)) tour?.arrived(room.id);
   badge.innerHTML = `<i></i> ${room.name} <span>${room.note}</span>`;
-  if (!roomToast.dataset.silent) {
-    roomToast.textContent = `♨ ${room.name}에 들어왔어요`; roomToast.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => { roomToast.hidden = true; }, 1800);
-  }
+  // The fixed room badge already shows the location. Avoid another popup
+  // each time a player crosses a threshold (especially during guided touring).
+  roomToast.hidden = true;
 }
 roomToast.dataset.silent = '1'; enterRoom(roomAt(hero.position.x, hero.position.z) || ROOMS[0]); delete roomToast.dataset.silent;
 
@@ -549,25 +591,76 @@ function updateOcclusion(dt) {
 for (const m of fadeMeshes) if (m.material.transparent) m.material.userData.alwaysTransparent = true;
 
 function damp(object, key, to, dt, speed = 9) { object[key] = THREE.MathUtils.damp(object[key], to, speed, dt); }
+// Reuse the existing bottom hint instead of adding another popup on a crowded phone.
+// This reads the SAME timer and wallet cap as the reward loop; it cannot grant points.
+let restHintOwned = false, restHintLast = '', restHintSecond = -1, restHintRoom = '';
+const warmthWallet = document.querySelector('#wallet');
+let warmthPulseTimer = 0;
+function updateRestHint(earning) {
+  if (earning && !shop.playing && !document.body.classList.contains('chat-open')) {
+    const seconds = Math.max(1, Math.ceil(REST_SECONDS - restTimer));
+    // Save performance on mobile: only query the wallet when a second (or room) changes.
+    if (restHintOwned && seconds === restHintSecond && currentRoom?.id === restHintRoom) return;
+    restHintSecond = seconds; restHintRoom = currentRoom?.id;
+    const earned = wallet.snapshot().earnedToday;
+    const amount = ['hot', 'salt', 'bath'].includes(currentRoom?.id) ? 2 : 1;
+    const message = earned >= DAILY_EARN_CAP
+      ? '♨ 오늘 모을 수 있는 온기는 다 모았어요 · 매점에서 간식으로 바꿔요'
+      : `♨ ${seconds}초 뒤 온기 +${Math.min(amount, DAILY_EARN_CAP - earned)} · 모아서 식혜·계란을 살 수 있어요`;
+    if (message !== restHintLast) { hint.textContent = message; restHintLast = message; }
+    restHintOwned = true;
+    hint.classList.add('warmth-active');
+  } else if (restHintOwned) {
+    restHintOwned = false; restHintLast = ''; restHintSecond = -1; restHintRoom = '';
+    hint.classList.remove('warmth-active');
+    if (!document.body.classList.contains('sleeping'))
+      hint.textContent = action === 'stand' ? walkHint : '다시 걸으려면 바닥을 톡 눌러요 ↗';
+  }
+}
+function pulseWallet() {
+  warmthWallet.classList.remove('warmth-earned');
+  void warmthWallet.offsetWidth;
+  warmthWallet.classList.add('warmth-earned');
+  clearTimeout(warmthPulseTimer);
+  warmthPulseTimer = setTimeout(() => warmthWallet.classList.remove('warmth-earned'), 1400);
+}
 const ambientColor = new THREE.Color(), ambientGoal = new THREE.Color();
 function frame(now) {
   if (contextLost || document.hidden || adPlaying) return;
   // A queued RAF timestamp can precede initialization after shader compilation.
   // Negative dt makes exponential damping diverge and spins the limbs wildly.
-  const dt = THREE.MathUtils.clamp((now - lastTime) / 1000, 0, .05); lastTime = now; elapsed += dt;
+  // Animate with a stable 50ms step, but measure soak/scrub/earn intervals with
+  // elapsed wall time. A 1-2 FPS mobile phone must not take several minutes to
+  // finish a 6-second scrub or a 30-second warmth interval.
+  const clockDt = Math.max(0, Math.min((now - lastTime) / 1000, 1));
+  const dt = Math.min(clockDt, .05); lastTime = now; elapsed += dt;
+  waveTimer = Math.max(0, waveTimer - dt);
+  fortuneSpeaking = Math.max(0, fortuneSpeaking - dt);
   let walking = false;
   let inputX = joystickInput.x + (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
   let inputZ = joystickInput.z + (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0);
   const inputLength = Math.hypot(inputX, inputZ); if (inputLength > 1) { inputX /= inputLength; inputZ /= inputLength; }
   if (action === 'stand' && inputLength > .01) {
     const move = screenToWorld(inputX, inputZ);
-    const next = stepMovement({ x: hero.position.x, z: hero.position.z }, move.x * dt * WALK_SPEED, move.z * dt * WALK_SPEED);
+    const from = { x: hero.position.x, z: hero.position.z };
+    const proposed = stepMovement(from, move.x * dt * WALK_SPEED, move.z * dt * WALK_SPEED);
+    const safe = avoidVisitors(from, proposed, blockingPlayers());
+    const next = stepMovement(from, safe.x - from.x, safe.z - from.z);
     const dx = next.x - hero.position.x, dz = next.z - hero.position.z; walking = Math.hypot(dx, dz) > .0005;
     hero.position.set(next.x, 0, next.z); target.copy(hero.position); facing = Math.atan2(move.x, move.z);
   } else if (action === 'stand' && route.length) {
     const next = route[0], dx = next.x - hero.position.x, dz = next.z - hero.position.z, distance = Math.hypot(dx, dz);
-    if (distance > .001) { const step = Math.min(distance, dt * WALK_SPEED); hero.position.x += dx / distance * step; hero.position.z += dz / distance * step; facing = Math.atan2(dx, dz); walking = true; }
-    if (distance <= dt * WALK_SPEED + .001) { hero.position.set(next.x, 0, next.z); route.shift(); if (!route.length) arrive(); }
+    if (distance > .001) {
+      const step = Math.min(distance, dt * WALK_SPEED), from = {x:hero.position.x,z:hero.position.z};
+      const safe = avoidVisitors(from, {x:from.x+dx/distance*step,z:from.z+dz/distance*step}, blockingPlayers());
+      const actual = stepMovement(from, safe.x - from.x, safe.z - from.z);
+      hero.position.x = actual.x; hero.position.z = actual.z;
+      facing = Math.atan2(actual.x-from.x || dx, actual.z-from.z || dz);
+      walking = Math.hypot(actual.x - from.x, actual.z - from.z) > .0005;
+    }
+    if (Math.hypot(next.x - hero.position.x, next.z - hero.position.z) < .045) {
+      hero.position.set(next.x, 0, next.z); route.shift(); if (!route.length) arrive();
+    }
   }
   const room = roomAt(hero.position.x, hero.position.z);
   if (room && room !== currentRoom) enterRoom(room);
@@ -581,24 +674,34 @@ function frame(now) {
   sun.position.set(view.focus.x - 5, 12, view.focus.z + 6); sun.target.position.set(view.focus.x, 0, view.focus.z);
   destinationMarker.scale.setScalar(reducedMotion ? 1 : 1 + Math.sin(elapsed * 4) * .10);
   let angle = facing - hero.rotation.y; angle = Math.atan2(Math.sin(angle), Math.cos(angle)); hero.rotation.y += angle * Math.min(1, dt * 10);
-  player.animate(action, walking, dt, reducedMotion, WALK_SPEED / 1.9);
+  player.animate(waveTimer && action === 'sit' ? 'sitwave' : waveTimer && action === 'lie' ? 'liewave' : action,
+    walking, dt, reducedMotion, WALK_SPEED / 1.9, clockDt);
   for (const resident of residents) {
     const near = Math.hypot(resident.root.position.x - hero.position.x, resident.root.position.z - hero.position.z) < 8;
-    resident.animate((resident.config.greeter && action === 'wave' && near) || (resident.config.scrubber && scrubbing > 0) || (resident.config.clerk && deskWave > 0) ? 'wave' : resident.config.action, false, dt, reducedMotion);
+    resident.animate(resident.config.fortuneTeller && fortuneSpeaking > 0 ? 'sitwave'
+      : (resident.config.greeter && action === 'wave' && near) || (resident.config.scrubber && scrubbing > 0) || (resident.config.clerk && deskWave > 0) ? 'wave'
+      : resident.config.action, false, dt, reducedMotion);
   }
   shadow.position.set(hero.position.x, .012, hero.position.z); shadow.scale.set(action === 'lie' ? 1.1 : 1, action === 'lie' ? 1.7 : 1, 1);
   if (action === 'lie') shadow.position.z -= Math.cos(hero.rotation.y) * .3;
   world.update(elapsed, reducedMotion);
   updateOcclusion(dt);
   localWalking = walking; social?.update(dt, reducedMotion);
-  updateTv(dt);
-  // Resting earns 온기: every 30 s sitting or lying (double in 불가마 and 소금방).
-  if ((action === 'sit' || action === 'lie') && !shop.playing) {
-    restTimer += dt;
-    if (restTimer >= REST_SECONDS) { restTimer = 0; const got = wallet.earn(['hot', 'salt', 'bath'].includes(currentRoom.id) ? 2 : 1); if (got) toast(`쉬는 동안 온기가 모였어요 +${got}♨`); }
+  updateTv(dt, clockDt);
+  // Resting earns 온기 every 30 seconds (doubled in hot, salt and bath rooms).
+  const resting = (action === 'sit' || action === 'lie') && !shop.playing;
+  if (resting) {
+    restTimer += clockDt;
+    if (restTimer >= REST_SECONDS) {
+      restTimer = 0;
+      const got = wallet.earn(['hot', 'salt', 'bath'].includes(currentRoom.id) ? 2 : 1);
+      // The wallet count itself and a gentle glint are enough confirmation; no toast.
+      if (got) pulseWallet();
+    }
   } else restTimer = Math.min(restTimer, REST_SECONDS * .5);
+  updateRestHint(resting);
   shop.setNearShop(currentRoom.id === 'shop' && !nearTowels());
-  updateTowelShelf(); updateSpots(dt);
+  updateTowelShelf(); updateSpots(clockDt);
   motes.visible = !reducedMotion; if (!reducedMotion) { motes.position.set(view.focus.x, 0, view.focus.z); motes.rotation.y = elapsed * .02; }
   renderer.render(scene, camera); raf = requestAnimationFrame(frame);
 }
@@ -620,7 +723,7 @@ placeTowelDecor(scene, TOWEL_DECOR).then(placed => { towelDecor = placed; viewpo
 document.querySelector('#chat-input').addEventListener('focus', () => { keys.clear(); stopJoystick(); });
 social = createSocial({
   scene, camera, kit, viewport, actorScale: ACTOR_SCALE, makeShadow: contactShadow,
-  getLocal: () => ({ x: hero.position.x, z: hero.position.z, facing: hero.rotation.y, action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
+  getLocal: () => ({ x: hero.position.x, y: hero.position.y, z: hero.position.z, facing: hero.rotation.y, action: waveTimer && action === 'sit' ? 'sitwave' : waveTimer && action === 'lie' ? 'liewave' : action, snack: snackSig, walking: localWalking, outfit: encodeOutfit(outfit), room: currentRoom.id, visible: hero.visible }),
   onTrade: payload => onTrade(payload),
   onGreet: payload => onGreet(payload),
   notify: text => toast(text)
@@ -740,8 +843,12 @@ function fly(from, to, emoji) {
 }
 const faceTo = p => { facing = Math.atan2(p.x - hero.position.x, p.z - hero.position.z); };
 function clearPick() { if (!picking) return; picking.buttons.forEach(b => b.remove()); clearTimeout(picking.timer); picking = null; }
+function gestureHello() {
+  if (action === 'sit' || action === 'lie') waveTimer = 1.5;
+  else setAction('wave');
+}
 function greet(remote) {
-  clearPick(); setAction('wave'); faceTo(remote.character.root.position);
+  clearPick(); gestureHello(); faceTo(remote.character.root.position);
   const wait = greetLog.wait(remote.id);
   if (wait) { toast(`${remote.name}님에게는 ${Math.ceil(wait / 1000)}초 뒤에 다시 인사할 수 있어요`); return; }
   greetLog.sent(remote.id); social.sendGreet(remote.id, 'hello', Math.random().toString(36).slice(2, 10));
@@ -751,7 +858,7 @@ function greet(remote) {
 function startGreet() {
   const near = social ? greetTargets(social.remotes, hero.position, currentRoom.id) : [];
   if (near.length === 1) { greet(near[0]); return; }
-  setAction('wave'); clearPick(); if (!near.length) return;
+  gestureHello(); clearPick(); if (!near.length) return;
   picking = { timer: setTimeout(clearPick, 8000), buttons: near.map(remote => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'greet-pick'; b.textContent = '👋'; b.setAttribute('aria-label', `${remote.name}님에게 인사`);
     b.addEventListener('click', event => { event.stopPropagation(); greet(remote); }); remote.label.prepend(b); return b;
@@ -759,7 +866,7 @@ function startGreet() {
   toast('누구에게 인사할까요? 이름 위 👋를 눌러요');
 }
 function highFive(remote) {
-  setAction('wave'); faceTo(remote.character.root.position); player.celebrate(); fly(hero.position, remote.character.root.position, '💖');
+  gestureHello(); faceTo(remote.character.root.position); if (action !== 'lie') player.celebrate(); fly(hero.position, remote.character.root.position, '💖');
   const got = greetLog.reward(remote.id) ? wallet.earn(1) : 0;
   toast(`${remote.name}님과 하이파이브! 🙌${got ? ` 온기 +${got}♨` : ''}`);
 }
@@ -772,31 +879,117 @@ function onGreet({ type, from, name, gid }) {
   toast(`${name}님이 인사했어요`, '👋 받아주기', () => { if (greetIn?.gid !== gid) return; greetIn = null; social.sendGreet(from, 'accept', gid); highFive(remote); }, GREET_EXPIRE);
 }
 
-// ---------- 사주방: today's fortune, computed in the browser ----------
-const fortuneDialog = document.querySelector('#fortune-dialog'), fortuneForm = document.querySelector('#fortune-form'), fortuneResult = document.querySelector('#fortune-result');
-function showFortune(birth) {
-  const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null); if (!f) return;
-  const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
-  fortuneResult.innerHTML = `<p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
-  const b = fortuneResult.querySelectorAll('b');
-  b[0].textContent = `${f.mine}(${f.element})`; b[1].textContent = `${f.today}(${f.todayElement})`; b[2].textContent = f.color; b[3].textContent = f.number;
-  fortuneResult.querySelector('h3').textContent = f.title; fortuneResult.querySelector('.fortune-text').textContent = f.text;
-  fortuneResult.hidden = false;
+// ---------- 사주방: today's fortune, computed on this device ----------
+const fortuneDialog = document.querySelector('#fortune-dialog');
+const fortuneForm = document.querySelector('#fortune-form');
+const fortuneResult = document.querySelector('#fortune-result');
+function todayInKorea() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
-document.querySelector('#fortune-open').addEventListener('click', () => {
-  tour?.done('fortune');
-  placesDialog.close(); const saved = loadBirth();
+function showFortune(birth, ai) {
+  const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
+  if (!f) { toast('생년월일을 확인해 주세요.'); return; }
+  const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+  fortuneResult.innerHTML = `<p class="fortune-voice">🔮 AI 사주 선생님의 오늘의 운세</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <time class="fortune-date"></time> <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
+  const labels = fortuneResult.querySelectorAll('b');
+  labels[0].textContent = f.mine + '(' + f.element + ')';
+  labels[1].textContent = f.today + '(' + f.todayElement + ')';
+  const fortuneDate = todayInKorea();
+  const dateLabel = fortuneResult.querySelector('.fortune-date');
+  dateLabel.dateTime = fortuneDate;
+  dateLabel.textContent = '(' + fortuneDate.replaceAll('-', '.') + ')';
+  labels[2].textContent = f.color;
+  labels[3].textContent = f.number;
+  fortuneResult.querySelector('h3').textContent = ai.title || '오늘의 사주 이야기';
+  fortuneResult.querySelector('.fortune-text').textContent = ai.text;
+  fortuneResult.hidden = false;
+  fortuneSpeaking = 2.3;
+}
+let fortuneRequestId = 0;
+const fortuneProgress = document.querySelector('#fortune-progress');
+const fortuneProgressText = document.querySelector('#fortune-progress-text');
+const fortuneProgressActions = document.querySelector('#fortune-progress-actions');
+function hideFortuneProgress() { fortuneProgress.hidden = true; }
+function cancelFortune() {
+  ++fortuneRequestId;
+  hideFortuneProgress();
+  document.querySelector('#fortune-go').disabled = false;
+}
+document.querySelector('#fortune-progress-cancel').addEventListener('click', cancelFortune);
+async function showAIFortune(birth) {
+  const requestId = ++fortuneRequestId;
+  const button = document.querySelector('#fortune-go');
   fortuneResult.hidden = true;
-  if (saved?.date) { document.querySelector('#fortune-date').value = saved.date; document.querySelector('#fortune-time').value = saved.time || ''; showFortune(saved); }
-  fortuneDialog.showModal();
-});
+  // Show a modal-style progress popup immediately; do not show the result card early.
+  fortuneProgress.hidden = false;
+  fortuneProgress.dataset.state = 'loading';
+  fortuneProgressActions.hidden = true;
+  fortuneProgressText.textContent = '사주 선생님이 사주를 살펴보고 있어요~';
+  // Keep the action tappable on iOS even if an earlier request is still pending.
+  try {
+    const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
+    if (!f) throw new Error('생년월일을 확인해 주세요.');
+    const result = await requestSajuAI(f.mine + ' / ' + f.element + ' / ' + (birth.time || '출생시각 미상'));
+    if (requestId !== fortuneRequestId) return;
+    // Dismiss loading first; reveal the AI-generated fortune in the original card.
+    hideFortuneProgress();
+    showFortune(birth, result);
+    fortuneResult.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  } catch (error) {
+    if (requestId !== fortuneRequestId) return;
+    fortuneProgress.dataset.state = 'error';
+    const reason = String(error?.message || '');
+    const help = /timed out|timeout/i.test(reason) ? 'AI 서버 응답이 지연되고 있어요.'
+      : /credits|usage limit|429|402/i.test(reason) ? 'AI 서비스 이용 한도에 도달했어요.'
+      : /access denied|401|403/i.test(reason) ? 'AI API 인증을 확인해야 해요.'
+      : /not configured/i.test(reason) ? 'AI API 키 설정을 확인해야 해요.'
+      : /Database/i.test(reason) ? '운세 저장 서버에 연결하지 못했어요.'
+      : 'AI 선생님 연결이 잠시 원활하지 않아요.';
+    fortuneProgressText.textContent = help;
+    fortuneProgressActions.hidden = false;
+    const retry = document.querySelector('#fortune-progress-retry');
+    retry.onclick = () => showAIFortune(birth);
+    console.warn('AI fortune unavailable:', error?.message || 'network error');
+  } finally {
+    button.disabled = false;
+  }
+}
+function openFortuneDialog() {
+  if (placesDialog.open) placesDialog.close();
+  document.querySelector('#fortune-date').max = todayInKorea();
+  const saved = loadBirth();
+  document.querySelector('#fortune-date').value = saved?.date || '';
+  document.querySelector('#fortune-time').value = saved?.time || '';
+  cancelFortune();
+  fortuneResult.hidden = true;
+  if (!fortuneDialog.open) fortuneDialog.showModal();
+}
+document.querySelector('#fortune-open').addEventListener('click', openFortuneDialog);
+function startFortuneFromForm(event) {
+  event?.preventDefault();
+  const dateInput = document.querySelector('#fortune-date');
+  if (!dateInput.value || !dateInput.checkValidity()) {
+    dateInput.reportValidity();
+    return;
+  }
+  const birth = { date: dateInput.value, time: document.querySelector('#fortune-time').value };
+  saveBirth(birth);
+  showAIFortune(birth);
+}
+// Use an explicit click handler rather than relying on iOS Safari's form submission.
+document.querySelector('#fortune-go').addEventListener('click', startFortuneFromForm);
 fortuneForm.addEventListener('submit', event => {
   event.preventDefault();
-  const birth = { date: document.querySelector('#fortune-date').value, time: document.querySelector('#fortune-time').value };
-  if (!birth.date) return; saveBirth(birth); showFortune(birth);
+  startFortuneFromForm(event);
 });
-document.querySelector('#fortune-close').addEventListener('click', () => fortuneDialog.close());
-document.querySelector('#fortune-forget').addEventListener('click', () => { saveBirth(null); fortuneForm.reset(); fortuneResult.hidden = true; toast('생년월일을 지웠어요'); });
+document.querySelector('#fortune-close').addEventListener('click', () => { cancelFortune(); fortuneDialog.close(); });
+document.querySelector('#fortune-forget').addEventListener('click', () => {
+  cancelFortune();
+  saveBirth(null);
+  fortuneForm.reset();
+  fortuneResult.hidden = true;
+  toast('생년월일을 지웠어요');
+});
 
 // ---------- South wing spots: 사물함 갈아입기, 사주방 운세, 세신 ----------
 const spotButton = document.querySelector('#spot-action');
@@ -811,14 +1004,74 @@ function bathReward(kind) {
 function leaveSoak() { const back = soak.back; soak = null; hero.position.set(back[0], 0, back[1]); target.copy(hero.position); }
 // 입구 카운터: the first visit hands over a locker key (kept on this device) and a fresh 찜질복.
 let lockerKey = 0; try { lockerKey = Number(localStorage.getItem('jjimjiljung-key')) || 0; } catch { /* storage may be unavailable */ }
+// Raw towel issued on arrival is independent of the sheep-cap craft. Preserve older
+// visitors' keys and towels: updates or tour replays must never wipe inventory.
+const ISSUED_TOWEL_KEY = 'jjimjiljung-issued-towel-v1';
+let issuedTowel = !!lockerKey;
+try { issuedTowel = issuedTowel || localStorage.getItem(ISSUED_TOWEL_KEY) === '1'; } catch { /* optional */ }
 const SCRUB_TIME = 6, SCRUB_GAP = 10 * 60 * 1000, SCRUB_REWARD = 2;
+// Users and resident guests share the physical spots; never place visitors on
+// top of one another. Deterministic ties resolve two simultaneous arrivals.
+const SCRUB_SLOTS = SCRUB_BEDS.map(({ x, z }) => [x, z]);
+const SEAT_CLEARANCE = .82;
+let seatRecheck = 0;
+// NPCs are non-solid for walking; only connected human visitors block movement.
+function blockingPlayers() {
+  const players = [];
+  for (const r of social?.remotes?.values() || []) {
+    if (r.placed) players.push({ x: r.target.x, z: r.target.z, uid: r.id });
+  }
+  return players;
+}
+function occupiedPositions() {
+  const people = residents.map(r => ({ x: r.root.position.x, z: r.root.position.z, uid: null, moving: false }));
+  for (const r of social?.remotes?.values() || []) {
+    if (r.placed) people.push({ x: r.target.x, z: r.target.z, uid: r.id, moving: r.walking });
+  }
+  return people;
+}
+function freeSeat(seats, from, people = occupiedPositions()) {
+  return [...seats].sort((a, b) => Math.hypot(a[0] - from[0], a[1] - from[1]) - Math.hypot(b[0] - from[0], b[1] - from[1]))
+    .find(([x, z]) => !people.some(p => Math.hypot(p.x - x, p.z - z) < SEAT_CLEARANCE)) || null;
+}
+function keepSeatClear(dt) {
+  seatRecheck += dt;
+  if (seatRecheck < .8) return;
+  seatRecheck = 0;
+  const seats = soak ? POOL_SEATS[soak.kind] : currentRoom?.id === 'scrub' && scrubbing > 0 ? SCRUB_SLOTS
+    : seatedChair ? CHAIR_SEATS.filter(s => s.room === seatedChair.room && s.kind === seatedChair.kind).map(s => [s.x,s.z])
+    : currentRoom?.id === 'lobby' && action === 'sit' && nearTv() ? TV_SEATS.map(s => [s.x, s.z]) : null;
+  if (!seats) return;
+  // Stable tie-break: only the lexicographically later visitor changes seats.
+  const other = occupiedPositions();
+  if (!other.some(p => !p.moving && Math.hypot(p.x - hero.position.x, p.z - hero.position.z) < SEAT_CLEARANCE && (!p.uid || p.uid < (social?.id || '')))) return;
+  const seat = freeSeat(seats, [hero.position.x, hero.position.z], other);
+  if (seat) {
+    if (seatedChair) seatedChair = CHAIR_SEATS.find(s => s.x === seat[0] && s.z === seat[1]) || seatedChair;
+    hero.position.set(seat[0], seatedChair?.y || 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
+    // Quiet relocation: don't throw another toast each time a guest sits down.
+  } else if (soak) {
+    setAction('stand'); toast('탕이 만석이에요. 잠시 후 다시 이용해 주세요.');
+  } else if (seatedChair) {
+    setAction('stand'); toast('의자가 만석이에요. 가까운 빈자리를 이용해 주세요.');
+  } else if (currentRoom?.id === 'lobby') {
+    setAction('stand'); toast('TV 앞 방석이 만석이에요. 잠시 후 다시 와 주세요.');
+  } else {
+    scrubbing = 0; setAction('stand');
+    hero.position.set(8.8, 0, 12.8); target.copy(hero.position); view.focus.set(8.8, 0, 12.8);
+    toast('세신대가 만석이에요. 잠시 후 다시 이용해 주세요.');
+  }
+}
 function updateSpots(dt) {
-  const near = SPOTS.find(s => s.room === currentRoom.id && Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < s.r) || null;
+  const near = SPOTS.filter(s => s.room === currentRoom.id && Math.hypot(hero.position.x - s.x, hero.position.z - s.z) < s.r)
+    .sort((a, b) => Math.hypot(hero.position.x - a.x, hero.position.z - a.z) - Math.hypot(hero.position.x - b.x, hero.position.z - b.z))[0] || null;
   const show = near && !towelGame.isOpen && !shop.playing && !scrubbing && !soak && !shower && !document.querySelector('dialog[open]');
   if (near !== spot || spotButton.hidden === !!show) { spot = near; spotButton.hidden = !show; if (near) spotButton.textContent = near.label; }
   if (show) towelNudge.hidden = true;
   if (near?.id === 'locker' && lockerKey) spotButton.textContent = `👕 ${lockerKey}번 사물함에서 갈아입기`;
   deskWave = Math.max(0, deskWave - dt);
+  keepSeatClear(dt);
+  if (soak && tour?.step === 'bath') tour.done('bath');
   if (soak && !soak.done && (soak.t -= dt) <= 0) { soak.done = true; bathReward(soak.kind); }
   if (shower > 0) {
     if (action !== 'stand' || Math.hypot(hero.position.x - spot?.x, hero.position.z - spot?.z) > 1.2 || localWalking) shower = 0;
@@ -836,29 +1089,62 @@ function updateSpots(dt) {
   }
 }
 spotButton.addEventListener('click', () => {
+  // iOS taps can land between room-proximity updates. The visible fortune action must still open.
+  if (!spot && currentRoom?.id === 'fortune') { openFortuneDialog(); return; }
   if (!spot) return;
   if (spot.id === 'desk') {
     deskWave = 2.5; faceTo({ x: 14.7, z: 4.8 }); tour?.done('desk');
     if (!lockerKey) {
       lockerKey = 1 + Math.floor(Math.random() * 120); try { localStorage.setItem('jjimjiljung-key', String(lockerKey)); } catch { /* storage may be unavailable */ }
       applyOutfit({ ...outfit, top: randomPart('top'), bottom: randomPart('bottom') }); player.celebrate();
-      toast(`${lockerKey}번 열쇠와 새 찜질복을 받았어요! 탈의실 사물함에서 갈아입을 수 있어요 🔑`);
-    } else toast(`어서 오세요! ${lockerKey}번 열쇠는 그대로예요. 푹 쉬다 가세요 ♨`);
+      issuedTowel = true;
+      try { localStorage.setItem(ISSUED_TOWEL_KEY, '1'); } catch { /* optional */ }
+      toast(`${lockerKey}번 열쇠·수건·찜질복을 받았어요! 탈의실에서 갈아입어 봐요 🔑`);
+    } else {
+      issuedTowel = true;
+      try { localStorage.setItem(ISSUED_TOWEL_KEY, '1'); } catch { /* optional */ }
+      toast(`어서 오세요! ${lockerKey}번 열쇠는 그대로예요. 수건도 준비되어 있어요. 푹 쉬다 가세요 ♨`);
+    }
   }
   else if (BATH[spot.id]) {
     const kind = spot.id, b = BATH[kind];
-    if (Date.now() < (bathReady[kind] || 0)) { toast(`조금 쉬었다가 다시 해요 (${Math.ceil((bathReady[kind] - Date.now()) / 60000)}분)`); return; }
+    if (Date.now() < (bathReady[kind] || 0)) {
+      // The visitor has already used this bath during the current session.
+      tour?.done('bath');
+      toast(`조금 쉬었다가 다시 해요 (${Math.ceil((bathReady[kind] - Date.now()) / 60000)}분)`);
+      return;
+    }
     if (spot.pool) {
-      const back = [spot.x, spot.z]; setAction('sit'); hero.position.set(spot.pool[0], 0, spot.pool[1]); target.copy(hero.position);
+      const seat = freeSeat(POOL_SEATS[kind], [spot.pool[0], spot.pool[1]]);
+      if (!seat) { toast('탕이 만석이에요. 빈자리가 생기면 다시 들어와 주세요.'); return; }
+      const back = [spot.x, spot.z]; setAction('sit'); hero.position.set(seat[0], 0, seat[1]); target.copy(hero.position); view.focus.set(seat[0], 0, seat[1]);
       facing = 0; soak = { kind, t: b.time, back, done: false };
     } else { setAction('stand'); facing = Math.PI; shower = b.time; }
+    // Onboarding is about experiencing the bath, not waiting for the reward timer.
+    // The 8-second soak and 5-minute reward cooldown remain unchanged.
+    tour?.done('bath');
     toast(b.enter); spotButton.hidden = true;
   }
   else if (spot.id === 'locker') { outfitButton.click(); tour?.done('locker'); }
-  else if (spot.id === 'fortune') document.querySelector('#fortune-open').click();
+  else if (spot.id === 'fortune') openFortuneDialog();
+  else if (spot.id === 'chair') {
+    const selected = CHAIR_SEATS.find(s => s.id === spot.chair);
+    if (!selected) return;
+    const nearby = CHAIR_SEATS.filter(s => s.room === selected.room && s.kind === selected.kind);
+    const free = freeSeat(nearby.map(s => [s.x,s.z]), [selected.x,selected.z]);
+    if (!free) { toast('여긴 만석이에요. 빈 의자를 찾아주세요.'); return; }
+    const chair = nearby.find(s => s.x === free[0] && s.z === free[1]);
+    route.length = 0; activeDestination = null; destinationMarker.visible = false;
+    setAction('sit'); seatedChair = chair;
+    hero.position.set(chair.x,chair.y,chair.z); target.copy(hero.position); view.focus.set(chair.x,0,chair.z);
+    facing = chair.face; status.textContent = '의자에 앉아 쉬는 중이에요 ♨';
+    spotButton.hidden = true;
+  }
   else if (spot.id === 'scrub') {
     if (Date.now() < scrubReady) { toast(`세신은 ${Math.ceil((scrubReady - Date.now()) / 60000)}분 뒤에 또 받을 수 있어요`); return; }
-    const [x, z] = spot.bed; route.length = 0; hero.position.set(x, 0, z); target.copy(hero.position); view.focus.set(x, 0, z);
+    const bed = freeSeat(SCRUB_SLOTS, spot.bed);
+    if (!bed) { toast('세신대가 만석이에요. 빈자리가 생기면 다시 이용해 주세요.'); return; }
+    const [x, z] = bed; route.length = 0; hero.position.set(x, 0, z); target.copy(hero.position); view.focus.set(x, 0, z);
     setAction('lie'); facing = -Math.PI / 2; scrubbing = SCRUB_TIME; spotButton.hidden = true;
     toast('슥슥… 세신사님이 시원하게 밀어 드려요 🧽'); status.textContent = '가만히 누워 있어요. 시원해요~';
   }
@@ -878,14 +1164,28 @@ tour = createTour({
   isNew: firstVisit, el: document.querySelector('#tour'), toast,
   blocked: () => !!document.querySelector('dialog[open]') || towelGame.isOpen || shop.playing || !document.body.classList.contains('room-ready'),
   onGo: id => {
-    if (id === 'towel') goToTowel();
+    if (id === 'towel') {
+      // The raw towel is handed out at the entrance; fold it right after changing.
+      // The shop shelf remains available to make more caps later.
+      if (issuedTowel || lockerKey) { tour?.arrived('towel'); towelGame.open(); }
+      else { toast('먼저 입구에서 수건을 받아 주세요 🧺'); goToPlace(DESTINATIONS.entrance); }
+    }
     else if (id === 'tv') goToTv();
-    else if (id === 'egg' || id === 'drink') document.querySelector(`[data-action="${id}"]`).click();
+    else if (id === 'egg' || id === 'drink') {
+      document.querySelector(`[data-action="${id}"]`).click();
+      if (shop.playing) tour?.arrived(id);
+    }
     else if (TOUR_PLACE[id]) goToPlace(DESTINATIONS[TOUR_PLACE[id]]);
   }
 });
-if (lockerKey) tour.done('desk');
-if (outfit.hasTowel) tour.done('towel');
+document.querySelector('#tour-restart').addEventListener('click', () => {
+  placesDialog.close();
+  tour.restart();
+  goToPlace(DESTINATIONS.entrance);
+  toast('안내를 1단계부터 다시 시작해요. 열쇠·수건·찜질복·온기는 그대로예요 ♨');
+});
+// Do not auto-mark steps based on old possessions. Replay must remain at step 1
+// even for a returning visitor who already owns a key, outfit and sheep cap.
 setInterval(() => tour.render(), 600);
 if (!outfit.hasTowel && !tour.active) {
   const nudge = setInterval(() => {
@@ -901,4 +1201,21 @@ if (invite.invitedBy) {
   const joinText = document.querySelector('#join-intro');
   if (document.querySelector('#join-dialog').open && joinText) joinText.textContent = `${invite.invitedBy}님의 초대로 왔어요! 이름을 정하고 함께 찜질해요 ♨`;
   else toast(`${invite.invitedBy}님이 초대했어요! 같이 찜질해요 ♨`);
+}
+// Show the reopening notice once after the first entry dialog closes.
+const FORTUNE_ANNOUNCEMENT_KEY = 'jjimjiljung-fortune-announcement-v1';
+const fortuneReopenDialog = document.querySelector('#fortune-reopen-dialog');
+fortuneReopenDialog.addEventListener('cancel', event => event.preventDefault());
+document.querySelector('#fortune-reopen-confirm').addEventListener('click', () => {
+  fortuneReopenDialog.close();
+  try { localStorage.setItem(FORTUNE_ANNOUNCEMENT_KEY, 'shown'); } catch { /* private browsing may block storage */ }
+});
+let fortuneAnnouncementSeen = false;
+try { fortuneAnnouncementSeen = localStorage.getItem(FORTUNE_ANNOUNCEMENT_KEY) === 'shown'; } catch { /* private browsing may block storage */ }
+if (!fortuneAnnouncementSeen) {
+  const openingTimer = setInterval(() => {
+    if (document.hidden || !document.body.classList.contains('room-ready') || document.querySelector('dialog[open]')) return;
+    clearInterval(openingTimer);
+    fortuneReopenDialog.showModal();
+  }, 600);
 }

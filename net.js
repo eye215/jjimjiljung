@@ -3,7 +3,7 @@
 //   connect({ id, presence, onPresence, onMessage, onStatus }) → { track, send, leave }
 // onPresence receives an array of presence payloads (one per visitor).
 // onStatus receives 'connecting' | 'online' | 'offline'.
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-35';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PUBLIC_CHANNEL } from './config.js?v=rpg-51';
 
 const EVENTS = ['state', 'chat', 'trade', 'greet', 'chatreq', 'chatans'];
 
@@ -18,15 +18,41 @@ function loadSupabase() {
   });
 }
 
+// Use the same persisted anonymous session for the sauna and the AI fortune room.
+let sharedClient;
+async function getSharedClient() {
+  if (!sharedClient) {
+    const { createClient } = await loadSupabase();
+    sharedClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jjimjiljung-auth' },
+      realtime: { params: { eventsPerSecond: 12 } }
+    });
+  }
+  return sharedClient;
+}
+
+export async function requestSajuAI(pillar) {
+  const client = await getSharedClient();
+  let { data: { session } } = await client.auth.getSession();
+  if (!session) {
+    const signed = await client.auth.signInAnonymously();
+    if (signed.error) throw new Error('익명 인증을 연결하지 못했어요.');
+    session = signed.data.session;
+  }
+  if (!session) throw new Error('사주 상담에 연결하지 못했어요.');
+  const { data, error } = await client.functions.invoke('saju-ai', { body: { pillar } });
+  if (error) {
+    const body = await error.context?.json?.().catch(() => null);
+    throw new Error(body?.error || 'AI 상담 서버가 잠시 응답하지 않아요.');
+  }
+  if (typeof data?.text !== 'string' || !data.text.trim()) throw new Error('AI의 답변이 비어 있어요.');
+  return data;
+}
+
 export async function connectSupabase({ id, presence, onPresence, onMessage, onStatus, channelName = PUBLIC_CHANNEL }) {
   onStatus('connecting');
-  const { createClient } = await loadSupabase();
-  // An invisible anonymous account (kept on this device) identifies the visitor to the
-  // group-chat functions and private channels; no email or password is ever asked.
-  const client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jjimjiljung-auth' },
-    realtime: { params: { eventsPerSecond: 12 } }
-  });
+  // A persisted anonymous account is reused by social features and fortune AI.
+  const client = await getSharedClient();
   let uid = null;
   try {
     const { data } = await client.auth.getSession();
@@ -66,12 +92,32 @@ export async function connectSupabase({ id, presence, onPresence, onMessage, onS
     joinGroup(group, onMessage) {
       const ch = client.channel('group:' + group, { config: { private: true, broadcast: { self: false } } });
       for (const event of ['msg', 'member']) ch.on('broadcast', { event }, message => onMessage(event, message.payload));
-      ch.subscribe();
-      return { send: (event, payload) => ch.send({ type: 'broadcast', event, payload }).catch(() => {}), leave: () => client.removeChannel(ch).catch(() => {}) };
+      let settle;
+      const ready = new Promise(resolve => { settle = resolve; });
+      ch.subscribe(status => {
+        if (status === 'SUBSCRIBED') settle(true);
+        else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) settle(false);
+      });
+      return {
+        ready,
+        async send(event, payload) {
+          if (!(await ready)) return false;
+          try { return (await ch.send({ type: 'broadcast', event, payload })) === 'ok'; }
+          catch { return false; }
+        },
+        leave: () => { settle(false); return client.removeChannel(ch).catch(() => {}); }
+      };
     }
   };
   return {
     groups,
+    // Counts are computed in Postgres. Never expose individual visitor IDs to
+    // browser clients; duplicate reloads/tabs record at most once per KST day.
+    stats: uid ? {
+      record: () => one(client.rpc('record_visit')),
+      read: () => one(client.rpc('get_visit_stats'))
+    } : null,
+    heartbeat: uid ? () => one(client.rpc('metamoa_presence_heartbeat')) : null,
     track(next) { current = next; return channel.track(next).catch(() => {}); },
     send(event, payload) { return channel.send({ type: 'broadcast', event, payload }).catch(() => {}); },
     async leave() { await channel.untrack().catch(() => {}); await client.removeChannel(channel).catch(() => {}); }

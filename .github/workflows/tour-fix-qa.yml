@@ -1,0 +1,65 @@
+name: Sauna regression QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '*.js'
+      - '*.html'
+      - '*.css'
+      - 'tests/**'
+      - 'supabase/migrations/**'
+      - '.github/workflows/tour-fix-qa.yml'
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: Syntax, saved-state and furniture/navigation checks
+        run: |
+          npm run check
+          node tests/module-cache.cjs
+          node tests/tour.cjs
+          node tests/seat-layout.cjs
+          node tests/navigation.cjs
+          node tests/economy.cjs
+          node tests/fortune.cjs
+          node tests/chat.cjs
+          node tests/channel-readiness.cjs
+          node tests/head-model.cjs
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [glass, interactions, wing, tour, tv, multiplayer, shop, invite]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Browser acceptance - ${{ matrix.suite }}
+        run: |
+          case "${{ matrix.suite }}" in
+            glass) node tests/warmth-glass.cjs ;;
+            interactions) node tests/interaction-polish.cjs ;;
+            wing) node tests/wing.cjs ;;
+            tour) node tests/tour-browser.cjs ;;
+            tv) node tests/tv.cjs ;;
+            multiplayer) node tests/multiplayer.cjs ;;
+            shop) node tests/shop.cjs ;;
+            invite) node tests/invite.cjs ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sauna-${{ matrix.suite }}-screenshots
+          path: test-results/
+          retention-days: 2

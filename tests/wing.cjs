@@ -26,10 +26,20 @@ const server = http.createServer((req, res) => {
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.route('**/scene.js*', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__w = { tp: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); }, room: () => currentRoom.id, action: () => action, points: () => wallet.snapshot().points, pos: () => [hero.position.x, hero.position.z], soak: () => soak && { ...soak }, fast: () => { if (soak) soak.t = .05; if (shower) shower = .05; } };' });
+      await route.fulfill({ response, body: (await response.text()) + '\nwindow.__w = { tp: (x, z) => { route.length = 0; hero.position.set(x, 0, z); view.focus.set(x, 0, z); target.copy(hero.position); }, room: () => currentRoom.id, action: () => action, points: () => wallet.snapshot().points, pos: () => [hero.position.x, hero.position.z], soak: () => soak && { ...soak }, fast: () => { if (soak) soak.t = .05; if (shower) shower = .05; if (scrubbing > 0) scrubbing = .05; }, scrub: () => scrubbing };' });
     });
     await page.goto(base); await page.waitForSelector('#viewport[data-ready="true"]');
     if (await page.locator('#join-dialog').evaluate(d => d.open)) await page.locator('#join-solo').click();
+    await page.locator('#fortune-reopen-dialog[open]').waitFor();
+    assert.equal(await page.locator('#fortune-reopen-title').textContent(), '사주방 공사가 끝났어요');
+    assert.equal(await page.locator('#fortune-reopen-copy').textContent(), '하루에 한번 오늘의 운세 보러 가요!');
+    await page.screenshot({ path: path.join(output, 'fortune-reopen-mobile.png') });
+    await page.locator('#fortune-reopen-confirm').click();
+    assert.equal(await page.locator('#fortune-reopen-dialog').evaluate(d => d.open), false);
+    assert.equal(await page.evaluate(() => localStorage.getItem('jjimjiljung-fortune-announcement-v1')), 'shown');
+    await page.reload(); await page.waitForSelector('#viewport[data-ready="true"]');
+    if (await page.locator('#join-dialog').evaluate(d => d.open)) await page.locator('#join-solo').click();
+    assert.equal(await page.locator('#fortune-reopen-dialog').evaluate(d => d.open), false, 'Confirmed notice stays closed on return');
     // The places dialog lists the four new rooms.
     for (const id of ['entrance', 'locker', 'bath', 'scrub', 'fortune']) assert.equal(await page.locator(`[data-place="${id}"]`).count(), 1);
     // 입구 카운터: first visit gives a locker key and a fresh outfit; the locker shows the number.
@@ -41,7 +51,7 @@ const server = http.createServer((req, res) => {
     assert(+key >= 1 && +key <= 120, 'A locker key is handed over');
     assert.notEqual(await page.locator('#viewport').getAttribute('data-outfit'), fresh, 'with a fresh 찜질복');
     await page.locator('#spot-action').click();
-    assert.match(await page.locator('#toast span').textContent(), new RegExp(`${key}번 열쇠는 그대로`));
+    assert.match(await page.locator('#toast span').textContent(), new RegExp(`${key}번 열쇠.*그대로`));
     // 탈의실: the locker button re-dyes the outfit.
     await page.evaluate(() => window.__w.tp(-6, 11));
     await page.waitForFunction(() => window.__w.room() === 'locker');
@@ -49,11 +59,17 @@ const server = http.createServer((req, res) => {
     const before = await page.locator('#viewport').getAttribute('data-outfit');
     await page.locator('#spot-action').click();
     assert.notEqual(await page.locator('#viewport').getAttribute('data-outfit'), before, 'Lockers change the outfit');
-    // 사주방: the spot opens today's fortune.
+    // 사주방: the spot opens the local fortune form and calculates without an AI request.
     await page.evaluate(() => window.__w.tp(-11.5, 11.8));
     await page.locator('#spot-action', { hasText: '운세' }).waitFor();
     await page.locator('#spot-action').click();
     await page.locator('#fortune-dialog[open]').waitFor();
+    assert.equal(await page.locator('#fortune-form').isVisible(), true, 'Birth date form is available');
+    assert.equal(await page.locator('#fortune-maintenance').count(), 0, 'Construction notice is gone');
+    await page.locator('#fortune-date').fill('1995-05-17');
+    await page.locator('#fortune-go').click();
+    assert.equal(await page.locator('#fortune-result').isVisible(), true, 'Local result appears');
+    assert.match(await page.locator('#fortune-result .fortune-text').textContent(), /[가-힣]/);
     await page.locator('#fortune-close').click();
     // 세신실: lie on the table; after the scrub you get 온기 once, then a 10-minute wait.
     await page.evaluate(() => window.__w.tp(11.5, 11));
@@ -61,7 +77,9 @@ const server = http.createServer((req, res) => {
     const points = await page.evaluate(() => window.__w.points());
     await page.locator('#spot-action').click();
     assert.equal(await page.evaluate(() => window.__w.action()), 'lie', 'Lies down on the scrub table');
-    await page.waitForFunction(p => window.__w.points() > p, points, { timeout: 120000 });
+    assert((await page.evaluate(() => window.__w.scrub())) > 0, 'Scrub countdown starts on actual table');
+    await page.evaluate(() => window.__w.fast()); // Verify reward transition without relying on GPU-limited animation FPS.
+    await page.waitForFunction(p => window.__w.points() > p, points, { timeout: 30000 });
     assert.match(await page.locator('#toast span').textContent(), /개운해요/);
     await page.locator('[data-action="stand"]').click();
     await page.locator('#spot-action', { hasText: '세신' }).click();

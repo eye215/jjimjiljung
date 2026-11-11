@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="800"><meta property="og:image:height" content="400"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-35">
+<meta name="metamoa-site-verification" content="45A1ZU7LzI3YVpjU0T7S9g">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6eee1"><meta name="description" content="양머리 수건을 쓰고 불가마, 소금방, 매점, 수면실을 돌아다니는 작은 3D 찜질방. 오늘도, 찜질중."><title>찜질중 — 오늘은 조금 느리게</title><meta property="og:type" content="website"><meta property="og:url" content="https://jjimjiljung.yullul.com/"><meta property="og:title" content="♨ 찜질중 — 같이 찜질하러 갈래?"><meta property="og:description" content="양머리 수건 쓰고 계란 까먹고 식혜 마시며 수다 떠는 작은 3D 찜질방."><meta property="og:image" content="https://jjimjiljung.yullul.com/assets/share.jpg"><meta property="og:image:width" content="400"><meta property="og:image:height" content="210"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./style.css?v=rpg-57">
 <link rel="modulepreload" href="./vendor/three.module.min.js">
 </head>
 <body>
@@ -10,7 +11,8 @@
 <section class="room" aria-label="따뜻한 3D 찜질방">
 <div id="viewport" tabindex="0" role="application" aria-label="3D 찜질방. 바닥을 누르거나 WASD·방향키로 걸어요. 화면을 끌면 시점이 돌아가고, 휠이나 두 손가락으로 확대해요. Home 키로 시점을 처음처럼 맞춰요."></div>
 <div id="labels" aria-hidden="true"></div>
-<div id="social-row"><button id="online" class="online-pill" data-status="solo"><i aria-hidden="true"></i><span id="online-text">함께하기</span></button><button id="invite" aria-label="카카오톡으로 친구 초대하기"><span aria-hidden="true">💛</span> 친구 초대</button></div>
+<div id="social-row"><button id="online" class="online-pill" data-status="solo" aria-controls="visitor-stats" aria-expanded="false" aria-label="현재 접속자 수와 방문 통계 보기"><i aria-hidden="true"></i><span id="online-text">함께하기</span></button><button id="invite" aria-label="카카오톡으로 친구 초대하기"><span aria-hidden="true">💛</span> 친구 초대</button></div>
+<section id="visitor-stats" class="glass-card" role="region" aria-label="찜질방 방문 현황" hidden><header><strong>♨ 찜질방 방문 현황</strong><button id="visitor-stats-close" type="button" aria-label="방문 현황 닫기">×</button></header><dl><div><dt>지금 접속</dt><dd id="visitor-live">—</dd></div><div><dt>오늘 방문</dt><dd id="visitor-today">—</dd></div><div><dt>누적 방문</dt><dd id="visitor-total">—</dd></div></dl><p id="visitor-stats-note">집계 중이에요…</p></section>
 <button id="chat-open" aria-controls="chat" aria-expanded="false" aria-label="채팅 열기"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /></svg><b>채팅</b><em id="chat-unread" hidden>0</em></button>
 <section id="chat" aria-label="채팅" data-mode="bubble" hidden>
 <header><div><h2>지난 대화</h2><span id="chat-count"></span></div><label class="chat-switch"><input type="checkbox" id="chat-norequests" role="switch"> 신청 받지 않기</label><button id="chat-leave" type="button" hidden>그룹 나가기</button><button id="chat-rename" type="button">이름 바꾸기</button></header>
@@ -69,11 +71,33 @@
 <div class="shop-games"><button data-game="egg">🥚 이마로 계란 깨기<small>계란 1개 사용</small></button><button data-game="drink">🥤 식혜 원샷<small>식혜 1개 사용</small></button></div>
 <p class="places-footnote">계란·식혜는 하루에 하나씩 무료예요. 앉거나 누워서 쉬면 30초마다 온기 ♨가 모여요 (불가마·소금방·목욕탕은 두 배).</p>
 </dialog>
+<button type="button" id="fortune-open" hidden aria-hidden="true" tabindex="-1"></button>
 <dialog id="fortune-dialog" aria-labelledby="fortune-title">
 <div class="places-heading"><div><span class="places-eyebrow">사주방</span><h2 id="fortune-title">오늘의 운세</h2></div><button id="fortune-close" aria-label="운세 닫기">×</button></div>
-<form id="fortune-form"><label>생년월일<input id="fortune-date" type="date" required min="1900-01-01" max="2030-12-31"></label><label>태어난 시간 <small>(몰라도 괜찮아요)</small><input id="fortune-time" type="time"></label><button type="submit" id="fortune-go">운세 보기</button></form>
+<form id="fortune-form"><label>생년월일<input id="fortune-date" type="date" required min="1900-01-01"></label><label>태어난 시간 <small>(몰라도 괜찮아요)</small><input id="fortune-time" type="time"></label><button type="button" id="fortune-go">오늘의 운세 보기</button></form>
 <section id="fortune-result" hidden aria-live="polite"></section>
-<p class="places-footnote">재미로 보는 운세예요. 생년월일은 이 기기에만 저장되고, 아래에서 지울 수 있어요. <button type="button" id="fortune-forget" class="link-button">생년월일 지우기</button></p>
+<div id="fortune-progress" class="fortune-progress-overlay" role="status" aria-live="polite" hidden>
+  <div class="fortune-progress-card">
+    <div class="fortune-loading">
+      <div class="fortune-orbit" aria-hidden="true"><span>🔮</span><i></i><b></b></div>
+      <p class="fortune-loading-kicker">JJIMJILJUNG · SAJU</p>
+      <h3>오늘의 운세</h3>
+      <p id="fortune-progress-text" class="fortune-loading-copy">사주 선생님이 사주를 살펴보고 있어요~</p>
+      <div class="fortune-progress"><i></i></div>
+    </div>
+    <div id="fortune-progress-actions" class="fortune-progress-actions" hidden>
+      <button id="fortune-progress-retry" type="button" class="fortune-retry">다시 시도</button>
+      <button id="fortune-progress-cancel" type="button" class="fortune-progress-close">닫기</button>
+    </div>
+  </div>
+</div>
+<p class="places-footnote">재미로 보는 운세예요. 입력한 생년월일·시간은 이 기기에 저장돼요. AI 운세를 누르면 계산된 일주·오행과 태어난 시간이 상담 서버로 전송되며, 그날의 AI 결과가 서버에 보관돼요. <button type="button" id="fortune-forget" class="link-button">생년월일 지우기</button></p>
+</dialog>
+<dialog id="fortune-reopen-dialog" aria-labelledby="fortune-reopen-title" aria-describedby="fortune-reopen-copy" aria-modal="true">
+<div aria-hidden="true" class="fortune-reopen-icon">🔮</div>
+<h2 id="fortune-reopen-title">사주방 공사가 끝났어요</h2>
+<p id="fortune-reopen-copy">하루에 한번 오늘의 운세 보러 가요!</p>
+<button type="button" id="fortune-reopen-confirm">확인</button>
 </dialog>
 <dialog id="transfer-dialog" aria-labelledby="transfer-title">
 <div class="places-heading"><div><span class="places-eyebrow">이어하기</span><h2 id="transfer-title">다른 기기에서 이어하기</h2></div><button id="transfer-close" class="sheet-x" aria-label="닫기">×</button></div>
@@ -101,11 +125,12 @@
 <button data-place="locker"><span aria-hidden="true">👕</span><b>탈의실</b><small>사물함에서 갈아입기</small></button>
 <button data-place="bath"><span aria-hidden="true">🛁</span><b>목욕탕</b><small>온탕·냉탕·샤워</small></button>
 <button data-place="scrub"><span aria-hidden="true">🧽</span><b>세신실</b><small>시원하게 때밀이</small></button>
-<button data-place="fortune"><span aria-hidden="true">🔮</span><b>사주방</b><small>오늘의 운세</small></button>
+<button data-place="fortune"><span aria-hidden="true">🔮</span><b>사주방</b><small>오늘의 운세 보기</small></button>
 <button data-place="lobby"><span aria-hidden="true">♧</span><b>중앙 휴게실</b><small>모두 모이는 곳</small></button>
 </div>
+<button type="button" id="tour-restart" class="fortune-entry">🔁 처음부터 안내 다시 보기 <small>열쇠·온기·수건·찜질복은 그대로 유지돼요</small></button>
 <button type="button" id="transfer-open" class="fortune-entry transfer-entry">📱 다른 기기에서 이어하기 <small>코드 하나로 온기·옷·수건을 옮겨요</small></button>
-<button type="button" id="fortune-open" class="fortune-entry">🔮 오늘의 운세 <small>무료 · 생년월일은 이 기기에만 저장</small></button>
+
 <p class="places-footnote">직접 걸어 다녀도 돼요. 문을 지나면 방 이름이 바뀌어요.<br><a href="./privacy.html">개인정보처리방침</a></p>
 </dialog>
 <script>
@@ -114,5 +139,5 @@ window.lockRoomControls(true);
 window.showRoomError = function(message) { window.lockRoomControls(true); document.body.classList.remove('room-ready'); document.querySelector('#places-dialog')?.close(); document.querySelector('#loading').hidden = true; document.querySelector('#error').hidden = false; if(message) document.querySelector('#error-message').textContent = message; };
 document.querySelector('#retry').addEventListener('click', () => location.reload());
 window.roomLoadTimer = setTimeout(() => window.showRoomError('로딩이 조금 오래 걸리고 있어요. 연결을 확인한 뒤 다시 들어와 주세요.'), 40000);
-import('./scene.js?v=rpg-35').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
+import('./scene.js?v=rpg-59').catch(error => { clearTimeout(window.roomLoadTimer); console.error(error); window.showRoomError(); });
 </script></body></html>

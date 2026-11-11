@@ -82,8 +82,8 @@ export function random() { randomSeed = (randomSeed * 1664525 + 1013904223) >>> 
 // `plain` (bare hair) and `cap` (the same chibi wearing the rolled sheep towel). Putting the
 // sheep cap on swaps the body. Clips: Walking, Running, Sit (on the floor), Cheer (arms up).
 // Standing, lying, eating and waving have no clip; they are posed in code.
-export const PLUSH_URL = new URL('./assets/chibi2-mobile.glb?v=4', import.meta.url).href;
-export const PLUSH_CAP_URL = new URL('./assets/chibi2-cap-mobile.glb?v=4', import.meta.url).href;
+export const PLUSH_URL = new URL('./assets/chibi2-mobile.glb?v=5', import.meta.url).href;
+export const PLUSH_CAP_URL = new URL('./assets/chibi2-cap-mobile.glb?v=5', import.meta.url).href;
 export const CLIPS = { walk: 'Walking', run: 'Running', sit: 'Sit', cheer: 'Cheer' };
 // Both models are 1.7 units tall; this makes them 1.35 m in the room like the other actors.
 const MODEL_SCALE = 1.35 / 1.7;
@@ -486,12 +486,13 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
     character.celebrate = () => { cheer = 1.6; celebrateBurst(); };
     // Shared pose animation for the player, NPCs and remote visitors. `action` is
     // the posture (stand, sit, lie, wave); a snack in progress layers on top of it.
-    character.animate = (action, walking, dt, reducedMotion, speed = 1) => {
+    character.animate = (action, walking, dt, reducedMotion, speed = 1, snackDt = dt) => {
       const damp = (object, key, to, rate = 9) => { object[key] = THREE.MathUtils.damp(object[key], to, rate, dt); };
       character.elapsed += dt;
       if (action === 'egg' || action === 'drink') action = 'stand';
-      const elapsed = character.elapsed, sleep = action === 'lie', sitting = action === 'sit', cycle = elapsed * 9 * speed;
-      const eating = sleep ? null : snackPose(dt);
+      const elapsed = character.elapsed, sleep = action === 'lie' || action === 'liewave',
+        sitting = action === 'sit' || action === 'sitwave', greeting = ['wave','sitwave','liewave'].includes(action), cycle = elapsed * 9 * speed;
+      const eating = sleep ? null : snackPose(snackDt);
       cheer = Math.max(0, cheer - dt); const cheering = cheer > 0 && !eating && !sleep;
       if (sleep && character.snack) character.stopSnack();
       updateBursts(dt);
@@ -503,7 +504,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       for (let i = 0; i < 2; i++) {
         damp(legs[i].rotation, 'x', sitting ? -1.32 : sleep ? .45 : walking ? Math.sin(cycle + i * Math.PI) * .48 : 0);
         damp(legs[i].rotation, 'z', sitting ? (i === 0 ? -.25 : .25) : 0);
-        const waving = action === 'wave' && i === 1;
+        const waving = greeting && i === 1;
         // Both hands cradle the snack and lift it to the mouth together.
         damp(arms[i].rotation, 'x', eating ? -1.3 - eating.mouth * .5 : cheering ? -2.7 : waving ? -2.35 : sitting ? -.5 : sleep ? -.18 : walking ? -Math.sin(cycle + i * Math.PI) * .35 : 0, eating ? 14 : 9);
         damp(arms[i].rotation, 'z', eating ? (i === 0 ? .5 : -.5) : waving ? -.4 + (reducedMotion ? 0 : Math.sin(elapsed * 7) * .24) : i === 0 ? -.14 : .14, eating ? 14 : 9);
@@ -511,7 +512,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
       if (!reducedMotion) { head.rotation.z = Math.sin(elapsed * 1.3) * .025; head.position.y = HEAD_Y + Math.sin(elapsed * 2) * .008 + (eating?.face === 'chew' ? Math.abs(Math.sin(elapsed * 14)) * .012 : 0); }
       else { head.rotation.z = 0; head.position.y = HEAD_Y; }
       const blink = !reducedMotion && (elapsed + character.blinkOffset) % 4.7 > 4.52;
-      character.setExpression(sleep || (blink && !eating) ? 'sleep' : eating ? eating.face : action === 'wave' || cheering ? 'happy' : 'normal');
+      character.setExpression((sleep && !greeting) || (blink && !eating) ? 'sleep' : eating ? eating.face : greeting || cheering ? 'happy' : 'normal');
     };
     return character;
   }
@@ -594,6 +595,7 @@ export function createCharacterKit(renderer, plushModel = null, towels = {}) {
 #define HAT ${profile.hat.toFixed(3)}
 #define EYE vec3(${profile.eyes.x.toFixed(3)}, ${profile.eyes.y.toFixed(3)}, ${(profile.eyes.z - .02).toFixed(3)})
 #define MOUTH vec3(${profile.mouth.x.toFixed(3)}, ${(profile.mouth.y - .012).toFixed(3)}, ${(profile.mouth.z - .02).toFixed(3)})
+#define BAKED_MOUTH vec3(${profile.mouth.x.toFixed(3)}, ${profile.mouth.y.toFixed(3)}, ${profile.mouth.z.toFixed(3)})
 varying vec3 vRest;
 uniform vec3 uTop;
 uniform vec3 uBottom;
@@ -605,15 +607,23 @@ uniform float uEyeOn;
 uniform float uMouthOn;
 // Expression decals are painted on the face itself (same surface, same light): the bind-pose
 // position is projected onto a small square facing out from the face at each feature.
-// Inside a small ellipse around a baked feature, its dark (eye) or red (mouth) texels are
-// painted over with the face colour, so only the drawn expression shows; blush stays.
+// Replace complete baked features, including their rim and highlights. Matching
+// geometry has been softened offline so expressions share the actual face surface.
 vec3 hideFeature(vec3 c, vec3 centre, float turn, vec2 radius) {
   vec3 d = vRest - centre; vec3 n = vec3(sin(turn), 0., cos(turn)), t = vec3(cos(turn), 0., -sin(turn));
-  vec2 q = vec2(dot(d, t), d.y) / radius; float r = dot(q, q);
-  if (r > 1. || abs(dot(d, n)) > .09) return c;
-  float lum = dot(c, vec3(.2126, .7152, .0722)), skinLum = dot(SKIN, vec3(.2126, .7152, .0722));
-  float feature = smoothstep(.12, .03, lum / max(skinLum, .001) - .55) + smoothstep(.0, .25, (c.r - c.g * 1.25) / max(c.r, .001)) * step(lum, skinLum * .8);
-  return mix(c, SKIN, clamp(feature, 0., 1.) * smoothstep(1., .7, r));
+  float r = length(vec2(dot(d, t), d.y) / radius);
+  if (abs(dot(d, n)) > .12) return c;
+  return mix(c, SKIN, 1. - smoothstep(.72, 1., r));
+}
+// Cover the complete baked eye (including its white highlight and dark rim).
+// Thresholding only dark texels left a crescent and a shiny dot under closed eyes.
+vec3 hideEye(vec3 c, vec3 centre, float turn) {
+  vec3 d = vRest - centre;
+  vec3 n = vec3(sin(turn), 0., cos(turn)), t = vec3(cos(turn), 0., -sin(turn));
+  vec2 q = vec2(dot(d, t), d.y) / vec2(.083, .079);
+  float radius = length(q);
+  if (abs(dot(d, n)) > .12) return c;
+  return mix(c, SKIN, 1. - smoothstep(.72, 1., radius));
 }
 vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
   vec3 d = vRest - centre; vec3 n = vec3(sin(turn), 0., cos(turn)), t = vec3(cos(turn), 0., -sin(turn));
@@ -623,13 +633,13 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
 }`).replace('#include <map_fragment>', `#include <map_fragment>
         float vRestY = vRest.y;
         if (uEyeOn > .5) {
-          diffuseColor.rgb = hideFeature(diffuseColor.rgb, EYE, .4, vec2(.05, .055));
-          diffuseColor.rgb = hideFeature(diffuseColor.rgb, EYE * vec3(-1., 1., 1.), -.4, vec2(.05, .055));
+          diffuseColor.rgb = hideEye(diffuseColor.rgb, EYE, .4);
+          diffuseColor.rgb = hideEye(diffuseColor.rgb, EYE * vec3(-1., 1., 1.), -.4);
           vec4 e = faceDecal(uEyeTex, EYE, .4, vec2(.13));
           vec4 e2 = faceDecal(uEyeTex, EYE * vec3(-1., 1., 1.), -.4, vec2(.13));
           diffuseColor.rgb = mix(diffuseColor.rgb, e.rgb, e.a); diffuseColor.rgb = mix(diffuseColor.rgb, e2.rgb, e2.a);
         }
-        if (uMouthOn > .5) { diffuseColor.rgb = hideFeature(diffuseColor.rgb, MOUTH, 0., vec2(.05, .03)); vec4 m = faceDecal(uMouthTex, MOUTH, 0., vec2(.15, .12)); diffuseColor.rgb = mix(diffuseColor.rgb, m.rgb, m.a); }
+        if (uMouthOn > .5) { diffuseColor.rgb = hideFeature(diffuseColor.rgb, BAKED_MOUTH, 0., vec2(.078, .055)); vec4 m = faceDecal(uMouthTex, MOUTH, 0., vec2(.15, .12)); diffuseColor.rgb = mix(diffuseColor.rgb, m.rgb, m.a); }
         {
           vec3 c = diffuseColor.rgb; float hi = max(c.r, max(c.g, c.b)), lo = min(c.r, min(c.g, c.b));
           float lum = dot(c, vec3(.2126, .7152, .0722));
@@ -645,7 +655,7 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
           diffuseColor.rgb = mix(diffuseColor.rgb, uTowel * clamp(lum / .78, .4, 1.08), hat);
         }`);
     };
-    material.customProgramCacheKey = () => 'plush-dye-v8-' + profile.hat;
+    material.customProgramCacheKey = () => 'plush-dye-v9-' + profile.hat;
     skinned.material = material;
     setupCharacterMaterials(model, renderer);
     // Rigid things follow a bone; they are placed in the bind pose, in model units.
@@ -691,7 +701,10 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
     const character = { snack: null };
     const snacks = attachSnacks(character, rig);
     const { snackRoot, snackPose, updateBursts, celebrateBurst } = snacks;
-    snackRoot.scale.setScalar(.7); active.hold.add(snackRoot);
+    // A hand bone on the imported Mixamo rig can pivot behind the shoulder while
+    // drinking. The cup now has its own chest-to-mouth anchor, still reached by
+    // the right hand but never carried behind the model's shoulder.
+    snackRoot.scale.setScalar(.7); body.add(snackRoot);
     // Kept for callers that look for a cap or pillow; the cap is part of the sheep body now.
     const cap = new THREE.Group(), pillow = new THREE.Group(); pillow.position.set(0, 0, PILLOW_FIT.z); pillow.visible = false; frame.add(pillow);
     const armProxy = () => ({ rotation: { x: 0, y: 0, z: 0 } });
@@ -710,7 +723,7 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
       // The new body takes over the current clip mix so the swap does not pop.
       for (const name of Object.values(CLIPS)) { next.weights[name] = active.weights[name]; next.actions[name].time = active.actions[name].time; }
       active.model.visible = false; next.model.visible = true; active = next;
-      active.hold.add(snackRoot); character.materials.cloth = active.material;
+      character.materials.cloth = active.material;
       const shown = expression; expression = ''; character.setExpression(shown);
     };
     character.setExpression = next => { if (next === expression) return; expression = next; active.setFace(next); };
@@ -770,17 +783,19 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
     }
     let lie = 0, wave = 0, sat = 0, seat = 0;
     const proxy = (b, target, x) => { q1.copy(b.rest.get(x)).invert().multiply(x.quaternion); e1.setFromQuaternion(q1); target.rotation.x = e1.x; target.rotation.y = e1.y; target.rotation.z = e1.z; };
-    character.animate = (action, walking, dt, reducedMotion, speed = 1) => {
+    character.animate = (action, walking, dt, reducedMotion, speed = 1, snackDt = dt) => {
       character.elapsed += dt;
       if (action === 'egg' || action === 'drink') action = 'stand';
-      const b = active, elapsed = character.elapsed, sleep = action === 'lie', sitting = action === 'sit';
-      const eating = sleep ? null : snackPose(dt);
+      const b = active, elapsed = character.elapsed,
+        greeting = action === 'wave' || action === 'sitwave' || action === 'liewave',
+        sleep = action === 'lie' || action === 'liewave', sitting = action === 'sit' || action === 'sitwave';
+      const eating = sleep ? null : snackPose(snackDt);
       cheer = Math.max(0, cheer - dt); const cheering = cheer > 0 && !eating && !sleep;
       if (sleep && character.snack) character.stopSnack();
       updateBursts(dt);
       lie = THREE.MathUtils.damp(lie, sleep ? 1 : 0, 7, dt);
       sat = sitting ? sat + dt : 0;
-      const waving = !eating && !sleep && !walking && action === 'wave';
+      const waving = !eating && !walking && greeting;
       wave = THREE.MathUtils.damp(wave, waving ? 1 : 0, 10, dt);
       pillow.visible = lie > .5;
       // Standing cheer uses the Cheer clip; a seated cheer and a wave are posed below.
@@ -824,11 +839,23 @@ vec4 faceDecal(sampler2D tex, vec3 centre, float turn, vec2 size) {
       body.position.y = (lift * (1 - lie) - (b.profile.hipY - SEAT_Y) * seat * (1 - lie) + LIE_LIFT * lie) * unit;
       const breath = reducedMotion ? 0 : Math.sin(elapsed * 2) * .008 * Math.max(0, 1 - total);
       body.scale.set(1 - breath * .5, 1 + breath, 1 - breath * .5);
+      if (eating) {
+        // Convert skinned bone targets into the rigid body coordinate system.
+        // Anchoring the cup here instead of to Mixamo's hand prevents the
+        // shoulder-strapped cup effect across both outfits and standing/sitting.
+        body.updateMatrixWorld(true);
+        b.chestTarget.getWorldPosition(v1); body.worldToLocal(v1);
+        b.mouthTarget.getWorldPosition(v2); body.worldToLocal(v2);
+        snackRoot.position.copy(v1).lerp(v2, Math.min(1, eating.mouth));
+        snackRoot.position.x -= .07;
+        snackRoot.position.y -= .085;
+        snackRoot.rotation.x = character.snack?.kind === 'drink' ? -Math.min(1, eating.mouth) * .55 : 0;
+      }
       rig.position.y = THREE.MathUtils.damp(rig.position.y, cheering && !sitting && !reducedMotion ? Math.abs(Math.sin(cheer * 9)) * .12 : 0, 18, dt);
       proxy(b, arms[0], b.upperArms[0]); proxy(b, arms[1], b.upperArms[1]); proxy(b, legs[0], b.upLegs[0]); proxy(b, legs[1], b.upLegs[1]);
       const blink = !reducedMotion && (elapsed + character.blinkOffset) % 4.7 > 4.52;
       // Seated (after a moment) the face settles into a relaxed, eyes-closed smile.
-      const face = sleep ? 'sleep' : eating ? eating.face : waving || cheering ? 'happy' : sitting && sat > 1.5 ? 'relax' : blink ? 'sleep' : 'normal';
+      const face = sleep && !waving ? 'sleep' : eating ? eating.face : waving || cheering ? 'happy' : sitting && sat > 1.5 ? 'relax' : blink ? 'sleep' : 'normal';
       character.setExpression(face);
     };
     character.setExpression('normal');

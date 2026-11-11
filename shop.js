@@ -1,4 +1,4 @@
-import { SNACKS, REST_SECONDS, scoreEggCrack, scoreOneShot } from './economy.js?v=rpg-35';
+import { SNACKS, REST_SECONDS, scoreEggCrack, scoreOneShot } from './economy.js?v=rpg-51';
 
 // 매점 sheet, wallet chip, empty-bag prompt and the two snack mini-games.
 // scene.js owns the character; this module only calls back into it.
@@ -7,7 +7,7 @@ const $ = selector => document.querySelector(selector);
 const batchim = word => { const c = word.charCodeAt(word.length - 1) - 0xac00; return c >= 0 && c < 11172 && c % 28 !== 0; };
 const josa = (word, withFinal, without) => word + (batchim(word) ? withFinal : without);
 
-export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
+export function createShop({ wallet, eat, play, goToShop, toast, tv, onGameComplete = () => {}, onGameCancel = () => {}, canSnack = () => true }) {
   const ui = {
     chip: $('#wallet'), points: $('#wallet-points'), eggs: $('#wallet-egg'), drinks: $('#wallet-drink'),
     open: $('#shop-open'), dialog: $('#shop-dialog'), close: $('#shop-close'), balance: $('#shop-balance'),
@@ -24,7 +24,7 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
       const free = card.querySelector('[data-free]'), buy = card.querySelector('[data-buy]');
       const short = snap.points < SNACKS[kind].price;
       free.hidden = !snap.freeLeft[kind]; buy.hidden = short; card.querySelector('.short').hidden = !short;
-      ui.dialog.querySelector(`[data-game="${kind}"]`).disabled = snap.bag[kind] < 1;
+      ui.dialog.querySelector(`[data-game="${kind}"]`).disabled = snap.bag[kind] < 1 || !canSnack();
       document.querySelector(`[data-action="${kind}"] .count`).textContent = snap.bag[kind];
       document.querySelector(`[data-action="${kind}"]`).classList.toggle('empty', snap.bag[kind] < 1);
     }
@@ -45,11 +45,12 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
     const free = event.target.closest('[data-free]'), buy = event.target.closest('[data-buy]'), game = event.target.closest('[data-game]');
     if (free) { const kind = free.closest('[data-snack]').dataset.snack; if (wallet.claimFree(kind)) toast(`오늘의 무료 ${josa(SNACKS[kind].short, '을', '를')} 받았어요! 🎁`); }
     if (buy) { const kind = buy.closest('[data-snack]').dataset.snack; if (wallet.buy(kind)) toast(`${SNACKS[kind].short} 하나 샀어요 (♨ -${SNACKS[kind].price})`); }
-    if (game) { const kind = game.dataset.game; if (wallet.count(kind) > 0) { ui.dialog.close(); startGame(kind); } }
+    if (game) { const kind = game.dataset.game; if (wallet.count(kind) > 0 && canSnack()) { ui.dialog.close(); startGame(kind); } }
   });
 
   // Eating from the action tray: use one from the bag, or point to the shop.
   function request(kind) {
+    if (!canSnack()) { toast('누워 있는 동안에는 먹을 수 없어요. 앉거나 일어나 주세요.'); return false; }
     if (wallet.consume(kind)) { eat(kind, 'normal'); return true; }
     if (wallet.freeAvailable(kind)) toast(`가방이 비었어요. 매점에서 오늘의 무료 ${josa(SNACKS[kind].short, '을', '를')} 받아 가세요!`, '매점 가기', goToShop);
     else toast(`${josa(SNACKS[kind].short, '이', '가')} 다 떨어졌어요. 매점에서 사 올까요?`, '매점 가기', goToShop);
@@ -58,13 +59,14 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
 
   // ---------- 계란·식혜 button: always the mini-game, then the snack is eaten ----------
   function choose(kind) {
+    if (!canSnack()) { toast('먼저 앉거나 일어나서 간식을 먹어 주세요.'); return; }
     if (wallet.count(kind) < 1) { request(kind); return; }
     startGame(kind);
   }
 
   // ---------- Mini-games: a bottom sheet that leaves the character in view ----------
   let running = null, lastGame = null;
-  function startGame(kind) { if (wallet.count(kind) > 0) { lastGame = kind; kind === 'egg' ? eggGame() : oneShotGame(); } }
+  function startGame(kind) { if (canSnack() && wallet.count(kind) > 0) { lastGame = kind; kind === 'egg' ? eggGame() : oneShotGame(); } }
   function showGame(title, sub, html) {
     ui.title.textContent = title; ui.sub.textContent = sub; ui.body.innerHTML = html; ui.body.hidden = false; ui.result.hidden = true; ui.game.hidden = false;
     document.body.classList.add('playing');
@@ -78,9 +80,12 @@ export function createShop({ wallet, eat, play, goToShop, toast, tv }) {
     // No snack left: the button leads to the 매점 instead of sitting there disabled.
     again.textContent = left ? `한 번 더 · ${SNACKS[lastGame].short} ${left}개` : '🛒 매점 가기'; again.dataset.shop = left ? '' : '1'; again.disabled = false;
     ui.body.hidden = true; ui.result.hidden = false; running = null;
+    // A fully played mini-game counts for onboarding as soon as the result is
+    // shown. The separate 3D eating animation may still be playing when closed.
+    onGameComplete(lastGame);
   }
   // Closing mid-game puts the snack away too (the one-shot cup has no natural end).
-  function cancelGame() { if (running) { running.stop(); running = null; if (snackRef()) stopSnack(); } ui.game.hidden = true; document.body.classList.remove('playing'); }
+  function cancelGame() { if (running) { running.stop(); running = null; onGameCancel(lastGame); if (snackRef()) stopSnack(); } ui.game.hidden = true; document.body.classList.remove('playing'); }
   ui.game.querySelector('#game-close').addEventListener('click', cancelGame);
   ui.result.querySelector('[data-game-close]').addEventListener('click', cancelGame);
   ui.result.querySelector('[data-game-again]').addEventListener('click', event => { const kind = lastGame, toShop = event.currentTarget.dataset.shop === '1'; cancelGame(); if (toShop) goToShop(); else startGame(kind); });
