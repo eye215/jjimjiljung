@@ -934,7 +934,14 @@ async function showAIFortune(birth) {
   } catch (error) {
     if (requestId !== fortuneRequestId) return;
     fortuneProgress.dataset.state = 'error';
-    fortuneProgressText.textContent = 'AI 선생님 연결이 잠시 원활하지 않아요.';
+    const reason = String(error?.message || '');
+    const help = /timed out|timeout/i.test(reason) ? 'AI 서버 응답이 지연되고 있어요.'
+      : /credits|usage limit|429|402/i.test(reason) ? 'AI 서비스 이용 한도에 도달했어요.'
+      : /access denied|401|403/i.test(reason) ? 'AI API 인증을 확인해야 해요.'
+      : /not configured/i.test(reason) ? 'AI API 키 설정을 확인해야 해요.'
+      : /Database/i.test(reason) ? '운세 저장 서버에 연결하지 못했어요.'
+      : 'AI 선생님 연결이 잠시 원활하지 않아요.';
+    fortuneProgressText.textContent = help;
     fortuneProgressActions.hidden = false;
     const retry = document.querySelector('#fortune-progress-retry');
     retry.onclick = () => showAIFortune(birth);
