@@ -921,7 +921,7 @@ async function showAIFortune(birth) {
   fortuneProgress.dataset.state = 'loading';
   fortuneProgressActions.hidden = true;
   fortuneProgressText.textContent = '사주 선생님이 사주를 살펴보고 있어요~';
-  button.disabled = true;
+  // Keep the action tappable on iOS even if an earlier request is still pending.
   try {
     const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
     if (!f) throw new Error('생년월일을 확인해 주세요.');
@@ -940,7 +940,7 @@ async function showAIFortune(birth) {
     retry.onclick = () => showAIFortune(birth);
     console.warn('AI fortune unavailable:', error?.message || 'network error');
   } finally {
-    if (requestId === fortuneRequestId) button.disabled = false;
+    button.disabled = false;
   }
 }
 document.querySelector('#fortune-open').addEventListener('click', () => {
@@ -953,12 +953,22 @@ document.querySelector('#fortune-open').addEventListener('click', () => {
   fortuneResult.hidden = true;
   fortuneDialog.showModal();
 });
-fortuneForm.addEventListener('submit', event => {
-  event.preventDefault();
-  const birth = { date: document.querySelector('#fortune-date').value, time: document.querySelector('#fortune-time').value };
-  if (!birth.date) return;
+function startFortuneFromForm(event) {
+  event?.preventDefault();
+  const dateInput = document.querySelector('#fortune-date');
+  if (!dateInput.value || !dateInput.checkValidity()) {
+    dateInput.reportValidity();
+    return;
+  }
+  const birth = { date: dateInput.value, time: document.querySelector('#fortune-time').value };
   saveBirth(birth);
   showAIFortune(birth);
+}
+// Use an explicit click handler rather than relying on iOS Safari's form submission.
+document.querySelector('#fortune-go').addEventListener('click', startFortuneFromForm);
+fortuneForm.addEventListener('submit', event => {
+  event.preventDefault();
+  startFortuneFromForm(event);
 });
 document.querySelector('#fortune-close').addEventListener('click', () => { cancelFortune(); fortuneDialog.close(); });
 document.querySelector('#fortune-forget').addEventListener('click', () => {
