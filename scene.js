@@ -943,16 +943,17 @@ async function showAIFortune(birth) {
     button.disabled = false;
   }
 }
-document.querySelector('#fortune-open').addEventListener('click', () => {
-  placesDialog.close();
+function openFortuneDialog() {
+  if (placesDialog.open) placesDialog.close();
   document.querySelector('#fortune-date').max = todayInKorea();
   const saved = loadBirth();
   document.querySelector('#fortune-date').value = saved?.date || '';
   document.querySelector('#fortune-time').value = saved?.time || '';
   cancelFortune();
   fortuneResult.hidden = true;
-  fortuneDialog.showModal();
-});
+  if (!fortuneDialog.open) fortuneDialog.showModal();
+}
+document.querySelector('#fortune-open').addEventListener('click', openFortuneDialog);
 function startFortuneFromForm(event) {
   event?.preventDefault();
   const dateInput = document.querySelector('#fortune-date');
@@ -1077,6 +1078,8 @@ function updateSpots(dt) {
   }
 }
 spotButton.addEventListener('click', () => {
+  // iOS taps can land between room-proximity updates. The visible fortune action must still open.
+  if (!spot && currentRoom?.id === 'fortune') { openFortuneDialog(); return; }
   if (!spot) return;
   if (spot.id === 'desk') {
     deskWave = 2.5; faceTo({ x: 14.7, z: 4.8 }); tour?.done('desk');
@@ -1112,7 +1115,7 @@ spotButton.addEventListener('click', () => {
     toast(b.enter); spotButton.hidden = true;
   }
   else if (spot.id === 'locker') { outfitButton.click(); tour?.done('locker'); }
-  else if (spot.id === 'fortune') document.querySelector('#fortune-open').click();
+  else if (spot.id === 'fortune') openFortuneDialog();
   else if (spot.id === 'chair') {
     const selected = CHAIR_SEATS.find(s => s.id === spot.chair);
     if (!selected) return;
