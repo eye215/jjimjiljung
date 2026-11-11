@@ -4,6 +4,7 @@ import { createCharacterKit, loadPlushModel, mesh } from './character.js?v=rpg-5
 import { loadOutfit, saveOutfit, randomPart, randomOutfit, seeded, outfitColors, capOn, encodeOutfit, addTowel, removeTowel, pickTowel } from './outfit.js?v=rpg-51';
 import { createTowelGame } from './towel.js?v=rpg-51';
 import { fortune, loadBirth, saveBirth } from './saju.js?v=rpg-51';
+import { requestSajuAI } from './net.js?v=rpg-54';
 import { createGreetLog, greetTargets, GREET_EXPIRE } from './greet.js?v=rpg-51';
 import { loadTowelProps, placeTowelDecor } from './props.js?v=rpg-51';
 import { buildWorld } from './environment.js?v=rpg-51';
@@ -900,13 +901,48 @@ function showFortune(birth) {
   fortuneResult.querySelector('.fortune-text').textContent = f.text;
   fortuneSpeaking = 2.3;
 }
+let fortuneRequestId = 0;
+async function showAIFortune(birth) {
+  const requestId = ++fortuneRequestId;
+  const slot = document.querySelector('#fortune-ai');
+  const status = document.querySelector('#fortune-ai-status');
+  const button = document.querySelector('#fortune-go');
+  slot.hidden = false;
+  slot.textContent = '';
+  status.textContent = '🔮 AI 선생님이 사주를 살펴보고 있어요…';
+  button.disabled = true;
+  try {
+    const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
+    if (!f) return;
+    const result = await requestSajuAI(f.mine + ' / ' + f.element + ' / ' + (birth.time || '출생시각 미상'));
+    if (requestId !== fortuneRequestId) return;
+    slot.textContent = result.text;
+    status.textContent = result.cached ? '✨ 오늘 이미 받은 AI 운세예요' : '✨ AI가 들려주는 오늘의 운세';
+    fortuneSpeaking = 2.3;
+  } catch (error) {
+    if (requestId !== fortuneRequestId) return;
+    status.textContent = 'AI 상담을 연결하지 못했어요. 기본 운세는 그대로 볼 수 있어요.';
+    slot.textContent = '';
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'fortune-ai-retry';
+    retry.textContent = '다시 시도';
+    retry.addEventListener('click', () => showAIFortune(birth));
+    slot.append(retry);
+    console.warn('AI fortune unavailable:', error?.message || 'network error');
+  } finally {
+    if (requestId === fortuneRequestId) button.disabled = false;
+  }
+}
 document.querySelector('#fortune-open').addEventListener('click', () => {
   placesDialog.close();
   document.querySelector('#fortune-date').max = todayInKorea();
   const saved = loadBirth();
   document.querySelector('#fortune-date').value = saved?.date || '';
   document.querySelector('#fortune-time').value = saved?.time || '';
+  ++fortuneRequestId;
   fortuneResult.hidden = true;
+  document.querySelector('#fortune-ai-section').hidden = true;
   fortuneDialog.showModal();
 });
 fortuneForm.addEventListener('submit', event => {
@@ -915,12 +951,16 @@ fortuneForm.addEventListener('submit', event => {
   if (!birth.date) return;
   saveBirth(birth);
   showFortune(birth);
+  document.querySelector('#fortune-ai-section').hidden = false;
+  showAIFortune(birth);
 });
-document.querySelector('#fortune-close').addEventListener('click', () => fortuneDialog.close());
+document.querySelector('#fortune-close').addEventListener('click', () => { ++fortuneRequestId; fortuneDialog.close(); });
 document.querySelector('#fortune-forget').addEventListener('click', () => {
+  ++fortuneRequestId;
   saveBirth(null);
   fortuneForm.reset();
   fortuneResult.hidden = true;
+  document.querySelector('#fortune-ai-section').hidden = true;
   toast('생년월일을 지웠어요');
 });
 
