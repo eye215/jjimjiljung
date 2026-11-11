@@ -890,10 +890,14 @@ function showFortune(birth, ai) {
   const f = fortune(birth.date, birth.time ? +birth.time.split(':')[0] : null);
   if (!f) { toast('생년월일을 확인해 주세요.'); return; }
   const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
-  fortuneResult.innerHTML = `<p class="fortune-voice">🔮 AI 사주 선생님의 오늘의 운세</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
+  fortuneResult.innerHTML = `<p class="fortune-voice">🔮 AI 사주 선생님의 오늘의 운세</p><p class="fortune-pillars">나의 일주 <b></b> · 오늘 <time class="fortune-date"></time> <b></b></p><h3></h3><p class="fortune-text"></p><dl>${Object.entries(f.scores).map(([k, v]) => `<div><dt>${k}</dt><dd aria-label="5점 중 ${v}점">${stars(v)}</dd></div>`).join('')}</dl><p class="fortune-lucky">행운의 색 <i style="background:${f.hex}"></i><b></b> · 행운의 숫자 <b></b></p>`;
   const labels = fortuneResult.querySelectorAll('b');
   labels[0].textContent = f.mine + '(' + f.element + ')';
   labels[1].textContent = f.today + '(' + f.todayElement + ')';
+  const fortuneDate = todayInKorea();
+  const dateLabel = fortuneResult.querySelector('.fortune-date');
+  dateLabel.dateTime = fortuneDate;
+  dateLabel.textContent = '(' + fortuneDate.replaceAll('-', '.') + ')';
   labels[2].textContent = f.color;
   labels[3].textContent = f.number;
   fortuneResult.querySelector('h3').textContent = ai.title || '오늘의 사주 이야기';
